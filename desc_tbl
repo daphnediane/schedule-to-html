@@ -198,6 +198,8 @@ say { $ofh } qq{\t}, $h->close( qw{ tr } );
 
 my $active_day;
 
+my @desc;
+
 foreach my $time ( @start_times ) {
     my @ltime = localtime $time;
     my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
@@ -219,6 +221,8 @@ foreach my $time ( @start_times ) {
     say { $ofh } qq{\t\t},
         $h->th( { class => q{schedtime} }, strftime q{%I:%M %p}, @ltime );
 
+    my @slot;
+
     foreach my $idx ( @room_idxs ) {
         my $room = $rooms{ $idx };
 
@@ -239,8 +243,63 @@ foreach my $time ( @start_times ) {
                 }
                 );
             say { $ofh } qq{\t\t\t},
-                $h->a( { href => q{#} . $rec->{ HRef } }, $rec->{ Name } );
-            say { $ofh } qq{\t\t}, $h->close( q{td} );
+                $h->open( q{a}, { href => q{#} . $rec->{ HRef } } );
+            say { $ofh } qq{\t\t\t\t},
+                $h->span( { class => q{panelname} }, $rec->{ Name } );
+            say { $ofh } qq{\t\t\t\t},
+                $h->div( { class => q{panelid} }, $rec->{ Uniq_ID } );
+
+            my $panelist = $rec->{ Panelist };
+            if ( $panelist =~ m{\S}xms ) {
+                say { $ofh } qq{\t\t\t\t},
+                    $h->span( { class => q{panelist} }, $rec->{ Panelist } );
+            }
+            say { $ofh } qq{\t\t\t}, $h->close( q{a} );
+            say { $ofh } qq{\t\t},   $h->close( q{td} );
+
+            push @slot,
+                qq{\t\t\t}
+                . $h->open(
+                q{li},
+                {   id    => $rec->{ HRef },
+                    class => q{desc desc} . $rec->{ Class }
+                }
+                );
+            push @slot,
+                qq{\t\t\t\t}
+                . $h->a(
+                {   href  => q{#} . $rec->{ HRef } . q{Grid},
+                    class => q{descname}
+                },
+                $rec->{ Name }
+                );
+            push @slot,
+                qq{\t\t\t\t<br/>}
+                . $h->span(
+                { class => q{descroom} },
+                $room->{ hotel }
+                );
+            if ( $panelist =~ m{\S}xms ) {
+                push @slot,
+                    qq{\t\t\t\t<br/>}
+                    . $h->span(
+                    { class => q{descpanelist} },
+                    $rec->{ Panelist }
+                    );
+            } ## end if ( $panelist =~ m{\S}xms)
+            push @slot, qq{\t\t\t\t<br/>}
+                . $h->span( { class => q{descbody} }, $rec->{ Description } );
+
+            if ( defined $rec->{ Note } ) {
+                push @slot,
+                    qq{\t\t\t\t<br/>}
+                    . $h->i(
+                    { class => q{descnote} },
+                    $rec->{ Note }
+                    );
+            } ## end if ( defined $rec->{ Note...})
+
+            push @slot, qq{\t\t\t} . $h->close( q{li} );
         } ## end if ( defined $rec )
         elsif ( defined $room->{ active } ) {
             $rec = $room->{ active };
@@ -252,10 +311,28 @@ foreach my $time ( @start_times ) {
         }
     } ## end foreach my $idx ( @room_idxs)
 
+    if ( @slot ) {
+        push @desc,
+              qq{\t}
+            . $h->open( q{li}, { class => q{desctime} } )
+            . $h->entity_encode( strftime q{%A %I:%M %p}, @ltime );
+        push @desc, qq{\t\t} . $h->open( q{ul} );
+        chomp @slot;
+        push @desc, @slot;
+        push @desc, qq{\t\t} . $h->close( q{ul} );
+        push @desc, qq{\t} . $h->close( q{li} );
+    } ## end if ( @slot )
+
     say { $ofh } qq{\t}, $h->close( qw{ tr } );
 } ## end foreach my $time ( @start_times)
 
 say { $ofh } $h->close( qw{ table } );
+
+if ( @desc ) {
+    say { $ofh } join qq{\n},
+        $h->open( q{ul}, { class => q{descriptions} } ), @desc,
+        $h->close( q{ul} );
+}
 
 if ( $oname ne q{-} ) {
     $ofh->close
