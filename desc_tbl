@@ -118,7 +118,7 @@ while ( my $raw = splitline( $fh ) ) {
     $record{ Start_12 }   = $start_12;
     $record{ End_12 }     = $end_12;
     $record{ Table_Rows } = 0;
-    $record{ Class }      = q{sched} . $kind;
+    $record{ Class }      = q{Type} . $kind;
     $record{ HRef }       = $id;
 
     next if $idx eq q{};
@@ -234,12 +234,29 @@ foreach my $time ( @start_times ) {
         print { $ofh } qq{\t\t<!--}, $room->{ name };
         if ( defined $rec ) {
             $room->{ active } = $rec;
+            my $difficulty = $rec->{ Difficulty };
+            my $tokens     = $rec->{ Tokens };
+
+            my @classes = ( q{}, $rec->{ Class } );
+            if ( $difficulty =~ m{\A\d+\z}xms ) {
+                push @classes, q{Difficulty} . $difficulty;
+            }
+            if ( $tokens eq q{0} ) {
+                undef $tokens;
+            }
+            if ( defined $tokens ) {
+                push @classes, q{Tokens};
+                $tokens =~ s{\A\s*}{}xms;
+                $tokens =~ s{\s*\z}{}xms;
+                $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
+            } ## end if ( defined $tokens )
+
             say { $ofh } q{-->},
                 $h->open(
                 q{td},
                 {   id      => $rec->{ HRef } . q{Grid},
                     rowspan => $rec->{ Table_Rows },
-                    class   => q{panel } . $rec->{ Class }
+                    class   => join q{ }, map { q{panel} . $_ } @classes
                 }
                 );
             say { $ofh } qq{\t\t\t},
@@ -248,6 +265,13 @@ foreach my $time ( @start_times ) {
                 $h->span( { class => q{panelname} }, $rec->{ Name } );
             say { $ofh } qq{\t\t\t\t},
                 $h->div( { class => q{panelid} }, $rec->{ Uniq_ID } );
+            if ( defined $tokens ) {
+                say { $ofh } qq{\t\t\t\t},
+                    $h->div(
+                    { class => q{tokens tokens} . $tokens },
+                    q{Required tokens: } . $tokens
+                    );
+            } ## end if ( defined $tokens )
 
             my $panelist = $rec->{ Panelist };
             if ( $panelist =~ m{\S}xms ) {
@@ -262,7 +286,7 @@ foreach my $time ( @start_times ) {
                 . $h->open(
                 q{li},
                 {   id    => $rec->{ HRef },
-                    class => q{desc desc} . $rec->{ Class }
+                    class => join q{ }, map { q{desc} . $_ } @classes
                 }
                 );
             push @slot,
@@ -274,30 +298,57 @@ foreach my $time ( @start_times ) {
                 $rec->{ Name }
                 );
             push @slot,
-                qq{\t\t\t\t<br/>}
-                . $h->span(
+                qq{\t\t\t\t}
+                . $h->div(
+                { class => q{descid} },
+                $rec->{ Uniq_ID }
+                );
+            if ( defined $tokens ) {
+                push @slot,
+                    qq{\t\t\t\t}
+                    . $h->div(
+                    { class => q{tokens tokens} . $tokens },
+                    $tokens
+                    );
+            } ## end if ( defined $tokens )
+
+            push @slot,
+                qq{\t\t\t\t}
+                . $h->p(
                 { class => q{descroom} },
                 $room->{ hotel }
                 );
             if ( $panelist =~ m{\S}xms ) {
                 push @slot,
-                    qq{\t\t\t\t<br/>}
-                    . $h->span(
+                    qq{\t\t\t\t}
+                    . $h->p(
                     { class => q{descpanelist} },
                     $rec->{ Panelist }
                     );
             } ## end if ( $panelist =~ m{\S}xms)
-            push @slot, qq{\t\t\t\t<br/>}
-                . $h->span( { class => q{descbody} }, $rec->{ Description } );
+            push @slot, qq{\t\t\t\t}
+                . $h->p( { class => q{descbody} }, $rec->{ Description } );
 
             if ( defined $rec->{ Note } ) {
                 push @slot,
-                    qq{\t\t\t\t<br/>}
-                    . $h->i(
+                    qq{\t\t\t\t}
+                    . $h->p(
                     { class => q{descnote} },
-                    $rec->{ Note }
+                    $h->i( $rec->{ Note } )
                     );
             } ## end if ( defined $rec->{ Note...})
+
+            if ( $difficulty =~ m{\A\d+\z}xms ) {
+                push @slot,
+                    qq{\t\t\t\t}
+                    . $h->p(
+                    {   class => q{descDifficulty descDifficulty}
+                            . $difficulty
+                    },
+                    q{Difficulty level: },
+                    $difficulty
+                    );
+            } ## end if ( $difficulty =~ m{\A\d+\z}xms)
 
             push @slot, qq{\t\t\t} . $h->close( q{li} );
         } ## end if ( defined $rec )
@@ -332,97 +383,6 @@ if ( @desc ) {
     say { $ofh } join qq{\n},
         $h->open( q{ul}, { class => q{descriptions} } ), @desc,
         $h->close( q{ul} );
-}
-
-if ( $oname ne q{-} ) {
-    $ofh->close
-        or die qq{Unable to close $oname: $!\n};
-}
-
-1;
-
-__END__
-
-my @per_room_fields = qw{ Day Start_12 Duration Uniq_ID Name Room Panelist Description Note Ongoing };
-my @out_headers = qw{ Day Start_12 Picture_Code };
-my @room_idxs = sort keys %rooms;
-my @start_times = sort { $a <=> $b } keys %schedule;
-my $first_time = $start_times[ 0 ];
-
-foreach my $idx ( @room_idxs ) {
-    my $room = $rooms{ $idx };
-    my $start = $room->{ start } //= {};
-    my $end = $room->{ end } //= {};
-    my $next = $room->{ next } //= {};
-    my $last_time = $first_time;
-
-    push @out_headers, map { $idx.q{_Current_}.$_ } @per_room_fields;
-    push @out_headers, map { $idx.q{_Next_}.$_ } @per_room_fields;
-
-    foreach my $time ( sort { $a <=> $b } keys %{ $start } ) {
-        my $record = $start->{ $time };
-        $next->{ $last_time } = $record unless $time eq $last_time;
-        $last_time = $time;
-    }
-}
-
-my $csv = Text::CSV->new( { binary => 1, eol => $/, sep => qq{\t} } );
-my $ofh;
-if ( $oname eq q{-} ) {
-    $ofh = \*STDOUT;
-}
-else {
-    open $ofh, ">:encoding(utf16)", $oname
-        or die qq{Unable to write: $oname\n};
-}
-
-$csv->print( $ofh, [ @out_headers ] );
-
-sub add_record {
-    my ( $rec, $prefix, $src ) = @_;
-
-    foreach my $field ( @per_room_fields ) {
-        my $data = $src->{ $field } // q{};
-        $data =~ s{\s*\n+\s*}{<<NL>>}xmsg;
-        $rec->{ $prefix . $field } = $data;
-    }
-}
-
-foreach my $time ( @start_times ) {
-    my %record;
-
-    my @ltime = localtime $time;
-    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = @ltime;
-    $record{ Day } = strftime q{%A}, @ltime;
-    $record{ Start_12 } = strftime q{%I:%M %p}, @ltime;
-    $record{ Picture_Code } = $wday . q{_} . $hour . q{_} . ( int( $min / 15 ) * 15 );
-
-    foreach my $idx ( @room_idxs ) {
-        my $room = $rooms{ $idx };
-        my $start = $room->{ start } //= {};
-        my $end = $room->{ end } //= {};
-        my $next = $room->{ next } //= {};
-        my $last_time = $first_time;
-
-        if ( exists $end->{ $time } ) {
-            delete $room->{ current };
-        }
-        if ( exists $start->{ $time } ) {
-            $room->{ current } = $start->{ $time };
-            delete $room->{ upcoming };
-        }
-        if ( exists $next->{ $time } ) {
-            $room->{ upcoming } = $next->{ $time };
-        }
-        add_record( \%record, $idx . q{_Current_}, $room->{ current } );
-        add_record( \%record, $idx . q{_Next_}, $room->{ upcoming } );
-    }
-
-    my @data;
-    foreach my $hdr ( @out_headers ) {
-        push @data, $record{ $hdr };
-    }
-    $csv->print( $ofh, [ @data ] );
 }
 
 if ( $oname ne q{-} ) {
