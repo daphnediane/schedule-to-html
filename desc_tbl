@@ -1,0 +1,356 @@
+#!/usr/bin/perl
+
+use common::sense;
+use utf8;
+use Text::CSV;
+use Date::Parse qw{ str2time };
+use POSIX qw{ strftime };
+use HTML::Tiny qw{};
+
+sub splitline {
+    my ( $fh ) = @_;
+    my $line = <$fh>;
+    return unless defined $line;
+    my $full_line = $line;
+    my @raw = split m{\t}xms, $line;
+    my @res;
+    while ( @raw ) {
+        my $piece = shift @raw;
+        if ( $piece =~ m{ \A " }xms ) {
+            my $full = $piece;
+            while ( $full
+                !~ m{ \A " (?: [^"]++ | (?: "" )++ )* " (?:\n\r?+|\r\n?+)?+ \z }xms
+                )
+            {
+                unless ( @raw ) {
+                    chomp $full_line;
+                    die "Unable to process: [", $full, "]\nin line: ",
+                        $full_line, qq{\n};
+                }
+                $full .= shift @raw;
+            } ## end while ( $full !~ ...)
+            $full =~ s{ \A " }{}xms;
+            $full =~ s{ (?:\n\r+?|\r\n+?)?+ \z }{}xms;
+            $full =~ s{ " \z }{}xms;
+            $full =~ s{ "" }{"}xmsg;
+            push @res, $full;
+        } ## end if ( $piece =~ m{ \A " }xms)
+        else {
+            push @res, $piece;
+        }
+    } ## end while ( @raw )
+    return \@res;
+} ## end sub splitline
+
+my $fname = shift;
+my $oname = shift // q{-};
+
+open my $fh, "<:encoding(utf16)", $fname
+    or die qq{Unable to read: $fname\n};
+
+my $header = splitline( $fh )
+    or die "Missing header in: ", $fname, "\n";
+
+sub time_split {
+    my ( $time ) = @_;
+    return unless defined $time;
+    if ( $time =~ s{ \s ([AP]M) \z}{}xms ) {
+        return $time, $1;
+    }
+    else {
+        return $time;
+    }
+} ## end sub time_split
+
+my %schedule;
+my %rooms;
+my %day_rows;
+
+sub add_time {
+    my ( $time ) = @_;
+    return if $schedule{ $time };
+    $schedule{ $time } = 1;
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
+        = localtime $time;
+    $day_rows{ $yday } += 1;
+} ## end sub add_time
+
+my %ids;
+
+while ( my $raw = splitline( $fh ) ) {
+    my %record;
+    foreach my $index ( keys @{ $raw } ) {
+        my $header_text = $header->[ $index ];
+        my $header_alt  = $header_text;
+        $header_alt =~ s{\s+}{_}xmsg;
+        $header_alt =~ s{/}{_}xmsg;
+        $header_alt =~ s{_+}{_}xmsg;
+        my $raw_text = $raw->[ $index ];
+        if ( $raw_text =~ m{\s} ) {
+            $raw_text =~ s{\A \s*}{}xms;
+            $raw_text =~ s{\s* \z}{}xms;
+        }
+        $raw_text = undef if $raw_text eq q{};
+        $record{ $header_text } = $raw_text;
+        $record{ $header_alt }  = $raw_text;
+    } ## end foreach my $index ( keys @{...})
+    next unless defined $record{ Start_Time };
+    next unless $record{ Name } =~ m{\S}xms;
+    my $start    = str2time( $record{ Start_Time } );
+    my $end      = str2time( $record{ End_Time } );
+    my $start_12 = strftime q{%I:%M %p}, localtime $start;
+    my $end_12   = strftime q{%I:%M %p}, localtime $end;
+    my $idx      = $record{ Room_Idx };
+    my $id       = $record{ Uniq_ID };
+    my $kind     = $id // q{Unknown};
+    $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
+
+    if ( $ids{ $id } ) {
+        my $indx = ++$ids{ $id };
+        $id .= q{Dup} . $indx;
+    }
+    else {
+        $ids{ $id } = 1;
+    }
+
+    $record{ Start_Tm }   = $start;
+    $record{ End_Tm }     = $end;
+    $record{ Start_12 }   = $start_12;
+    $record{ End_12 }     = $end_12;
+    $record{ Table_Rows } = 0;
+    $record{ Class }      = q{sched} . $kind;
+    $record{ HRef }       = $id;
+
+    next if $idx eq q{};
+    next if $idx > 90;
+
+    add_time $start;
+    add_time $end;
+
+    my $room = $rooms{ $idx } //= {};
+    $room->{ $idx } = $idx;
+    $room->{ name }  //= $record{ Room };
+    $room->{ hotel } //= $record{ Real_Room };
+    $room->{ start }->{ $start } = \%record;
+    $room->{ end }->{ $end }     = \%record;
+} ## end while ( my $raw = splitline...)
+
+$fh->close
+    or die qq{Unable to close $fname: $!\n};
+
+my @room_idxs   = sort { $a <=> $b } keys %rooms;
+my @start_times = sort { $a <=> $b } keys %schedule;
+
+# Determine number of rows needed pass 1
+foreach my $room ( values %rooms ) {
+    my $active;
+    my $starts = $room->{ start };
+    my $ends   = $room->{ end };
+    next unless ref $starts;
+
+    foreach my $time ( @start_times ) {
+        undef $active if $ends->{ $time };
+        my $rec = $starts->{ $time };
+        $active = $rec if defined $rec;
+        next unless defined $active;
+        ++$active->{ Table_Rows };
+    } ## end foreach my $time ( @start_times)
+} ## end foreach my $room ( values %rooms)
+
+my $h = HTML::Tiny->new( mode => q{html} );
+
+my $ofh;
+if ( $oname eq q{-} ) {
+    $ofh = \*STDOUT;
+}
+else {
+    open $ofh, ">:encoding(utf8)", $oname
+        or die qq{Unable to write: $oname\n};
+}
+
+say { $ofh } $h->open( qw{ table }, { class => q{schedule} } );
+
+say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedheadrow} } );
+say { $ofh } qq{\t\t},
+    $h->th( { class => q{schedhead}, rowspan => 2 }, q{Day} );
+say { $ofh } qq{\t\t},
+    $h->th( { class => q{schedhead}, rowspan => 2 }, q{Time} );
+foreach my $idx ( @room_idxs ) {
+    say { $ofh } qq{\t\t},
+        $h->th(
+        { class => q{schedhead roomloc} },
+        $rooms{ $idx }->{ hotel }
+        );
+} ## end foreach my $idx ( @room_idxs)
+say { $ofh } qq{\t}, $h->close( qw{ tr } );
+
+say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedheadrow} } );
+say { $ofh } qq{\t\t<!--Day-->};
+say { $ofh } qq{\t\t<!--Time-->};
+foreach my $idx ( @room_idxs ) {
+    say { $ofh } qq{\t\t},
+        $h->th(
+        { class => q{schedhead roomtype} },
+        $rooms{ $idx }->{ name }
+        );
+} ## end foreach my $idx ( @room_idxs)
+say { $ofh } qq{\t}, $h->close( qw{ tr } );
+
+my $active_day;
+
+foreach my $time ( @start_times ) {
+    my @ltime = localtime $time;
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
+        = @ltime;
+
+    say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedtimerow} } );
+
+    if ( !defined $active_day || $active_day != $yday ) {
+        $active_day = $yday;
+        say { $ofh } qq{\t\t},
+            $h->th(
+            { class => q{schedday}, rowspan => $day_rows{ $yday } // 1 },
+            strftime q{%A}, @ltime
+            );
+    } ## end if ( !defined $active_day...)
+    else {
+        say { $ofh } qq{\t\t<!--Day-->};
+    }
+    say { $ofh } qq{\t\t},
+        $h->th( { class => q{schedtime} }, strftime q{%I:%M %p}, @ltime );
+
+    foreach my $idx ( @room_idxs ) {
+        my $room = $rooms{ $idx };
+
+        if ( $room->{ end }->{ $time } ) {
+            delete $room->{ active };
+        }
+
+        my $rec = $room->{ start }->{ $time };
+        print { $ofh } qq{\t\t<!--}, $room->{ name };
+        if ( defined $rec ) {
+            $room->{ active } = $rec;
+            say { $ofh } q{-->},
+                $h->open(
+                q{td},
+                {   id      => $rec->{ HRef } . q{Grid},
+                    rowspan => $rec->{ Table_Rows },
+                    class   => q{panel } . $rec->{ Class }
+                }
+                );
+            say { $ofh } qq{\t\t\t},
+                $h->a( { href => q{#} . $rec->{ HRef } }, $rec->{ Name } );
+            say { $ofh } qq{\t\t}, $h->close( q{td} );
+        } ## end if ( defined $rec )
+        elsif ( defined $room->{ active } ) {
+            $rec = $room->{ active };
+
+            say { $ofh } q{ }, $rec->{ Uniq_ID }, q{ continued-->};
+        }
+        else {
+            say { $ofh } q{-->}, $h->td( { class => q{empty} } );
+        }
+    } ## end foreach my $idx ( @room_idxs)
+
+    say { $ofh } qq{\t}, $h->close( qw{ tr } );
+} ## end foreach my $time ( @start_times)
+
+say { $ofh } $h->close( qw{ table } );
+
+if ( $oname ne q{-} ) {
+    $ofh->close
+        or die qq{Unable to close $oname: $!\n};
+}
+
+1;
+
+__END__
+
+my @per_room_fields = qw{ Day Start_12 Duration Uniq_ID Name Room Panelist Description Note Ongoing };
+my @out_headers = qw{ Day Start_12 Picture_Code };
+my @room_idxs = sort keys %rooms;
+my @start_times = sort { $a <=> $b } keys %schedule;
+my $first_time = $start_times[ 0 ];
+
+foreach my $idx ( @room_idxs ) {
+    my $room = $rooms{ $idx };
+    my $start = $room->{ start } //= {};
+    my $end = $room->{ end } //= {};
+    my $next = $room->{ next } //= {};
+    my $last_time = $first_time;
+
+    push @out_headers, map { $idx.q{_Current_}.$_ } @per_room_fields;
+    push @out_headers, map { $idx.q{_Next_}.$_ } @per_room_fields;
+
+    foreach my $time ( sort { $a <=> $b } keys %{ $start } ) {
+        my $record = $start->{ $time };
+        $next->{ $last_time } = $record unless $time eq $last_time;
+        $last_time = $time;
+    }
+}
+
+my $csv = Text::CSV->new( { binary => 1, eol => $/, sep => qq{\t} } );
+my $ofh;
+if ( $oname eq q{-} ) {
+    $ofh = \*STDOUT;
+}
+else {
+    open $ofh, ">:encoding(utf16)", $oname
+        or die qq{Unable to write: $oname\n};
+}
+
+$csv->print( $ofh, [ @out_headers ] );
+
+sub add_record {
+    my ( $rec, $prefix, $src ) = @_;
+
+    foreach my $field ( @per_room_fields ) {
+        my $data = $src->{ $field } // q{};
+        $data =~ s{\s*\n+\s*}{<<NL>>}xmsg;
+        $rec->{ $prefix . $field } = $data;
+    }
+}
+
+foreach my $time ( @start_times ) {
+    my %record;
+
+    my @ltime = localtime $time;
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = @ltime;
+    $record{ Day } = strftime q{%A}, @ltime;
+    $record{ Start_12 } = strftime q{%I:%M %p}, @ltime;
+    $record{ Picture_Code } = $wday . q{_} . $hour . q{_} . ( int( $min / 15 ) * 15 );
+
+    foreach my $idx ( @room_idxs ) {
+        my $room = $rooms{ $idx };
+        my $start = $room->{ start } //= {};
+        my $end = $room->{ end } //= {};
+        my $next = $room->{ next } //= {};
+        my $last_time = $first_time;
+
+        if ( exists $end->{ $time } ) {
+            delete $room->{ current };
+        }
+        if ( exists $start->{ $time } ) {
+            $room->{ current } = $start->{ $time };
+            delete $room->{ upcoming };
+        }
+        if ( exists $next->{ $time } ) {
+            $room->{ upcoming } = $next->{ $time };
+        }
+        add_record( \%record, $idx . q{_Current_}, $room->{ current } );
+        add_record( \%record, $idx . q{_Next_}, $room->{ upcoming } );
+    }
+
+    my @data;
+    foreach my $hdr ( @out_headers ) {
+        push @data, $record{ $hdr };
+    }
+    $csv->print( $ofh, [ @data ] );
+}
+
+if ( $oname ne q{-} ) {
+    $ofh->close
+        or die qq{Unable to close $oname: $!\n};
+}
+
+1;

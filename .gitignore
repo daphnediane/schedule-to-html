@@ -1,0 +1,15 @@
+[#]*
+*.bak
+*.o
+*.old
+*.orig
+*.tdy
+*.tmp
+*~
+.*
+Changes
+core
+report
+!.clang-format
+!.gitignore
+!.keep_empty_directory
