@@ -64,6 +64,7 @@ sub time_split {
 
 my %schedule;
 my %rooms;
+my %splits;
 my %day_rows;
 
 sub add_time {
@@ -124,6 +125,10 @@ while ( my $raw = splitline( $fh ) ) {
     next if $idx eq q{};
     next if $idx > 90;
 
+    if ( $record{ Room } eq q{split} ) {
+        next;
+    }
+
     add_time $start;
     add_time $end;
 
@@ -170,36 +175,27 @@ else {
 
 say { $ofh } $h->open( qw{ table }, { class => q{schedule} } );
 
+say { $ofh } qq{\t}, $h->open( qw{ thead } );
 say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedheadrow} } );
 say { $ofh } qq{\t\t},
-    $h->th( { class => q{schedhead}, rowspan => 2 }, q{Day} );
+    $h->th( { class => q{schedhead scheddaycolumn} }, q{Day} );
 say { $ofh } qq{\t\t},
-    $h->th( { class => q{schedhead}, rowspan => 2 }, q{Time} );
+    $h->th( { class => q{schedhead schedtimecolumn} }, q{Time} );
 foreach my $idx ( @room_idxs ) {
     say { $ofh } qq{\t\t},
         $h->th(
-        { class => q{schedhead roomloc} },
-        $rooms{ $idx }->{ hotel }
+        { class => q{schedhead schedloccolumn roomloc} },
+        $rooms{ $idx }->{ hotel } . q{<br/>} . $rooms{ $idx }->{ name }
         );
 } ## end foreach my $idx ( @room_idxs)
 say { $ofh } qq{\t}, $h->close( qw{ tr } );
-
-say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedheadrow} } );
-say { $ofh } qq{\t\t<!--Day-->};
-say { $ofh } qq{\t\t<!--Time-->};
-foreach my $idx ( @room_idxs ) {
-    say { $ofh } qq{\t\t},
-        $h->th(
-        { class => q{schedhead roomtype} },
-        $rooms{ $idx }->{ name }
-        );
-} ## end foreach my $idx ( @room_idxs)
-say { $ofh } qq{\t}, $h->close( qw{ tr } );
+say { $ofh } qq{\t}, $h->close( qw{ thead } );
 
 my $active_day;
 
 my @desc;
 
+say { $ofh } qq{\t}, $h->open( qw{ tbody } );
 foreach my $time ( @start_times ) {
     my @ltime = localtime $time;
     my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
@@ -211,15 +207,21 @@ foreach my $time ( @start_times ) {
         $active_day = $yday;
         say { $ofh } qq{\t\t},
             $h->th(
-            { class => q{schedday}, rowspan => $day_rows{ $yday } // 1 },
-            strftime q{%A}, @ltime
+            {   class   => q{schedday scheddaycolumn},
+                rowspan => $day_rows{ $yday } // 1
+            },
+            strftime q{%A},
+            @ltime
             );
     } ## end if ( !defined $active_day...)
     else {
         say { $ofh } qq{\t\t<!--Day-->};
     }
     say { $ofh } qq{\t\t},
-        $h->th( { class => q{schedtime} }, strftime q{%I:%M %p}, @ltime );
+        $h->th(
+        { class => q{schedtime schedtimecolumn} },
+        strftime q{%I:%M %p}, @ltime
+        );
 
     my @slot;
 
@@ -245,7 +247,7 @@ foreach my $time ( @start_times ) {
                 undef $tokens;
             }
             if ( defined $tokens ) {
-                push @classes, q{Tokens};
+                push @classes, q{NeedTokens};
                 $tokens =~ s{\A\s*}{}xms;
                 $tokens =~ s{\s*\z}{}xms;
                 $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
@@ -256,20 +258,23 @@ foreach my $time ( @start_times ) {
                 q{td},
                 {   id      => $rec->{ HRef } . q{Grid},
                     rowspan => $rec->{ Table_Rows },
-                    class   => join q{ }, map { q{panel} . $_ } @classes
+                    class   => (
+                        join q{ }, qw{ schedloccolumn },
+                        map { q{panel} . $_ } @classes
+                    )
                 }
                 );
+            say { $ofh } qq{\t\t\t},
+                $h->div( { class => q{panelid} }, $rec->{ Uniq_ID } );
             say { $ofh } qq{\t\t\t},
                 $h->open( q{a}, { href => q{#} . $rec->{ HRef } } );
             say { $ofh } qq{\t\t\t\t},
                 $h->span( { class => q{panelname} }, $rec->{ Name } );
-            say { $ofh } qq{\t\t\t\t},
-                $h->div( { class => q{panelid} }, $rec->{ Uniq_ID } );
             if ( defined $tokens ) {
                 say { $ofh } qq{\t\t\t\t},
                     $h->div(
-                    { class => q{tokens tokens} . $tokens },
-                    q{Required tokens: } . $tokens
+                    { class => q{paneltokens paneltokens} . $tokens },
+                    q{Tokens: } . $tokens
                     );
             } ## end if ( defined $tokens )
 
@@ -291,24 +296,24 @@ foreach my $time ( @start_times ) {
                 );
             push @slot,
                 qq{\t\t\t\t}
+                . $h->div(
+                { class => q{descid} },
+                $rec->{ Uniq_ID }
+                );
+            push @slot,
+                qq{\t\t\t\t}
                 . $h->a(
                 {   href  => q{#} . $rec->{ HRef } . q{Grid},
                     class => q{descname}
                 },
                 $rec->{ Name }
                 );
-            push @slot,
-                qq{\t\t\t\t}
-                . $h->div(
-                { class => q{descid} },
-                $rec->{ Uniq_ID }
-                );
             if ( defined $tokens ) {
                 push @slot,
                     qq{\t\t\t\t}
                     . $h->div(
-                    { class => q{tokens tokens} . $tokens },
-                    $tokens
+                    { class => q{descTokens descTokens} . $tokens },
+                    q{Required tokens: } . $tokens
                     );
             } ## end if ( defined $tokens )
 
@@ -345,8 +350,7 @@ foreach my $time ( @start_times ) {
                     {   class => q{descDifficulty descDifficulty}
                             . $difficulty
                     },
-                    q{Difficulty level: },
-                    $difficulty
+                    q{Difficulty level: } . $difficulty
                     );
             } ## end if ( $difficulty =~ m{\A\d+\z}xms)
 
@@ -377,6 +381,7 @@ foreach my $time ( @start_times ) {
     say { $ofh } qq{\t}, $h->close( qw{ tr } );
 } ## end foreach my $time ( @start_times)
 
+say { $ofh } qq{\t}, $h->close( qw{ tbody } );
 say { $ofh } $h->close( qw{ table } );
 
 if ( @desc ) {
