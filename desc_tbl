@@ -6,10 +6,25 @@ use Text::CSV;
 use Date::Parse qw{ str2time };
 use POSIX qw{ strftime };
 use HTML::Tiny qw{};
+use Readonly;
+
+# Global variables
+Readonly our $HALF_HOUR => 30 * 60;
+
+our $fname;
+our $oname;
+
+our %schedule;
+our %rooms;
+our %time_region;
+
+our @room_ids;
+our @start_times;
+our $ofh;
 
 sub splitline {
     my ( $fh ) = @_;
-    my $line = <$fh>;
+    my $line = $fh->getline;
     return unless defined $line;
     my $full_line = $line;
     my @raw = split m{\t}xms, $line;
@@ -42,15 +57,6 @@ sub splitline {
     return \@res;
 } ## end sub splitline
 
-my $fname = shift;
-my $oname = shift // q{-};
-
-open my $fh, "<:encoding(utf16)", $fname
-    or die qq{Unable to read: $fname\n};
-
-my $header = splitline( $fh )
-    or die "Missing header in: ", $fname, "\n";
-
 sub time_split {
     my ( $time ) = @_;
     return unless defined $time;
@@ -62,89 +68,220 @@ sub time_split {
     }
 } ## end sub time_split
 
-my %schedule;
-my %rooms;
-my %splits;
-my %day_rows;
+sub add_split {
+    my ( $time, $name ) = @_;
+    $time_region{ $time }->{ name } = $name;
+}
 
 sub add_time {
     my ( $time ) = @_;
     return if $schedule{ $time };
     $schedule{ $time } = 1;
-    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
-        = localtime $time;
-    $day_rows{ $yday } += 1;
-} ## end sub add_time
+}
 
-my %ids;
+sub read_csv_file {
+    open my $fh, "<:encoding(utf16)", $fname
+        or die qq{Unable to read: $fname\n};
 
-while ( my $raw = splitline( $fh ) ) {
-    my %record;
-    foreach my $index ( keys @{ $raw } ) {
-        my $header_text = $header->[ $index ];
-        my $header_alt  = $header_text;
-        $header_alt =~ s{\s+}{_}xmsg;
-        $header_alt =~ s{/}{_}xmsg;
-        $header_alt =~ s{_+}{_}xmsg;
-        my $raw_text = $raw->[ $index ];
-        if ( $raw_text =~ m{\s} ) {
-            $raw_text =~ s{\A \s*}{}xms;
-            $raw_text =~ s{\s* \z}{}xms;
+    my $header = splitline( $fh )
+        or die "Missing header in: ", $fname, "\n";
+
+    my %ids;
+
+    while ( my $raw = splitline( $fh ) ) {
+        last unless defined $raw;
+        my %panel;
+        foreach my $index ( keys @{ $raw } ) {
+            my $header_text = $header->[ $index ];
+            my $header_alt  = $header_text;
+            $header_alt =~ s{\s+}{_}xmsg;
+            $header_alt =~ s{/}{_}xmsg;
+            $header_alt =~ s{_+}{_}xmsg;
+            my $raw_text = $raw->[ $index ];
+            if ( $raw_text =~ m{\s} ) {
+                $raw_text =~ s{\A \s*}{}xms;
+                $raw_text =~ s{\s* \z}{}xms;
+            }
+            $raw_text = undef if $raw_text eq q{};
+            $panel{ $header_text } = $raw_text;
+            $panel{ $header_alt }  = $raw_text;
+        } ## end foreach my $index ( keys @{...})
+        next unless defined $panel{ Start_Time };
+        next unless $panel{ Name } =~ m{\S}xms;
+        my $start = str2time( $panel{ Start_Time } );
+        my $end
+            = defined $panel{ End_Time }
+            ? str2time( $panel{ End_Time } )
+            : $start;
+        my $start_12 = strftime q{%I:%M %p}, localtime $start;
+        my $end_12   = strftime q{%I:%M %p}, localtime $end;
+        my $idx      = $panel{ Room_Idx };
+        my $id       = $panel{ Uniq_ID };
+        my $kind = $id // q{Unknown};
+        $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
+
+        if ( $ids{ $id } ) {
+            my $indx = ++$ids{ $id };
+            $id .= q{Dup} . $indx;
         }
-        $raw_text = undef if $raw_text eq q{};
-        $record{ $header_text } = $raw_text;
-        $record{ $header_alt }  = $raw_text;
-    } ## end foreach my $index ( keys @{...})
-    next unless defined $record{ Start_Time };
-    next unless $record{ Name } =~ m{\S}xms;
-    my $start    = str2time( $record{ Start_Time } );
-    my $end      = str2time( $record{ End_Time } );
-    my $start_12 = strftime q{%I:%M %p}, localtime $start;
-    my $end_12   = strftime q{%I:%M %p}, localtime $end;
-    my $idx      = $record{ Room_Idx };
-    my $id       = $record{ Uniq_ID };
-    my $kind     = $id // q{Unknown};
-    $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
+        else {
+            $ids{ $id } = 1;
+        }
 
-    if ( $ids{ $id } ) {
-        my $indx = ++$ids{ $id };
-        $id .= q{Dup} . $indx;
+        $panel{ Start_Tm }   = $start;
+        $panel{ End_Tm }     = $end;
+        $panel{ Start_12 }   = $start_12;
+        $panel{ End_12 }     = $end_12;
+        $panel{ Table_Rows } = 0;
+        $panel{ Class }      = q{Type} . $kind;
+        $panel{ HRef }       = $id;
+
+        if ( $panel{ Room } eq q{SPLIT} ) {
+            add_split $start, $panel{ Name };
+            next;
+        }
+
+        next if $idx eq q{};
+        next if $idx > 90;
+
+        add_time $start;
+        add_time $end;
+
+        my $room = $rooms{ $idx } //= {};
+        $room->{ $idx } = $idx;
+        $room->{ name }  //= $panel{ Room };
+        $room->{ hotel } //= $panel{ Real_Room };
+        $room->{ start }->{ $start } = \%panel;
+        $room->{ end }->{ $end }     = \%panel;
+    } ## end while ( my $raw = splitline...)
+
+    $fh->close
+        or die qq{Unable to close $fname: $!\n};
+
+    @room_ids    = sort { $a <=> $b } keys %rooms;
+    @start_times = sort { $a <=> $b } keys %schedule;
+
+} ## end sub read_csv_file
+
+sub make_time_ranges {
+    my %time_points = map { $_ => 1 } ( keys %time_region, keys %schedule );
+    my @time_points = sort { $a <=> $b } keys %time_points;
+
+    my $active_range;
+    my %active_panels;
+    my $last_time;
+
+    my $process_time = sub {
+        my ( $time ) = @_;
+
+        foreach my $room_idx ( @room_ids ) {
+            my $room = $rooms{ $room_idx };
+            if ( exists $active_panels{ $room_idx } ) {
+                my $panel     = $active_panels{ $room_idx };
+                my $panel_end = $panel->{ end };
+                if ( $panel_end >= $time ) {
+                    delete $active_panels{ $room_idx };
+                }
+            } ## end if ( exists $active_panels...)
+            if ( defined( my $new_panel = $room->{ start }->{ $time } ) ) {
+                $new_panel->{ Table_Start } = $time;
+                $active_panels{ $room_idx } = $new_panel;
+            }
+        } ## end foreach my $room_idx ( @room_ids)
+        foreach my $panel ( values %active_panels ) {
+            ++$panel->{ Table_Rows };
+        }
+        $active_range->{ row }->{ $time } = { %active_panels };
+        $last_time = $time;
+        return;
+    };
+
+    my $process_half_hours = sub {
+        my ( $split_time ) = @_;
+        return unless defined $last_time;
+        for (
+            my $time = $last_time + $HALF_HOUR ;
+            $time < $split_time ;
+            $time += $HALF_HOUR
+            )
+        {
+            $process_time->( $time );
+        } ## end for ( my $time = $last_time...)
+        return;
+    };
+
+    foreach my $split_time ( @time_points ) {
+        if ( !defined $active_range ) {
+            $time_region{ $split_time }->{ name } //= q{Before Convention};
+        }
+        my $next_range = $time_region{ $split_time };
+
+        if ( defined $next_range ) {
+            if ( %active_panels ) {
+                $process_half_hours->( $split_time );
+            }
+            foreach my $room_idx ( keys %active_panels ) {
+                my %panel = %{ $active_panels{ $room_idx } };
+                $panel{ across_region }     = 1;
+                $panel{ Table_Rows }        = 0;
+                $panel{ Table_Start }       = $split_time;
+                $active_panels{ $room_idx } = \%panel;
+            } ## end foreach my $room_idx ( keys...)
+            $active_range = $next_range;
+            undef $last_time;
+        } ## end if ( defined $next_range)
+        elsif ( %active_panels ) {
+            $process_half_hours->( $split_time );
+        }
+        $process_time->( $split_time );
+    } ## end foreach my $split_time ( @time_points)
+} ## end sub make_time_ranges
+
+sub dump_tables {
+    my %time_points = map { $_ => 1 } ( keys %time_region );
+
+    my $ofh;
+    if ( $oname eq q{-} ) {
+        $ofh = \*STDOUT;
     }
     else {
-        $ids{ $id } = 1;
+        open $ofh, ">:encoding(utf8)", $oname
+            or die qq{Unable to write: $oname\n};
     }
 
-    $record{ Start_Tm }   = $start;
-    $record{ End_Tm }     = $end;
-    $record{ Start_12 }   = $start_12;
-    $record{ End_12 }     = $end_12;
-    $record{ Table_Rows } = 0;
-    $record{ Class }      = q{Type} . $kind;
-    $record{ HRef }       = $id;
-
-    next if $idx eq q{};
-    next if $idx > 90;
-
-    if ( $record{ Room } eq q{split} ) {
-        next;
+    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+        my $region = $time_region{ $region_time };
+        say { $ofh } $region->{ name };
     }
 
-    add_time $start;
-    add_time $end;
+    if ( $oname ne q{-} ) {
+        $ofh->close
+            or die qq{Unable to close $oname: $!\n};
+    }
 
-    my $room = $rooms{ $idx } //= {};
-    $room->{ $idx } = $idx;
-    $room->{ name }  //= $record{ Room };
-    $room->{ hotel } //= $record{ Real_Room };
-    $room->{ start }->{ $start } = \%record;
-    $room->{ end }->{ $end }     = \%record;
-} ## end while ( my $raw = splitline...)
+} ## end sub dump_tables
 
-$fh->close
-    or die qq{Unable to close $fname: $!\n};
+sub main {
+    ( $fname, $oname ) = @_;
+    $oname //= q{-};
 
-my @room_idxs   = sort { $a <=> $b } keys %rooms;
-my @start_times = sort { $a <=> $b } keys %schedule;
+    read_csv_file( $fname );
+
+    make_time_ranges;
+
+    dump_tables;
+} ## end sub main
+
+main( @ARGV );
+
+1;
+
+__END__
+
+# Partition panels
+foreach my $time ( @start_or_split ) {
+
+}
 
 # Determine number of rows needed pass 1
 foreach my $room ( values %rooms ) {
@@ -181,13 +318,13 @@ say { $ofh } qq{\t\t},
     $h->th( { class => q{schedhead scheddaycolumn} }, q{Day} );
 say { $ofh } qq{\t\t},
     $h->th( { class => q{schedhead schedtimecolumn} }, q{Time} );
-foreach my $idx ( @room_idxs ) {
+foreach my $idx ( @room_ids ) {
     say { $ofh } qq{\t\t},
         $h->th(
         { class => q{schedhead schedloccolumn roomloc} },
         $rooms{ $idx }->{ hotel } . q{<br/>} . $rooms{ $idx }->{ name }
         );
-} ## end foreach my $idx ( @room_idxs)
+} ## end foreach my $idx ( @room_ids)
 say { $ofh } qq{\t}, $h->close( qw{ tr } );
 say { $ofh } qq{\t}, $h->close( qw{ thead } );
 
@@ -225,7 +362,7 @@ foreach my $time ( @start_times ) {
 
     my @slot;
 
-    foreach my $idx ( @room_idxs ) {
+    foreach my $idx ( @room_ids ) {
         my $room = $rooms{ $idx };
 
         if ( $room->{ end }->{ $time } ) {
@@ -364,7 +501,7 @@ foreach my $time ( @start_times ) {
         else {
             say { $ofh } q{-->}, $h->td( { class => q{empty} } );
         }
-    } ## end foreach my $idx ( @room_idxs)
+    } ## end foreach my $idx ( @room_ids)
 
     if ( @slot ) {
         push @desc,
