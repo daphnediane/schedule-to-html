@@ -13,6 +13,7 @@ Readonly our $HALF_HOUR => 30 * 60;
 
 our $fname;
 our $oname;
+our $day_column = 0;
 
 our %schedule;
 our %rooms;
@@ -21,6 +22,8 @@ our %time_region;
 our @room_ids;
 our @start_times;
 our $ofh;
+our $level = 0;
+our $h = HTML::Tiny->new( mode => q{html} );
 
 sub splitline {
     my ( $fh ) = @_;
@@ -179,7 +182,7 @@ sub make_time_ranges {
             if ( exists $active_panels{ $room_idx } ) {
                 my $panel     = $active_panels{ $room_idx };
                 my $panel_end = $panel->{ end };
-                if ( $panel_end >= $time ) {
+                if ( $panel_end <= $time ) {
                     delete $active_panels{ $room_idx };
                 }
             } ## end if ( exists $active_panels...)
@@ -237,10 +240,163 @@ sub make_time_ranges {
     } ## end foreach my $split_time ( @time_points)
 } ## end sub make_time_ranges
 
+sub out_line {
+    my ( @content ) = @_;
+    my @indent = ( qq{\t} x $level );
+    say { $ofh } @indent, @content;
+}
+
+sub out_open {
+    my ( @content ) = @_;
+    out_line $h->open( @content );
+    ++$level;
+}
+
+sub out_close {
+    my ( @content ) = @_;
+    --$level;
+    out_line $h->close( @content );
+}
+
+sub out_class {
+    my ( @fields ) = @_;
+    return unless @fields;
+    my $res = join q{ }, @fields;
+    $res =~ s{\s\s+}{ }xms;
+    $res =~ s{\A\s}{}xms;
+    $res =~ s{\s\z}{}xms;
+    return if $res eq q{};
+    return class => $res;
+} ## end sub out_class
+
+sub dump_labels {
+    my ( $kind ) = @_;
+
+    if ( $day_column ) {
+        out_line $h->th(
+            {   out_class(
+                    qw{schedhead}, $kind eq q{head} ? qw{scheddaycolumn} : ()
+                )
+            },
+            q{Day}
+        );
+    } ## end if ( $day_column )
+    out_line $h->th(
+        {   out_class(
+                qw{schedhead}, $kind eq q{head} ? qw{schedtimecolumn} : ()
+            )
+        },
+        q{Time}
+    );
+    foreach my $idx ( @room_ids ) {
+        out_line $h->th(
+            {   out_class(
+                    qw{schedhead schedloccolumn roomloc},
+                    $kind eq q{head} ? qq{schedloc${idx}column} : ()
+                )
+            },
+            $rooms{ $idx }->{ hotel } . q{<br/>} . $rooms{ $idx }->{ name }
+        );
+    } ## end foreach my $idx ( @room_ids)
+
+} ## end sub dump_labels
+
+sub dump_header {
+    my ( $region ) = @_;
+
+    out_open qw{ table }, { out_class( qw{ schedule } ) };
+
+    if ( $day_column ) {
+        out_line $h->col( { out_class( qw{ scheddaycolumn } ) } );
+    }
+    out_line $h->col( { out_class( qw{ schedtimecolumn } ) } );
+    foreach my $idx ( @room_ids ) {
+        out_line $h->col( { class => qq{schedloc${idx}column} } );
+    }
+
+    out_open qw{ thead };
+    out_open qw{ tr }, { out_class( qq{schedheadrow} ) };
+    dump_labels qw{ head };
+    out_close qw{ tr };
+    out_close qw{ thead };
+
+    out_open qw{ tbody };
+} ## end sub dump_header
+
+sub dump_room {
+    my ( $time, $idx, $panel ) = @_;
+
+    if ( !defined $panel ) {
+        out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->},
+            $h->td( { out_class( qw{ empty } ) } );
+        return;
+    }
+    if ( $panel->{ Table_Start } ne $time ) {
+        out_line q{<!--}, $rooms{ $idx }->{ name }, q{ },
+            $panel->{ Uniq_ID }, q{ continued-->};
+        return;
+    }
+    out_line $h->td( q{hello} );
+} ## end sub dump_room
+
+sub dump_row {
+    my ( $time, $panels ) = @_;
+
+    my @ltime = localtime $time;
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
+        = @ltime;
+
+    out_open qw{ tr }, { out_class( qw{ schedtimerow } ) };
+
+    if ( $day_column ) {
+        out_line $h->th(
+            { out_class( qw{ schedday scheddaycolumn } ) },
+            strftime q{%A},
+            @ltime
+        );
+        out_line $h->th(
+            { out_class( qw{ schedtime schedtimecolumn } ) },
+            strftime q{%I:%M %p}, @ltime
+        );
+    } ## end if ( $day_column )
+    else {
+        out_line $h->th(
+            { out_class( qw{ schedtime schedtimecolumn } ) },
+            strftime q{%A %I:%M %p}, @ltime
+        );
+    } ## end else [ if ( $day_column ) ]
+
+    foreach my $idx ( @room_ids ) {
+        dump_room( $time, $idx, $panels->{ $idx } );
+    }
+    out_close qw{ tr };
+} ## end sub dump_row
+
+sub dump_foot {
+    out_close qw{ tbody };
+    out_open qw{ tfoot };
+    out_open qw{ tr }, { out_class( qq{schedheadrow} ) };
+    dump_labels qw{ foot };
+    out_close qw{ tr };
+    out_close qw{ tfoot };
+    out_close qw{ table };
+} ## end sub dump_foot
+
+sub dump_region {
+    my ( $region ) = @_;
+
+    dump_header( $region );
+
+    my $times = $region->{ row };
+    foreach my $time ( sort { $a <=> $b } keys %{ $times } ) {
+        dump_row( $time, $times->{ $time } );
+    }
+    dump_foot( $region );
+} ## end sub dump_region
+
 sub dump_tables {
     my %time_points = map { $_ => 1 } ( keys %time_region );
 
-    my $ofh;
     if ( $oname eq q{-} ) {
         $ofh = \*STDOUT;
     }
@@ -251,7 +407,7 @@ sub dump_tables {
 
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
-        say { $ofh } $region->{ name };
+        dump_region( $region );
     }
 
     if ( $oname ne q{-} ) {
@@ -310,18 +466,18 @@ else {
         or die qq{Unable to write: $oname\n};
 }
 
-say { $ofh } $h->open( qw{ table }, { class => q{schedule} } );
+say { $ofh } $h->open( qw{ table }, { out_class( qw{ schedule } ) } );
 
 say { $ofh } qq{\t}, $h->open( qw{ thead } );
-say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedheadrow} } );
+say { $ofh } qq{\t}, $h->open( qw{ tr }, { out_class( qw{ schedheadrow } ) } );
 say { $ofh } qq{\t\t},
-    $h->th( { class => q{schedhead scheddaycolumn} }, q{Day} );
+    $h->th( { out_class( qw{ schedhead scheddaycolumn } ) }, q{Day} );
 say { $ofh } qq{\t\t},
-    $h->th( { class => q{schedhead schedtimecolumn} }, q{Time} );
+    $h->th( { out_class( qw{ schedhead schedtimecolumn } ) }, q{Time} );
 foreach my $idx ( @room_ids ) {
     say { $ofh } qq{\t\t},
         $h->th(
-        { class => q{schedhead schedloccolumn roomloc} },
+        { out_class( qw{ schedhead schedloccolumn roomloc } ) },
         $rooms{ $idx }->{ hotel } . q{<br/>} . $rooms{ $idx }->{ name }
         );
 } ## end foreach my $idx ( @room_ids)
@@ -338,7 +494,7 @@ foreach my $time ( @start_times ) {
     my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
         = @ltime;
 
-    say { $ofh } qq{\t}, $h->open( qw{ tr }, { class => q{schedtimerow} } );
+    say { $ofh } qq{\t}, $h->open( qw{ tr }, { out_class( qw{ schedtimerow } ) } );
 
     if ( !defined $active_day || $active_day != $yday ) {
         $active_day = $yday;
@@ -356,7 +512,7 @@ foreach my $time ( @start_times ) {
     }
     say { $ofh } qq{\t\t},
         $h->th(
-        { class => q{schedtime schedtimecolumn} },
+        { out_class( qw{ schedtime schedtimecolumn } ) },
         strftime q{%I:%M %p}, @ltime
         );
 
@@ -402,15 +558,15 @@ foreach my $time ( @start_times ) {
                 }
                 );
             say { $ofh } qq{\t\t\t},
-                $h->div( { class => q{panelid} }, $rec->{ Uniq_ID } );
+                $h->div( { out_class( qw{ panelid } ) }, $rec->{ Uniq_ID } );
             say { $ofh } qq{\t\t\t},
                 $h->open( q{a}, { href => q{#} . $rec->{ HRef } } );
             say { $ofh } qq{\t\t\t\t},
-                $h->span( { class => q{panelname} }, $rec->{ Name } );
+                $h->span( { out_class( qw{ panelname } ) }, $rec->{ Name } );
             if ( defined $tokens ) {
                 say { $ofh } qq{\t\t\t\t},
                     $h->div(
-                    { class => q{paneltokens paneltokens} . $tokens },
+                    { out_class( qw{ paneltokens paneltokens } ) . $tokens },
                     q{Tokens: } . $tokens
                     );
             } ## end if ( defined $tokens )
@@ -418,7 +574,7 @@ foreach my $time ( @start_times ) {
             my $panelist = $rec->{ Panelist };
             if ( $panelist =~ m{\S}xms ) {
                 say { $ofh } qq{\t\t\t\t},
-                    $h->span( { class => q{panelist} }, $rec->{ Panelist } );
+                    $h->span( { out_class( qw{ panelist } ) }, $rec->{ Panelist } );
             }
             say { $ofh } qq{\t\t\t}, $h->close( q{a} );
             say { $ofh } qq{\t\t},   $h->close( q{td} );
@@ -434,14 +590,14 @@ foreach my $time ( @start_times ) {
             push @slot,
                 qq{\t\t\t\t}
                 . $h->div(
-                { class => q{descid} },
+                { out_class( qw{ descid } ) },
                 $rec->{ Uniq_ID }
                 );
             push @slot,
                 qq{\t\t\t\t}
                 . $h->a(
                 {   href  => q{#} . $rec->{ HRef } . q{Grid},
-                    class => q{descname}
+                    out_class( qw{ descname } )
                 },
                 $rec->{ Name }
                 );
@@ -449,7 +605,7 @@ foreach my $time ( @start_times ) {
                 push @slot,
                     qq{\t\t\t\t}
                     . $h->div(
-                    { class => q{descTokens descTokens} . $tokens },
+                    { out_class( qw{ descTokens descTokens } ) . $tokens },
                     q{Required tokens: } . $tokens
                     );
             } ## end if ( defined $tokens )
@@ -457,25 +613,25 @@ foreach my $time ( @start_times ) {
             push @slot,
                 qq{\t\t\t\t}
                 . $h->p(
-                { class => q{descroom} },
+                { out_class( qw{ descroom } ) },
                 $room->{ hotel }
                 );
             if ( $panelist =~ m{\S}xms ) {
                 push @slot,
                     qq{\t\t\t\t}
                     . $h->p(
-                    { class => q{descpanelist} },
+                    { out_class( qw{ descpanelist } ) },
                     $rec->{ Panelist }
                     );
             } ## end if ( $panelist =~ m{\S}xms)
             push @slot, qq{\t\t\t\t}
-                . $h->p( { class => q{descbody} }, $rec->{ Description } );
+                . $h->p( { out_class( qw{ descbody } ) }, $rec->{ Description } );
 
             if ( defined $rec->{ Note } ) {
                 push @slot,
                     qq{\t\t\t\t}
                     . $h->p(
-                    { class => q{descnote} },
+                    { out_class( qw{ descnote } ) },
                     $h->i( $rec->{ Note } )
                     );
             } ## end if ( defined $rec->{ Note...})
@@ -484,7 +640,7 @@ foreach my $time ( @start_times ) {
                 push @slot,
                     qq{\t\t\t\t}
                     . $h->p(
-                    {   class => q{descDifficulty descDifficulty}
+                    {   out_class( qw{ descDifficulty descDifficulty } )
                             . $difficulty
                     },
                     q{Difficulty level: } . $difficulty
@@ -499,14 +655,14 @@ foreach my $time ( @start_times ) {
             say { $ofh } q{ }, $rec->{ Uniq_ID }, q{ continued-->};
         }
         else {
-            say { $ofh } q{-->}, $h->td( { class => q{empty} } );
+            say { $ofh } q{-->}, $h->td( { out_class( qw{ empty } ) } );
         }
     } ## end foreach my $idx ( @room_ids)
 
     if ( @slot ) {
         push @desc,
               qq{\t}
-            . $h->open( q{li}, { class => q{desctime} } )
+            . $h->open( q{li}, { out_class( qw{ desctime } ) } )
             . $h->entity_encode( strftime q{%A %I:%M %p}, @ltime );
         push @desc, qq{\t\t} . $h->open( q{ul} );
         chomp @slot;
@@ -523,7 +679,7 @@ say { $ofh } $h->close( qw{ table } );
 
 if ( @desc ) {
     say { $ofh } join qq{\n},
-        $h->open( q{ul}, { class => q{descriptions} } ), @desc,
+        $h->open( q{ul}, { out_class( qw{ descriptions } ) } ), @desc,
         $h->close( q{ul} );
 }
 
