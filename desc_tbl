@@ -48,7 +48,7 @@ sub splitline {
                 $full .= shift @raw;
             } ## end while ( $full !~ ...)
             $full =~ s{ \A " }{}xms;
-            $full =~ s{ (?:\n\r+?|\r\n+?)?+ \z }{}xms;
+            $full =~ s{ (?:\n\r?+|\r\n?+)?+ \z }{}xms;
             $full =~ s{ " \z }{}xms;
             $full =~ s{ "" }{"}xmsg;
             push @res, $full;
@@ -181,7 +181,7 @@ sub make_time_ranges {
             my $room = $rooms{ $room_idx };
             if ( exists $active_panels{ $room_idx } ) {
                 my $panel     = $active_panels{ $room_idx };
-                my $panel_end = $panel->{ end };
+                my $panel_end = $panel->{ End_Tm };
                 if ( $panel_end <= $time ) {
                     delete $active_panels{ $room_idx };
                 }
@@ -194,8 +194,10 @@ sub make_time_ranges {
         foreach my $panel ( values %active_panels ) {
             ++$panel->{ Table_Rows };
         }
-        $active_range->{ row }->{ $time } = { %active_panels };
-        $last_time = $time;
+        if ( defined $last_time || %active_panels ) {
+            $active_range->{ row }->{ $time } = { %active_panels };
+            $last_time = $time;
+        }
         return;
     };
 
@@ -242,8 +244,14 @@ sub make_time_ranges {
 
 sub out_line {
     my ( @content ) = @_;
-    my @indent = ( qq{\t} x $level );
-    say { $ofh } @indent, @content;
+    my $indent = join q{}, ( qq{\t} x $level );
+    my $content = join q{}, @content;
+    foreach my $line ( split m{\n+}xms, $content ) {
+        $line =~ s{\A\s+}{}xms;
+        $line =~ s{\s+\Z}{}xms;
+        next if $line eq q{};
+        say { $ofh } $indent, $line;
+    }
 }
 
 sub out_open {
@@ -336,7 +344,131 @@ sub dump_room {
             $panel->{ Uniq_ID }, q{ continued-->};
         return;
     }
-    out_line $h->td( q{hello} );
+
+    my $difficulty = $panel->{ Difficulty };
+    my $tokens     = $panel->{ Tokens };
+    my $panelist = $panel->{ Panelist };
+    my $room       = $rooms{ $idx };
+
+    my @classes = ( q{}, $panel->{ Class } );
+    if ( $difficulty =~ m{\A\d+\z}xms ) {
+        push @classes, q{Difficulty} . $difficulty;
+    }
+    if ( $tokens eq q{0} ) {
+        undef $tokens;
+    }
+    if ( defined $tokens ) {
+        push @classes, q{NeedTokens};
+        $tokens =~ s{\A\s*}{}xms;
+        $tokens =~ s{\s*\z}{}xms;
+        $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
+    } ## end if ( defined $tokens )
+
+    out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->};
+    out_open qw{ td },
+        {
+        id      => $panel->{ HRef } . q{Grid},
+        rowspan => $panel->{ Table_Rows },
+        out_class(
+            qw{ schedloccolumn },
+            map { q{panel} . $_ } @classes
+        )
+        };
+
+    out_line $h->div( { out_class( qw{ panelid } ) }, $panel->{ Uniq_ID } );
+    out_open q{a}, { href => q{#} . $panel->{ HRef } };
+
+
+    out_line $h->span( { out_class( qw{ panelname } ) }, $panel->{ Name } );
+
+    if ( defined $tokens ) {
+        out_line $h->div(
+            { out_class( qw{ paneltokens paneltokens } ) . $tokens },
+            q{Tokens: } . $tokens
+            );
+    } ## end if ( defined $tokens )
+
+    if ( $panelist =~ m{\S}xms ) {
+        out_line    $h->span( { out_class( qw{ panelist } ) }, $panel->{ Panelist } );
+    }
+
+    out_close qw{ a };
+    out_close qw{ td };
+
+    if ( 0 ) {
+        my @slot;
+        push @slot,
+            qq{\t\t\t}
+            . $h->open(
+            q{li},
+            {   id    => $panel->{ HRef },
+                class => join q{ }, map { q{desc} . $_ } @classes
+            }
+            );
+        push @slot,
+            qq{\t\t\t\t}
+            . $h->div(
+            { out_class( qw{ descid } ) },
+            $panel->{ Uniq_ID }
+            );
+        push @slot,
+            qq{\t\t\t\t}
+            . $h->a(
+            {   href => q{#} . $panel->{ HRef } . q{Grid},
+                out_class( qw{ descname } )
+            },
+            $panel->{ Name }
+            );
+        if ( defined $tokens ) {
+            push @slot,
+                qq{\t\t\t\t}
+                . $h->div(
+                { out_class( qw{ descTokens descTokens } ) . $tokens },
+                q{Required tokens: } . $tokens
+                );
+        } ## end if ( defined $tokens )
+
+        push @slot,
+            qq{\t\t\t\t}
+            . $h->p(
+            { out_class( qw{ descroom } ) },
+            $room->{ hotel }
+            );
+        if ( $panelist =~ m{\S}xms ) {
+            push @slot,
+                qq{\t\t\t\t}
+                . $h->p(
+                { out_class( qw{ descpanelist } ) },
+                $panel->{ Panelist }
+                );
+        } ## end if ( $panelist =~ m{\S}xms)
+        push @slot,
+            qq{\t\t\t\t}
+            . $h->p( { out_class( qw{ descbody } ) },
+            $panel->{ Description } );
+
+        if ( defined $panel->{ Note } ) {
+            push @slot,
+                qq{\t\t\t\t}
+                . $h->p(
+                { out_class( qw{ descnote } ) },
+                $h->i( $panel->{ Note } )
+                );
+        } ## end if ( defined $panel->{...})
+
+        if ( $difficulty =~ m{\A\d+\z}xms ) {
+            push @slot,
+                qq{\t\t\t\t}
+                . $h->p(
+                {   out_class( qw{ descDifficulty descDifficulty } )
+                        . $difficulty
+                },
+                q{Difficulty level: } . $difficulty
+                );
+        } ## end if ( $difficulty =~ m{\A\d+\z}xms)
+
+        push @slot, qq{\t\t\t} . $h->close( q{li} );
+    } ## end if ( 0 )
 } ## end sub dump_room
 
 sub dump_row {
