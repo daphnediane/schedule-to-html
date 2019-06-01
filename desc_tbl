@@ -7,6 +7,7 @@ use Date::Parse qw{ str2time };
 use POSIX qw{ strftime };
 use HTML::Tiny qw{};
 use Readonly;
+use Carp qw{verbose};
 
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
@@ -116,10 +117,8 @@ sub read_csv_file {
             = defined $panel{ End_Time }
             ? str2time( $panel{ End_Time } )
             : $start;
-        my $start_12 = strftime q{%I:%M %p}, localtime $start;
-        my $end_12   = strftime q{%I:%M %p}, localtime $end;
-        my $idx      = $panel{ Room_Idx };
-        my $id       = $panel{ Uniq_ID };
+        my $idx  = $panel{ Room_Idx };
+        my $id   = $panel{ Uniq_ID };
         my $kind = $id // q{Unknown};
         $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
 
@@ -131,13 +130,28 @@ sub read_csv_file {
             $ids{ $id } = 1;
         }
 
+        my $difficulty = $panel{ Difficulty };
+        my $tokens     = $panel{ Tokens };
+        my @classes    = q{Type} . $kind;
+        if ( $difficulty =~ m{\A\d+\z}xms ) {
+            push @classes, q{Difficulty} . $difficulty;
+        }
+        if ( $tokens eq q{0} ) {
+            undef $tokens;
+        }
+        if ( defined $tokens ) {
+            push @classes, q{NeedTokens};
+            $tokens =~ s{\A\s*}{}xms;
+            $tokens =~ s{\s*\z}{}xms;
+            $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
+        } ## end if ( defined $tokens )
+
         $panel{ Start_Tm }   = $start;
         $panel{ End_Tm }     = $end;
-        $panel{ Start_12 }   = $start_12;
-        $panel{ End_12 }     = $end_12;
         $panel{ Table_Rows } = 0;
-        $panel{ Class }      = q{Type} . $kind;
+        $panel{ Class }      = \@classes;
         $panel{ HRef }       = $id;
+        $panel{ Tokens }     = $tokens;
 
         if ( $panel{ Room } eq q{SPLIT} ) {
             add_split $start, $panel{ Name };
@@ -151,6 +165,7 @@ sub read_csv_file {
         add_time $end;
 
         my $room = $rooms{ $idx } //= {};
+        $panel{ RoomInfo } = $room;
         $room->{ $idx } = $idx;
         $room->{ name }  //= $panel{ Room };
         $room->{ hotel } //= $panel{ Real_Room };
@@ -251,8 +266,8 @@ sub out_line {
         $line =~ s{\s+\Z}{}xms;
         next if $line eq q{};
         say { $ofh } $indent, $line;
-    }
-}
+    } ## end foreach my $line ( split m{\n+}xms...)
+} ## end sub out_line
 
 sub out_open {
     my ( @content ) = @_;
@@ -276,6 +291,26 @@ sub out_class {
     return if $res eq q{};
     return class => $res;
 } ## end sub out_class
+
+sub decode_time {
+    my ( $time, $field ) = @_;
+
+    my @ltime = localtime $time;
+    my $day   = strftime q{%A}, @ltime;
+    my $tm    = strftime q{%I:%M %p}, @ltime;
+
+    if ( defined $field ) {
+        my $out_day  = ( $field =~ m{(day|both)}xms );
+        my $out_time = ( $field =~ m{(time|hour|both)}xms );
+        if ( $out_day ) {
+            return $out_time ? $day . q{ } . $tm : $day;
+        }
+        if ( $out_time ) {
+            return $tm;
+        }
+    } ## end if ( defined $field )
+    return ( $day, $tm );
+} ## end sub decode_time
 
 sub dump_labels {
     my ( $kind ) = @_;
@@ -347,22 +382,10 @@ sub dump_room {
 
     my $difficulty = $panel->{ Difficulty };
     my $tokens     = $panel->{ Tokens };
-    my $panelist = $panel->{ Panelist };
+    my $panelist   = $panel->{ Panelist };
     my $room       = $rooms{ $idx };
 
-    my @classes = ( q{}, $panel->{ Class } );
-    if ( $difficulty =~ m{\A\d+\z}xms ) {
-        push @classes, q{Difficulty} . $difficulty;
-    }
-    if ( $tokens eq q{0} ) {
-        undef $tokens;
-    }
-    if ( defined $tokens ) {
-        push @classes, q{NeedTokens};
-        $tokens =~ s{\A\s*}{}xms;
-        $tokens =~ s{\s*\z}{}xms;
-        $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
-    } ## end if ( defined $tokens )
+    my @classes = ( q{}, @{ $panel->{ Class } } );
 
     out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->};
     out_open qw{ td },
@@ -378,19 +401,21 @@ sub dump_room {
     out_line $h->div( { out_class( qw{ panelid } ) }, $panel->{ Uniq_ID } );
     out_open q{a}, { href => q{#} . $panel->{ HRef } };
 
-
     out_line $h->span( { out_class( qw{ panelname } ) }, $panel->{ Name } );
 
     if ( defined $tokens ) {
         out_line $h->div(
             { out_class( qw{ paneltokens paneltokens } ) . $tokens },
             q{Tokens: } . $tokens
-            );
+        );
     } ## end if ( defined $tokens )
 
     if ( $panelist =~ m{\S}xms ) {
-        out_line    $h->span( { out_class( qw{ panelist } ) }, $panel->{ Panelist } );
-    }
+        out_line $h->span(
+            { out_class( qw{ panelist } ) },
+            $panel->{ Panelist }
+        );
+    } ## end if ( $panelist =~ m{\S}xms)
 
     out_close qw{ a };
     out_close qw{ td };
@@ -444,8 +469,10 @@ sub dump_room {
         } ## end if ( $panelist =~ m{\S}xms)
         push @slot,
             qq{\t\t\t\t}
-            . $h->p( { out_class( qw{ descbody } ) },
-            $panel->{ Description } );
+            . $h->p(
+            { out_class( qw{ descbody } ) },
+            $panel->{ Description }
+            );
 
         if ( defined $panel->{ Note } ) {
             push @slot,
@@ -474,27 +501,22 @@ sub dump_room {
 sub dump_row {
     my ( $time, $panels ) = @_;
 
-    my @ltime = localtime $time;
-    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst )
-        = @ltime;
-
     out_open qw{ tr }, { out_class( qw{ schedtimerow } ) };
 
     if ( $day_column ) {
         out_line $h->th(
             { out_class( qw{ schedday scheddaycolumn } ) },
-            strftime q{%A},
-            @ltime
+            decode_time( $time, qw{ day } )
         );
         out_line $h->th(
             { out_class( qw{ schedtime schedtimecolumn } ) },
-            strftime q{%I:%M %p}, @ltime
+            decode_time( $time, qw{ time } )
         );
     } ## end if ( $day_column )
     else {
         out_line $h->th(
             { out_class( qw{ schedtime schedtimecolumn } ) },
-            strftime q{%A %I:%M %p}, @ltime
+            decode_time( $time, qw{ both } )
         );
     } ## end else [ if ( $day_column ) ]
 
@@ -518,13 +540,123 @@ sub dump_region {
     my ( $region ) = @_;
 
     dump_header( $region );
-
     my $times = $region->{ row };
     foreach my $time ( sort { $a <=> $b } keys %{ $times } ) {
         dump_row( $time, $times->{ $time } );
     }
     dump_foot( $region );
 } ## end sub dump_region
+
+sub dump_desc_start {
+    my ( $region ) = @_;
+
+    out_open qw{ ul }, { out_class( qw{ descriptions } ) };
+}
+
+sub dump_desc_end {
+    my ( $region ) = @_;
+
+    out_close qw{ ul };
+}
+
+sub dump_desc_time_start {
+    my ( $region, $time ) = @_;
+
+    out_open qw{ li }, { out_class( qw{ desctime } ) };
+    out_line $h->div( { out_class( qw{desctimeheader} ) },
+        decode_time( $time, qw{ both } ) );
+    out_open qw{ ul }, { out_class( qw{desctimebody} ) };
+} ## end sub dump_desc_time_start
+
+sub dump_desc_time_end {
+    my ( $region, $time ) = @_;
+
+    out_close qw{ ul };
+    out_close qw{ li };
+} ## end sub dump_desc_time_end
+
+sub dump_desc_panel {
+    my ( $region, $time, $panel ) = @_;
+
+    my $difficulty = $panel->{ Difficulty };
+    my $tokens     = $panel->{ Tokens };
+    my $panelist   = $panel->{ Panelist };
+    my $room       = $panel->{ RoomInfo };
+
+    my @classes = ( q{}, @{ $panel->{ Class } } );
+
+    out_open qw{ li },
+        {
+        id => $panel->{ HRef },
+        out_class( map { q{desc} . $_ } @classes )
+        };
+    out_line $h->div(
+        { out_class( qw{ descid } ) },
+        $panel->{ Uniq_ID }
+    );
+    out_line $h->a(
+        {   href => q{#} . $panel->{ HRef } . q{Grid},
+            out_class( qw{descname} )
+        },
+        $panel->{ Name }
+    );
+
+    if ( defined $tokens ) {
+        out_line $h->div(
+            { out_class( qw{ descTokens }, qq{descTokens{$tokens}} ) },
+            q{Required tokens: } . $tokens
+        );
+    } ## end if ( defined $tokens )
+    out_line $h->p( { out_class( qw{ descroom } ) }, $room->{ hotel } );
+    if ( $panelist =~ m{\S}xms ) {
+        out_line $h->p( { out_class( qw{ descpanelist} ) }, $panelist );
+    }
+    out_line $h->p(
+        { out_class( qw{ descbody } ) },
+        $panel->{ Description }
+    );
+    if ( defined $panel->{ Note } ) {
+        out_line $h->p(
+            { out_class( qw{ descnote } ) },
+            $h->i( $panel->{ Note } )
+        );
+    } ## end if ( defined $panel->{...})
+    if ( defined $difficulty ) {
+        out_line $h->p(
+            {   out_class(
+                    qw{ descDifficulty }, qq{descDifficulty${difficulty}}
+                )
+            },
+            q{Difficulty level: } . $difficulty
+        );
+    } ## end if ( defined $difficulty)
+    out_close qw{ li };
+} ## end sub dump_desc_panel
+
+sub dump_desc_region {
+    my ( $region ) = @_;
+
+    dump_desc_start( $region );
+    my $times = $region->{ row };
+    foreach my $time ( sort { $a <=> $b } keys %{ $times } ) {
+        my $time_seen;
+        my $panels = $times->{ $time };
+        foreach my $idx ( @room_ids ) {
+            my $panel = $panels->{ $idx };
+            if ( $panel->{ Start_Tm } == $time ) {
+                unless ( $time_seen ) {
+                    dump_desc_time_start( $region, $time );
+                    $time_seen = 1;
+                }
+                dump_desc_panel( $region, $time, $panel );
+            } ## end if ( $panel->{ Start_Tm...})
+        } ## end foreach my $idx ( @room_ids)
+        if ( $time_seen ) {
+            dump_desc_time_end( $region, $time );
+        }
+    } ## end foreach my $time ( sort { $a...})
+    dump_desc_end( $region );
+} ## end sub dump_desc_region
 
 sub dump_tables {
     my %time_points = map { $_ => 1 } ( keys %time_region );
@@ -540,6 +672,7 @@ sub dump_tables {
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
         dump_region( $region );
+        dump_desc_region( $region );
     }
 
     if ( $oname ne q{-} ) {
