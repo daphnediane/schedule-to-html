@@ -8,13 +8,16 @@ use POSIX qw{ strftime };
 use HTML::Tiny qw{};
 use Readonly;
 use Carp qw{verbose};
+use Getopt::Long qw{GetOptionsFromArray};
 
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
+Readonly our $CAFE      => q{Café};
 
 our $fname;
 our $oname;
-our $day_column = 0;
+our $day_column;
+our $unified;
 
 our %schedule;
 our %rooms;
@@ -146,6 +149,9 @@ sub read_csv_file {
             $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
         } ## end if ( defined $tokens )
 
+        if ( $panel{ Kind } eq $CAFE ) {
+            $panel{ Cafe } = 1;
+        }
         $panel{ Start_Tm }   = $start;
         $panel{ End_Tm }     = $end;
         $panel{ Table_Rows } = 0;
@@ -154,6 +160,7 @@ sub read_csv_file {
         $panel{ Tokens }     = $tokens;
 
         if ( $panel{ Room } eq q{SPLIT} ) {
+            next if $unified;
             add_split $start, $panel{ Name };
             next;
         }
@@ -381,9 +388,15 @@ sub dump_room {
     }
 
     my $difficulty = $panel->{ Difficulty };
-    my $tokens     = $panel->{ Tokens };
+    my $name       = $panel->{ Name };
     my $panelist   = $panel->{ Panelist };
+    my $tokens     = $panel->{ Tokens };
     my $room       = $rooms{ $idx };
+
+    if ( $panel->{ Cafe } ) {
+        $panelist = $name;
+        $name     = q{Café featuring};
+    }
 
     my @classes = ( q{}, @{ $panel->{ Class } } );
 
@@ -401,7 +414,7 @@ sub dump_room {
     out_line $h->div( { out_class( qw{ panelid } ) }, $panel->{ Uniq_ID } );
     out_open q{a}, { href => q{#} . $panel->{ HRef } };
 
-    out_line $h->span( { out_class( qw{ panelname } ) }, $panel->{ Name } );
+    out_line $h->span( { out_class( qw{ panelname } ) }, $name );
 
     if ( defined $tokens ) {
         out_line $h->div(
@@ -413,7 +426,7 @@ sub dump_room {
     if ( $panelist =~ m{\S}xms ) {
         out_line $h->span(
             { out_class( qw{ panelist } ) },
-            $panel->{ Panelist }
+            $panelist
         );
     } ## end if ( $panelist =~ m{\S}xms)
 
@@ -504,9 +517,14 @@ sub dump_desc_panel {
     my ( $region, $time, $panel ) = @_;
 
     my $difficulty = $panel->{ Difficulty };
-    my $tokens     = $panel->{ Tokens };
+    my $name       = $panel->{ Name };
     my $panelist   = $panel->{ Panelist };
+    my $tokens     = $panel->{ Tokens };
     my $room       = $panel->{ RoomInfo };
+
+    if ( $panel->{ Cafe } ) {
+        $name = q{Cosplay Café Featuring } . $name;
+    }
 
     my @classes = ( q{}, @{ $panel->{ Class } } );
 
@@ -523,7 +541,7 @@ sub dump_desc_panel {
         {   href => q{#} . $panel->{ HRef } . q{Grid},
             out_class( qw{descname} )
         },
-        $panel->{ Name }
+        $name
     );
 
     if ( defined $tokens ) {
@@ -594,11 +612,29 @@ sub dump_tables {
             or die qq{Unable to write: $oname\n};
     }
 
+    say { $ofh } q{<!doctype html>};
+    out_open qw{ html };
+    out_open qw{ head };
+    out_line $h->meta( { charset => q{UTF-8} } );
+    out_line $h->title( q{Cosplay America 2019 Schedule} );
+    out_line $h->link(
+        {   href =>
+                q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
+            rel => q{stylesheet}
+        }
+    );
+    out_line $h->link(
+        { href => q{index.css}, rel => q{stylesheet}, type => q{text/css} } );
+    out_close qw{ head };
+    out_open qw{ body };
+
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
         dump_region( $region );
         dump_desc_region( $region );
-    }
+    } ## end foreach my $region_time ( sort...)
+    out_close qw{ body };
+    out_close qw{ html };
 
     if ( $oname ne q{-} ) {
         $ofh->close
@@ -608,7 +644,18 @@ sub dump_tables {
 } ## end sub dump_tables
 
 sub main {
-    ( $fname, $oname ) = @_;
+    my ( @args ) = @_;
+
+    GetOptionsFromArray(
+        \@args,
+        q{input=s}  => \$fname,
+        q{output=s} => \$oname,
+        q{day!}     => \$day_column,
+        q{unified!} => \$unified
+    ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
+
+    $fname //= shift @args;
+    $oname //= shift @args;
     $oname //= q{-};
 
     read_csv_file( $fname );
