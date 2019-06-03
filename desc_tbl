@@ -9,6 +9,7 @@ use HTML::Tiny qw{};
 use Readonly;
 use Carp qw{verbose};
 use Getopt::Long qw{GetOptionsFromArray};
+use File::Slurp qw{read_file};
 
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
@@ -20,6 +21,7 @@ our $day_column;
 our $unified;
 our $perday;
 our $separate_desc;
+our $inline_style;
 
 our %schedule;
 our %rooms;
@@ -649,8 +651,29 @@ sub dump_tables {
             rel => q{stylesheet}
         }
     );
-    out_line $h->link(
-        { href => q{index.css}, rel => q{stylesheet}, type => q{text/css} } );
+    if ( defined $inline_style ) {
+        my $lines = read_file(
+            $inline_style,
+            { chomp => 1, array_ref => 1, err_mode => q{carp} }
+        );
+        if ( $lines ) {
+            out_open qw{style};
+            foreach my $line ( @{ $lines } ) {
+                out_line $line;
+            }
+            out_close qw{style};
+        } ## end if ( $lines )
+        else {
+            undef $inline_style;
+        }
+    } ## end if ( defined $inline_style)
+    if ( !defined $inline_style ) {
+        out_line $h->link(
+            {   href => q{index.css}, rel => q{stylesheet},
+                type => q{text/css}
+            }
+        );
+    } ## end if ( !defined $inline_style)
     out_close qw{ head };
     out_open qw{ body };
 
@@ -688,6 +711,7 @@ sub main {
         q{unified!}  => \$unified,
         q{perday!}   => \$perday,
         q{separate!} => \$separate_desc,
+        q{style=s}   => \$inline_style
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $fname //= shift @args;
