@@ -351,7 +351,7 @@ sub dump_labels {
                     $kind eq q{head} ? qq{schedloc${idx}column} : ()
                 )
             },
-            $rooms{ $idx }->{ hotel } . q{<br/>} . $rooms{ $idx }->{ name }
+            $rooms{ $idx }->{ hotel } . $h->br() . $rooms{ $idx }->{ name }
         );
     } ## end foreach my $idx ( @room_ids)
 
@@ -362,6 +362,7 @@ sub dump_header {
 
     out_open qw{ table }, { out_class( qw{ schedule } ) };
 
+    out_open qw{ colgroup };
     if ( $day_column ) {
         out_line $h->col( { out_class( qw{ scheddaycolumn } ) } );
     }
@@ -369,6 +370,7 @@ sub dump_header {
     foreach my $idx ( @room_ids ) {
         out_line $h->col( { class => qq{schedloc${idx}column} } );
     }
+    out_close qw{ colgroup };
 
     out_open qw{ thead };
     out_open qw{ tr }, { out_class( qq{schedheadrow} ) };
@@ -424,7 +426,7 @@ sub dump_room {
 
     if ( defined $tokens ) {
         out_line $h->div(
-            { out_class( qw{ paneltokens paneltokens } ) . $tokens },
+            { out_class( qw{ paneltokens }, qq{paneltokens${tokens}} ) },
             q{Tokens: } . $tokens
         );
     } ## end if ( defined $tokens )
@@ -447,22 +449,24 @@ sub dump_row {
 
     if ( $day_column ) {
         out_line $h->th(
-            { out_class( qw{ schedday scheddaycolumn } ) },
+            { out_class( qw{ schedhead schedday scheddaycolumn } ) },
             decode_time( $time, qw{ day } )
         );
         out_line $h->th(
-            { out_class( qw{ schedtime schedtimecolumn } ) },
+            { out_class( qw{ schedhead schedtime schedtimecolumn } ) },
             decode_time( $time, qw{ time } )
         );
     } ## end if ( $day_column )
     else {
         my ( $day, $tm ) = decode_time( $time );
-        if ( $region->{ lasttime } == $time || $region->{ activeday } ne $day ) {
-            $tm = $day . q{ } . $tm;
+        if (   $region->{ lasttime } == $time
+            || $region->{ activeday } ne $day )
+        {
+            $tm = $day . $h->br() . $tm;
             $region->{ activeday } = $day;
-        }
+        } ## end if ( $region->{ lasttime...})
         out_line $h->th(
-            { out_class( qw{ schedtime schedtimecolumn } ) },
+            { out_class( qw{ schedhead schedtime schedtimecolumn } ) },
             $tm
         );
     } ## end else [ if ( $day_column ) ]
@@ -490,33 +494,31 @@ sub dump_region {
     my $rows = $region->{ row };
     $region->{ activeday } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
-    $region->{ lasttime } = $times[-1];
+    $region->{ lasttime } = $times[ -1 ];
     foreach my $time ( @times ) {
         dump_row( $region, $time, $rows->{ $time } );
     }
     dump_foot( $region );
 } ## end sub dump_region
 
-sub dump_desc_start {
-    my ( $region ) = @_;
-
-    out_open qw{ ul }, { out_class( qw{ descriptions } ) };
-}
-
-sub dump_desc_end {
-    my ( $region ) = @_;
-
-    out_close qw{ ul };
-}
-
 sub dump_desc_time_start {
     my ( $region, $time ) = @_;
 
-    out_open qw{ li }, { out_class( qw{ desctime } ) };
-    out_line $h->div(
+    out_open qw{ table }, { out_class( qw{ desctime } ) };
+    out_open qw{ colgroup };
+    out_line $h->col( { out_class( qw{ desccol } ) } );
+    out_close qw{ colgroup };
+    out_line $h->thead(
         { out_class( qw{desctimeheader} ) },
-        decode_time( $time, qw{ both } )
+        $h->tr(
+            $h->th(
+                { out_class( qw{desccol} ) }, decode_time( $time, qw{ both } )
+            )
+        )
     );
+    out_open qw{ tbody };
+    out_open qw{ tr }, { out_class( qw{desctimebody} ) };
+    out_open qw{ td };
     out_open qw{ ul }, { out_class( qw{desctimebody} ) };
 } ## end sub dump_desc_time_start
 
@@ -524,7 +526,10 @@ sub dump_desc_time_end {
     my ( $region, $time ) = @_;
 
     out_close qw{ ul };
-    out_close qw{ li };
+    out_close qw{ td };
+    out_close qw{ tr };
+    out_close qw{ tbody };
+    out_close qw{ table };
 } ## end sub dump_desc_time_end
 
 sub dump_desc_panel {
@@ -596,33 +601,31 @@ sub dump_desc_region_rows {
     my $rows = $region->{ row };
     $region->{ activeday } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
-    $region->{ lasttime } = $times[-1];
+    $region->{ lasttime } = $times[ -1 ];
     foreach my $time ( @times ) {
-        my $time_seen;
-        my $panels = $rows->{ $time };
+        my $need_time_header = 1;
+        my $panels           = $rows->{ $time };
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
             if ( $panel->{ Start_Tm } == $time ) {
-                unless ( $time_seen ) {
+                if ( $need_time_header ) {
                     dump_desc_time_start( $region, $time );
-                    $time_seen = 1;
+                    undef $need_time_header;
                 }
                 dump_desc_panel( $region, $time, $panel );
             } ## end if ( $panel->{ Start_Tm...})
         } ## end foreach my $idx ( @room_ids)
-        if ( $time_seen ) {
+        unless ( $need_time_header ) {
             dump_desc_time_end( $region, $time );
         }
-    } ## end foreach my $time ( sort { $a...})
+    } ## end foreach my $time ( @times )
 } ## end sub dump_desc_region_rows
 
 sub dump_desc_region {
     my ( $region ) = @_;
 
-    dump_desc_start( $region );
     dump_desc_region_rows( $region );
-    dump_desc_end( $region );
-} ## end sub dump_desc_region
+}
 
 sub dump_tables {
     my %time_points = map { $_ => 1 } ( keys %time_region );
@@ -658,12 +661,10 @@ sub dump_tables {
     }
 
     if ( $separate_desc ) {
-        dump_desc_start;
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
             dump_desc_region_rows( $region );
         }
-        dump_desc_end;
     } ## end if ( $separate_desc )
 
     out_close qw{ body };
