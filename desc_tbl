@@ -18,6 +18,8 @@ our $fname;
 our $oname;
 our $day_column;
 our $unified;
+our $perday;
+our $separate_desc;
 
 our %schedule;
 our %rooms;
@@ -133,6 +135,7 @@ sub read_csv_file {
             $ids{ $id } = 1;
         }
 
+        my $room_name  = $panel{ Room };
         my $difficulty = $panel{ Difficulty };
         my $tokens     = $panel{ Tokens };
         my @classes    = q{Type} . $kind;
@@ -159,11 +162,14 @@ sub read_csv_file {
         $panel{ HRef }       = $id;
         $panel{ Tokens }     = $tokens;
 
-        if ( $panel{ Room } eq q{SPLIT} ) {
+        if ( $room_name =~ m{\ASPLIT}xmsi ) {
             next if $unified;
+            if ( $perday ) {
+                next unless $room_name =~ m{\ASPLITDAY}xmsi;
+            }
             add_split $start, $panel{ Name };
             next;
-        }
+        } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
 
         next if $idx eq q{};
         next if $idx > 90;
@@ -174,7 +180,7 @@ sub read_csv_file {
         my $room = $rooms{ $idx } //= {};
         $panel{ RoomInfo } = $room;
         $room->{ $idx } = $idx;
-        $room->{ name }  //= $panel{ Room };
+        $room->{ name }  //= $room_name;
         $room->{ hotel } //= $panel{ Real_Room };
         $room->{ start }->{ $start } = \%panel;
         $room->{ end }->{ $end }     = \%panel;
@@ -435,7 +441,7 @@ sub dump_room {
 } ## end sub dump_room
 
 sub dump_row {
-    my ( $time, $panels ) = @_;
+    my ( $region, $time, $panels ) = @_;
 
     out_open qw{ tr }, { out_class( qw{ schedtimerow } ) };
 
@@ -450,9 +456,14 @@ sub dump_row {
         );
     } ## end if ( $day_column )
     else {
+        my ( $day, $tm ) = decode_time( $time );
+        if ( $region->{ lasttime } == $time || $region->{ activeday } ne $day ) {
+            $tm = $day . q{ } . $tm;
+            $region->{ activeday } = $day;
+        }
         out_line $h->th(
             { out_class( qw{ schedtime schedtimecolumn } ) },
-            decode_time( $time, qw{ both } )
+            $tm
         );
     } ## end else [ if ( $day_column ) ]
 
@@ -476,9 +487,12 @@ sub dump_region {
     my ( $region ) = @_;
 
     dump_header( $region );
-    my $times = $region->{ row };
-    foreach my $time ( sort { $a <=> $b } keys %{ $times } ) {
-        dump_row( $time, $times->{ $time } );
+    my $rows = $region->{ row };
+    $region->{ activeday } = undef;
+    my @times = sort { $a <=> $b } keys %{ $rows };
+    $region->{ lasttime } = $times[-1];
+    foreach my $time ( @times ) {
+        dump_row( $region, $time, $rows->{ $time } );
     }
     dump_foot( $region );
 } ## end sub dump_region
@@ -576,14 +590,16 @@ sub dump_desc_panel {
     out_close qw{ li };
 } ## end sub dump_desc_panel
 
-sub dump_desc_region {
+sub dump_desc_region_rows {
     my ( $region ) = @_;
 
-    dump_desc_start( $region );
-    my $times = $region->{ row };
-    foreach my $time ( sort { $a <=> $b } keys %{ $times } ) {
+    my $rows = $region->{ row };
+    $region->{ activeday } = undef;
+    my @times = sort { $a <=> $b } keys %{ $rows };
+    $region->{ lasttime } = $times[-1];
+    foreach my $time ( @times ) {
         my $time_seen;
-        my $panels = $times->{ $time };
+        my $panels = $rows->{ $time };
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
             if ( $panel->{ Start_Tm } == $time ) {
@@ -598,6 +614,13 @@ sub dump_desc_region {
             dump_desc_time_end( $region, $time );
         }
     } ## end foreach my $time ( sort { $a...})
+} ## end sub dump_desc_region_rows
+
+sub dump_desc_region {
+    my ( $region ) = @_;
+
+    dump_desc_start( $region );
+    dump_desc_region_rows( $region );
     dump_desc_end( $region );
 } ## end sub dump_desc_region
 
@@ -631,8 +654,18 @@ sub dump_tables {
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
         dump_region( $region );
-        dump_desc_region( $region );
-    } ## end foreach my $region_time ( sort...)
+        dump_desc_region( $region ) unless $separate_desc;
+    }
+
+    if ( $separate_desc ) {
+        dump_desc_start;
+        foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+            my $region = $time_region{ $region_time };
+            dump_desc_region_rows( $region );
+        }
+        dump_desc_end;
+    } ## end if ( $separate_desc )
+
     out_close qw{ body };
     out_close qw{ html };
 
@@ -648,10 +681,12 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{input=s}  => \$fname,
-        q{output=s} => \$oname,
-        q{day!}     => \$day_column,
-        q{unified!} => \$unified
+        q{input=s}   => \$fname,
+        q{output=s}  => \$oname,
+        q{day!}      => \$day_column,
+        q{unified!}  => \$unified,
+        q{perday!}   => \$perday,
+        q{separate!} => \$separate_desc,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $fname //= shift @args;
