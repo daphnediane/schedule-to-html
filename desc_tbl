@@ -174,7 +174,7 @@ sub read_csv_file {
         } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
 
         next if $idx eq q{};
-        next if $idx > 90;
+        next if $idx > 100;
 
         add_time $start;
         add_time $end;
@@ -203,6 +203,7 @@ sub make_time_ranges {
     my $active_range;
     my %active_panels;
     my $last_time;
+    my %empty_times;
 
     my $process_time = sub {
         my ( $time ) = @_;
@@ -224,9 +225,16 @@ sub make_time_ranges {
         foreach my $panel ( values %active_panels ) {
             ++$panel->{ Table_Rows };
         }
-        if ( defined $last_time || %active_panels ) {
+        if ( %active_panels ) {
+            foreach my $empty ( keys %empty_times ) {
+                $active_range->{ row }->{ $empty } = $empty_times{ $empty };
+            }
             $active_range->{ row }->{ $time } = { %active_panels };
             $last_time = $time;
+            %empty_times = ();
+        }
+        elsif ( defined $last_time ) {
+            $empty_times{ $time } = { %active_panels };
         }
         return;
     };
@@ -264,6 +272,7 @@ sub make_time_ranges {
             } ## end foreach my $room_idx ( keys...)
             $active_range = $next_range;
             undef $last_time;
+            %empty_times = ();
         } ## end if ( defined $next_range)
         elsif ( %active_panels ) {
             $process_half_hours->( $split_time );
@@ -503,6 +512,18 @@ sub dump_region {
     dump_foot( $region );
 } ## end sub dump_region
 
+sub dump_desc_start {
+my ( $region ) = @_;
+
+out_open qw{ div }, { out_class( qw{ descriptions } ) };
+}
+
+sub dump_desc_end {
+    my ( $region ) = @_;
+
+out_close qw{ div };
+}
+
 sub dump_desc_time_start {
     my ( $region, $time ) = @_;
 
@@ -519,17 +540,11 @@ sub dump_desc_time_start {
         )
     );
     out_open qw{ tbody };
-    out_open qw{ tr }, { out_class( qw{desctimebody} ) };
-    out_open qw{ td };
-    out_open qw{ ul }, { out_class( qw{desctimebody} ) };
 } ## end sub dump_desc_time_start
 
 sub dump_desc_time_end {
     my ( $region, $time ) = @_;
 
-    out_close qw{ ul };
-    out_close qw{ td };
-    out_close qw{ tr };
     out_close qw{ tbody };
     out_close qw{ table };
 } ## end sub dump_desc_time_end
@@ -549,7 +564,8 @@ sub dump_desc_panel {
 
     my @classes = ( q{}, @{ $panel->{ Class } } );
 
-    out_open qw{ li },
+    out_open qw{ tr }, { out_class( qw{desctimebody} ) };
+    out_open qw{ td },
         {
         id => $panel->{ HRef },
         out_class( map { q{desc} . $_ } @classes )
@@ -594,7 +610,8 @@ sub dump_desc_panel {
             q{Difficulty level: } . $difficulty
         );
     } ## end if ( defined $difficulty)
-    out_close qw{ li };
+    out_close qw{ td };
+    out_close qw{ tr };
 } ## end sub dump_desc_panel
 
 sub dump_desc_region_rows {
@@ -626,7 +643,9 @@ sub dump_desc_region_rows {
 sub dump_desc_region {
     my ( $region ) = @_;
 
+dump_desc_start( $region );
     dump_desc_region_rows( $region );
+    dump_desc_end( $region );
 }
 
 sub dump_tables {
@@ -644,6 +663,7 @@ sub dump_tables {
     out_open qw{ html };
     out_open qw{ head };
     out_line $h->meta( { charset => q{UTF-8} } );
+    out_line $h->meta( { name=>q{apple-mobile-web-app-capable}, content=>q{yes}});
     out_line $h->title( q{Cosplay America 2019 Schedule} );
     out_line $h->link(
         {   href =>
@@ -684,10 +704,12 @@ sub dump_tables {
     }
 
     if ( $separate_desc ) {
+        dump_desc_start( );
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
             dump_desc_region_rows( $region );
         }
+        dump_desc_end( );
     } ## end if ( $separate_desc )
 
     out_close qw{ body };
