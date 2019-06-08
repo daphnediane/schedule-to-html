@@ -140,6 +140,7 @@ sub read_csv_file {
         my $room_name  = $panel{ Room };
         my $difficulty = $panel{ Difficulty };
         my $tokens     = $panel{ Tokens };
+        my $full       = $panel{ Full };
         my @classes    = q{Type} . $kind;
         if ( $difficulty =~ m{\A\d+\z}xms ) {
             push @classes, q{Difficulty} . $difficulty;
@@ -153,6 +154,12 @@ sub read_csv_file {
             $tokens =~ s{\s*\z}{}xms;
             $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
         } ## end if ( defined $tokens )
+        if ( $full =~ m{\Anot??}xms || $full eq q{} ) {
+            undef $full;
+        }
+        if ( defined $full ) {
+            push @classes, q{Full};
+        }
 
         if ( $panel{ Kind } eq $CAFE ) {
             $panel{ Cafe } = 1;
@@ -163,6 +170,7 @@ sub read_csv_file {
         $panel{ Class }      = \@classes;
         $panel{ HRef }       = $id;
         $panel{ Tokens }     = $tokens;
+        $panel{ Full }       = $full;
 
         if ( $room_name =~ m{\ASPLIT}xmsi ) {
             next if $unified;
@@ -174,7 +182,7 @@ sub read_csv_file {
         } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
 
         next if $idx eq q{};
-        next if $idx > 100;
+        next if $idx >= 100;
 
         add_time $start;
         add_time $end;
@@ -230,9 +238,9 @@ sub make_time_ranges {
                 $active_range->{ row }->{ $empty } = $empty_times{ $empty };
             }
             $active_range->{ row }->{ $time } = { %active_panels };
-            $last_time = $time;
-            %empty_times = ();
-        }
+            $last_time                        = $time;
+            %empty_times                      = ();
+        } ## end if ( %active_panels )
         elsif ( defined $last_time ) {
             $empty_times{ $time } = { %active_panels };
         }
@@ -356,13 +364,18 @@ sub dump_labels {
         q{Time}
     );
     foreach my $idx ( @room_ids ) {
+        my $hotel = $rooms{ $idx }->{ hotel };
+        my $name  = $rooms{ $idx }->{ name };
+        if ( $hotel ne $name ) {
+            $name = $hotel . $h->br() . $name;
+        }
         out_line $h->th(
             {   out_class(
                     qw{schedhead schedloccolumn roomloc},
                     $kind eq q{head} ? qq{schedloc${idx}column} : ()
                 )
             },
-            $rooms{ $idx }->{ hotel } . $h->br() . $rooms{ $idx }->{ name }
+            $name
         );
     } ## end foreach my $idx ( @room_ids)
 
@@ -433,6 +446,12 @@ sub dump_room {
     out_line $h->div( { out_class( qw{ panelid } ) }, $panel->{ Uniq_ID } );
     out_open q{a}, { href => q{#} . $panel->{ HRef } };
 
+    if ( $panel->{ Full } ) {
+        out_line $h->div(
+            { out_class( qw{ panelfulllabel } ) },
+            q{Workshop is Full}
+        );
+    } ## end if ( $panel->{ Full } )
     out_line $h->span( { out_class( qw{ panelname } ) }, $name );
 
     if ( defined $tokens ) {
@@ -513,15 +532,15 @@ sub dump_region {
 } ## end sub dump_region
 
 sub dump_desc_start {
-my ( $region ) = @_;
+    my ( $region ) = @_;
 
-out_open qw{ div }, { out_class( qw{ descriptions } ) };
+    out_open qw{ div }, { out_class( qw{ descriptions } ) };
 }
 
 sub dump_desc_end {
     my ( $region ) = @_;
 
-out_close qw{ div };
+    out_close qw{ div };
 }
 
 sub dump_desc_time_start {
@@ -591,16 +610,30 @@ sub dump_desc_panel {
     if ( $panelist =~ m{\S}xms ) {
         out_line $h->p( { out_class( qw{ descpanelist} ) }, $panelist );
     }
+
+    my $descbody = $panel->{ Description };
     out_line $h->p(
         { out_class( qw{ descbody } ) },
         $panel->{ Description }
     );
+
+    my @note;
     if ( defined $panel->{ Note } ) {
+        push @note, $h->i( $panel->{ Note } );
+    }
+    if ( defined $panel->{ Full } ) {
+        push @note,
+            $h->span(
+            { out_class( qw{ descfulllabel } ) },
+            q{This workshop is full.}
+            );
+    } ## end if ( defined $panel->{...})
+    if ( @note ) {
         out_line $h->p(
             { out_class( qw{ descnote } ) },
-            $h->i( $panel->{ Note } )
+            join q{ }, @note
         );
-    } ## end if ( defined $panel->{...})
+    } ## end if ( @note )
     if ( defined $difficulty ) {
         out_line $h->p(
             {   out_class(
@@ -643,10 +676,10 @@ sub dump_desc_region_rows {
 sub dump_desc_region {
     my ( $region ) = @_;
 
-dump_desc_start( $region );
+    dump_desc_start( $region );
     dump_desc_region_rows( $region );
     dump_desc_end( $region );
-}
+} ## end sub dump_desc_region
 
 sub dump_tables {
     my %time_points = map { $_ => 1 } ( keys %time_region );
@@ -663,7 +696,8 @@ sub dump_tables {
     out_open qw{ html };
     out_open qw{ head };
     out_line $h->meta( { charset => q{UTF-8} } );
-    out_line $h->meta( { name=>q{apple-mobile-web-app-capable}, content=>q{yes}});
+    out_line $h->meta(
+        { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
     out_line $h->title( q{Cosplay America 2019 Schedule} );
     out_line $h->link(
         {   href =>
@@ -671,6 +705,7 @@ sub dump_tables {
             rel => q{stylesheet}
         }
     );
+
     if ( defined $inline_style ) {
         my $lines = read_file(
             $inline_style,
@@ -704,12 +739,12 @@ sub dump_tables {
     }
 
     if ( $separate_desc ) {
-        dump_desc_start( );
+        dump_desc_start();
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
             dump_desc_region_rows( $region );
         }
-        dump_desc_end( );
+        dump_desc_end();
     } ## end if ( $separate_desc )
 
     out_close qw{ body };
