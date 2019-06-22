@@ -35,12 +35,25 @@ Readonly our $FIELD_ROOM_INFO          => q{*ROOM_INFO};
 Readonly our $FIELD_ROOM_NAME          => q{*NAME};
 Readonly our $FIELD_START_TIME_SECONDS => q{*START_SEC};
 Readonly our $FIELD_TABLE_ROWS         => q{*NUM_ROWS};
-Readonly our $HTML_TABLE               => $HTML_TABLE;
+Readonly our $HTML_ANCHOR              => q{a};
+Readonly our $HTML_BODY                => q{body};
+Readonly our $HTML_COLGROUP            => q{colgroup};
+Readonly our $HTML_DIV                 => q{div};
+Readonly our $HTML_HEAD                => q{head};
+Readonly our $HTML_HTML                => q{html};
+Readonly our $HTML_TABLE               => q{table};
+Readonly our $HTML_TABLE_BODY          => q{tbody};
+Readonly our $HTML_TABLE_DATA          => q{td};
+Readonly our $HTML_TABLE_FOOT          => q{tfoot};
+Readonly our $HTML_TABLE_HEAD          => q{thead};
+Readonly our $HTML_TABLE_ROW           => q{tr};
+Readonly our $TABLE_DESCRIPTION        => q{Description};
 Readonly our $TABLE_DIFFICULTY         => q{Difficulty};
 Readonly our $TABLE_END_TIME           => q{End_Time};
 Readonly our $TABLE_FULL               => q{Full};
 Readonly our $TABLE_HOTEL_ROOM         => q{Real_Room};
 Readonly our $TABLE_KIND               => q{Kind};
+Readonly our $TABLE_NOTE               => q{Note};
 Readonly our $TABLE_PANEL_NAME         => q{Name};
 Readonly our $TABLE_PANELIST           => q{Panelist};
 Readonly our $TABLE_ROOM_INDEX         => q{Room_Idx};
@@ -311,7 +324,7 @@ sub make_time_ranges {
             {
                 my $region_info
                     = $new_panel->{ $FIELD_BY_REGION }->{ $active_time }
-                    //= {};
+                    //= {};    # fix visual code formating error */
                 $region_info->{ $FIELD_TABLE_ROWS } //= 0;
                 $region_info->{ $FIELD_START_TIME_SECONDS } = $time;
                 $active_panels{ $room_idx } = $new_panel;
@@ -321,6 +334,8 @@ sub make_time_ranges {
         foreach my $panel ( values %active_panels ) {
             my $region_info = $panel->{ $FIELD_BY_REGION }->{ $active_time }
                 //= {};
+
+            # fix visual code formating error */
             ++$region_info->{ $FIELD_TABLE_ROWS };
             my $gmap = $panel->{ $FIELD_GUEST_MAP };
             if ( defined $gmap ) {
@@ -464,7 +479,8 @@ sub dump_labels {
     if ( $day_column ) {
         out_line $h->th(
             {   out_class(
-                    qw{schedhead}, $kind eq q{head} ? qw{scheddaycolumn} : ()
+                    qw{schedhead},
+                    $kind eq $HTML_TABLE_HEAD ? qw{scheddaycolumn} : ()
                 )
             },
             q{Day}
@@ -472,7 +488,8 @@ sub dump_labels {
     } ## end if ( $day_column )
     out_line $h->th(
         {   out_class(
-                qw{schedhead}, $kind eq q{head} ? qw{schedtimecolumn} : ()
+                qw{schedhead},
+                $kind eq $HTML_TABLE_HEAD ? qw{schedtimecolumn} : ()
             )
         },
         q{Time}
@@ -486,7 +503,7 @@ sub dump_labels {
         out_line $h->th(
             {   out_class(
                     qw{schedhead schedloccolumn roomloc},
-                    $kind eq q{head} ? qq{schedloc${idx}column} : ()
+                    $kind eq $HTML_TABLE_HEAD ? qq{schedloc${idx}column} : ()
                 )
             },
             $name
@@ -500,7 +517,7 @@ sub dump_header {
 
     out_open $HTML_TABLE, { out_class( qw{ schedule } ) };
 
-    out_open qw{ colgroup };
+    out_open $HTML_COLGROUP;
     if ( $day_column ) {
         out_line $h->col( { out_class( qw{ scheddaycolumn } ) } );
     }
@@ -508,15 +525,15 @@ sub dump_header {
     foreach my $idx ( @room_ids ) {
         out_line $h->col( { class => qq{schedloc${idx}column} } );
     }
-    out_close qw{ colgroup };
+    out_close $HTML_COLGROUP;
 
-    out_open qw{ thead };
-    out_open qw{ tr }, { out_class( qq{schedheadrow} ) };
-    dump_labels qw{ head };
-    out_close qw{ tr };
-    out_close qw{ thead };
+    out_open $HTML_TABLE_HEAD;
+    out_open $HTML_TABLE_ROW, { out_class( qq{schedheadrow} ) };
+    dump_labels $HTML_TABLE_HEAD;
+    out_close $HTML_TABLE_ROW;
+    out_close $HTML_TABLE_HEAD;
 
-    out_open qw{ tbody };
+    out_open $HTML_TABLE_BODY;
 } ## end sub dump_header
 
 sub dump_room {
@@ -553,7 +570,7 @@ sub dump_room {
     }
 
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
-    out_open qw{ td },
+    out_open $HTML_TABLE_DATA,
         {
         id      => $panel->{ $FIELD_CSS_HREF } . q{Grid},
         rowspan => ( $region_info->{ $FIELD_TABLE_ROWS } // 1 ),
@@ -567,7 +584,7 @@ sub dump_room {
         { out_class( qw{ panelid } ) },
         $panel->{ $TABLE_UNIQUE_ID }
     );
-    out_open q{a}, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
+    out_open $HTML_ANCHOR, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
 
     if ( $panel->{ $TABLE_FULL } ) {
         out_line $h->div(
@@ -591,8 +608,8 @@ sub dump_room {
         );
     } ## end if ( $panelist =~ m{\S}xms)
 
-    out_close qw{ a };
-    out_close qw{ td };
+    out_close $HTML_ANCHOR;
+    out_close $HTML_TABLE_DATA;
 } ## end sub dump_room
 
 sub dump_row {
@@ -609,7 +626,7 @@ sub dump_row {
         push @time_classes,     qw{ schedtimeguest };
     } ## end if ( defined $guest &&...)
 
-    out_open qw{ tr }, { out_class( @time_row_classes ) };
+    out_open $HTML_TABLE_ROW, { out_class( @time_row_classes ) };
 
     if ( $day_column ) {
         out_line $h->th(
@@ -638,16 +655,16 @@ sub dump_row {
     foreach my $idx ( @room_ids ) {
         dump_room( $region, $guest, $time, $idx, $panels->{ $idx } );
     }
-    out_close qw{ tr };
+    out_close $HTML_TABLE_ROW;
 } ## end sub dump_row
 
 sub dump_foot {
-    out_close qw{ tbody };
-    out_open qw{ tfoot };
-    out_open qw{ tr }, { out_class( qq{schedheadrow} ) };
-    dump_labels qw{ foot };
-    out_close qw{ tr };
-    out_close qw{ tfoot };
+    out_close $HTML_TABLE_BODY;
+    out_open $HTML_TABLE_FOOT;
+    out_open $HTML_TABLE_ROW, { out_class( qq{schedheadrow} ) };
+    dump_labels $HTML_TABLE_FOOT;
+    out_close $HTML_TABLE_ROW;
+    out_close $HTML_TABLE_FOOT;
     out_close $HTML_TABLE;
 } ## end sub dump_foot
 
@@ -668,22 +685,22 @@ sub dump_region {
 sub dump_desc_start {
     my ( $region ) = @_;
 
-    out_open qw{ div }, { out_class( qw{ descriptions } ) };
+    out_open $HTML_DIV, { out_class( qw{ descriptions } ) };
 }
 
 sub dump_desc_end {
     my ( $region ) = @_;
 
-    out_close qw{ div };
+    out_close $HTML_DIV;
 }
 
 sub dump_desc_time_start {
     my ( $region, $time ) = @_;
 
     out_open $HTML_TABLE, { out_class( qw{ desctime } ) };
-    out_open qw{ colgroup };
+    out_open $HTML_COLGROUP;
     out_line $h->col( { out_class( qw{ desccol } ) } );
-    out_close qw{ colgroup };
+    out_close $HTML_COLGROUP;
     out_line $h->thead(
         { out_class( qw{desctimeheader} ) },
         $h->tr(
@@ -692,13 +709,13 @@ sub dump_desc_time_start {
             )
         )
     );
-    out_open qw{ tbody };
+    out_open $HTML_TABLE_BODY;
 } ## end sub dump_desc_time_start
 
 sub dump_desc_time_end {
     my ( $region, $time ) = @_;
 
-    out_close qw{ tbody };
+    out_close $HTML_TABLE_BODY;
     out_close $HTML_TABLE;
 } ## end sub dump_desc_time_end
 
@@ -717,8 +734,8 @@ sub dump_desc_panel {
 
     my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
 
-    out_open qw{ tr }, { out_class( qw{desctimebody} ) };
-    out_open qw{ td },
+    out_open $HTML_TABLE_ROW, { out_class( qw{desctimebody} ) };
+    out_open $HTML_TABLE_DATA,
         {
         id => $panel->{ $FIELD_CSS_HREF },
         out_class( map { q{desc} . $_ } @classes )
@@ -748,15 +765,15 @@ sub dump_desc_panel {
         out_line $h->p( { out_class( qw{ descpanelist} ) }, $panelist );
     }
 
-    my $descbody = $panel->{ Description };
+    my $descbody = $panel->{ $TABLE_DESCRIPTION };
     out_line $h->p(
         { out_class( qw{ descbody } ) },
-        $panel->{ Description }
+        $panel->{ $TABLE_DESCRIPTION }
     );
 
     my @note;
-    if ( defined $panel->{ Note } ) {
-        push @note, $h->i( $panel->{ Note } );
+    if ( defined $panel->{ $TABLE_NOTE } ) {
+        push @note, $h->i( $panel->{ $TABLE_NOTE } );
     }
     if ( defined $panel->{ $TABLE_FULL } ) {
         push @note,
@@ -780,8 +797,8 @@ sub dump_desc_panel {
             q{Difficulty level: } . $difficulty
         );
     } ## end if ( defined $difficulty)
-    out_close qw{ td };
-    out_close qw{ tr };
+    out_close $HTML_TABLE_DATA;
+    out_close $HTML_TABLE_ROW;
 } ## end sub dump_desc_panel
 
 sub dump_desc_region_rows {
@@ -870,8 +887,8 @@ sub dump_tables {
     } ## end else [ if ( $oname eq q{-} ) ]
 
     say { $ofh } q{<!doctype html>};
-    out_open qw{ html };
-    out_open qw{ head };
+    out_open $HTML_HTML;
+    out_open $HTML_HEAD;
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
@@ -906,8 +923,8 @@ sub dump_tables {
             }
         );
     } ## end if ( !defined $inline_style)
-    out_close qw{ head };
-    out_open qw{ body };
+    out_close $HTML_HEAD;
+    out_open $HTML_BODY;
 
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
@@ -922,8 +939,8 @@ sub dump_tables {
         }
     } ## end if ( $separate_desc )
 
-    out_close qw{ body };
-    out_close qw{ html };
+    out_close $HTML_BODY;
+    out_close $HTML_HTML;
 
     if ( $oname ne q{-} ) {
         $ofh->close
