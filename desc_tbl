@@ -3,6 +3,7 @@
 use common::sense;
 use utf8;
 use Text::CSV;
+use File::Spec;
 use Date::Parse qw{ str2time };
 use POSIX qw{ strftime };
 use HTML::Tiny qw{};
@@ -22,7 +23,9 @@ our $unified;
 our $perday;
 our $separate_desc;
 our $inline_style;
+our $split_guest;
 
+our %guests;
 our %schedule;
 our %rooms;
 our %time_region;
@@ -90,6 +93,17 @@ sub add_time {
     $schedule{ $time } = 1;
 }
 
+sub santize_hdr {
+    my ( $hdr ) = @_;
+    $hdr =~ s{\s+}{_}xmsg;
+    $hdr =~ s{/}{_}xmsg;
+    $hdr =~ s{[().,]}{_}xmsg;
+    $hdr =~ s{_+}{_}xmsg;
+    $hdr =~ s{\A_}{}xmsg;
+    $hdr =~ s{_\z}{}xmsg;
+    return $hdr;
+}
+
 sub read_csv_file {
     open my $fh, "<:encoding(utf16)", $fname
         or die qq{Unable to read: $fname\n};
@@ -99,15 +113,16 @@ sub read_csv_file {
 
     my %ids;
 
+    my $in_guest_columns;
     while ( my $raw = splitline( $fh ) ) {
         last unless defined $raw;
         my %panel;
         foreach my $index ( keys @{ $raw } ) {
             my $header_text = $header->[ $index ];
-            my $header_alt  = $header_text;
-            $header_alt =~ s{\s+}{_}xmsg;
-            $header_alt =~ s{/}{_}xmsg;
-            $header_alt =~ s{_+}{_}xmsg;
+            my $header_alt  = santize_hdr( $header_text );
+
+            undef $in_guest_columns if $header_alt =~ m{\AStaff\z}xmsi;
+
             my $raw_text = $raw->[ $index ];
             if ( $raw_text =~ m{\s} ) {
                 $raw_text =~ s{\A \s*}{}xms;
@@ -116,6 +131,18 @@ sub read_csv_file {
             $raw_text = undef if $raw_text eq q{};
             $panel{ $header_text } = $raw_text;
             $panel{ $header_alt }  = $raw_text;
+
+            if ( $in_guest_columns && defined $raw_text ) {
+                my @guests = ( $header_text );
+                if ( $header_alt =~ m{\AOther_Guests?\z}xmsi ) {
+                    @guests = split m{\s*,\s*}xms, $raw_text;
+                }
+                foreach my $guest ( @guests ) {
+                    $guests{ $guest } = santize_hdr( $guest );
+                    $panel{ GuestMap }->{ $guest } = 1;
+                }
+            }
+            $in_guest_columns = 1 if $header_alt =~ m{\AGuests\z}xmsi;
         } ## end foreach my $index ( keys @{...})
         next unless defined $panel{ Start_Time };
         next unless $panel{ Name } =~ m{\S}xms;
@@ -406,7 +433,7 @@ sub dump_header {
 } ## end sub dump_header
 
 sub dump_room {
-    my ( $time, $idx, $panel ) = @_;
+    my ( $guest, $time, $idx, $panel ) = @_;
 
     if ( !defined $panel ) {
         out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->},
@@ -431,6 +458,9 @@ sub dump_room {
     }
 
     my @classes = ( q{}, @{ $panel->{ Class } } );
+    if ( $panel->{ GuestMap }->{ $guest} ) {
+        push @classes, q{SelectedGuest};
+    }
 
     out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->};
     out_open qw{ td },
@@ -473,7 +503,7 @@ sub dump_room {
 } ## end sub dump_room
 
 sub dump_row {
-    my ( $region, $time, $panels ) = @_;
+    my ( $region, $guest, $time, $panels ) = @_;
 
     out_open qw{ tr }, { out_class( qw{ schedtimerow } ) };
 
@@ -502,7 +532,7 @@ sub dump_row {
     } ## end else [ if ( $day_column ) ]
 
     foreach my $idx ( @room_ids ) {
-        dump_room( $time, $idx, $panels->{ $idx } );
+        dump_room( $guest, $time, $idx, $panels->{ $idx } );
     }
     out_close qw{ tr };
 } ## end sub dump_row
@@ -518,7 +548,7 @@ sub dump_foot {
 } ## end sub dump_foot
 
 sub dump_region {
-    my ( $region ) = @_;
+    my ( $region, $guest ) = @_;
 
     dump_header( $region );
     my $rows = $region->{ row };
@@ -526,7 +556,7 @@ sub dump_region {
     my @times = sort { $a <=> $b } keys %{ $rows };
     $region->{ lasttime } = $times[ -1 ];
     foreach my $time ( @times ) {
-        dump_row( $region, $time, $rows->{ $time } );
+        dump_row( $region, $guest, $time, $rows->{ $time } );
     }
     dump_foot( $region );
 } ## end sub dump_region
@@ -648,7 +678,7 @@ sub dump_desc_panel {
 } ## end sub dump_desc_panel
 
 sub dump_desc_region_rows {
-    my ( $region ) = @_;
+    my ( $region, $guest ) = @_;
 
     my $rows = $region->{ row };
     $region->{ activeday } = undef;
@@ -659,6 +689,9 @@ sub dump_desc_region_rows {
         my $panels           = $rows->{ $time };
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
+            if ( defined $guest ) {
+                next unless $panel->{ GuestMap}->{ $guest };
+            }
             if ( $panel->{ Start_Tm } == $time ) {
                 if ( $need_time_header ) {
                     dump_desc_time_start( $region, $time );
@@ -674,22 +707,34 @@ sub dump_desc_region_rows {
 } ## end sub dump_desc_region_rows
 
 sub dump_desc_region {
-    my ( $region ) = @_;
+    my ( $region, $guest ) = @_;
 
     dump_desc_start( $region );
-    dump_desc_region_rows( $region );
+    dump_desc_region_rows( $region, $guest );
     dump_desc_end( $region );
 } ## end sub dump_desc_region
 
 sub dump_tables {
+    my ( $guest ) = @_;
+    my $guest_file = $guests{ $guest };
+    undef $guest unless defined $guest_file;
+
     my %time_points = map { $_ => 1 } ( keys %time_region );
+    my $ofname = $oname;
 
     if ( $oname eq q{-} ) {
+        $ofname = "<STDOUT>";
         $ofh = \*STDOUT;
     }
     else {
-        open $ofh, ">:encoding(utf8)", $oname
-            or die qq{Unable to write: $oname\n};
+        if ( -d $oname ) {
+            $ofname = File::Spec->catfile( $oname, ( $guest_file || q{index} ) . q{.html} );
+        }
+        elsif ( $guest_file ) {
+            $ofname = $oname . q{.} . $guest_file . q{.html};
+        }
+        open $ofh, ">:encoding(utf8)", $ofname
+            or die qq{Unable to write: $ofname\n};
     }
 
     say { $ofh } q{<!doctype html>};
@@ -734,15 +779,15 @@ sub dump_tables {
 
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
-        dump_region( $region );
-        dump_desc_region( $region ) unless $separate_desc;
+        dump_region( $region, $guest );
+        dump_desc_region( $region, $guest ) unless $separate_desc;
     }
 
     if ( $separate_desc ) {
         dump_desc_start();
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
-            dump_desc_region_rows( $region );
+            dump_desc_region_rows( $region, $guest );
         }
         dump_desc_end();
     } ## end if ( $separate_desc )
@@ -752,9 +797,9 @@ sub dump_tables {
 
     if ( $oname ne q{-} ) {
         $ofh->close
-            or die qq{Unable to close $oname: $!\n};
+            or die qq{Unable to close $ofname: $!\n};
     }
-
+    undef $ofh;
 } ## end sub dump_tables
 
 sub main {
@@ -768,7 +813,8 @@ sub main {
         q{unified!}  => \$unified,
         q{perday!}   => \$perday,
         q{separate!} => \$separate_desc,
-        q{style=s}   => \$inline_style
+        q{style=s}   => \$inline_style,
+        q{guests!} => \$split_guest,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $fname //= shift @args;
@@ -779,6 +825,11 @@ sub main {
 
     make_time_ranges;
 
+if( $split_guest ) {
+    foreach my $guest ( keys %guests ) {
+        dump_tables( $guest );
+    }
+}
     dump_tables;
 } ## end sub main
 
