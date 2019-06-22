@@ -84,8 +84,11 @@ sub time_split {
 
 sub add_split {
     my ( $time, $name ) = @_;
-    $time_region{ $time }->{ name } = $name;
-}
+    my $region = $time_region{ $time } //= {};
+    $region->{ name } //= $name;
+    $region->{ time } = $time;
+    return $region;
+} ## end sub add_split
 
 sub add_time {
     my ( $time ) = @_;
@@ -102,7 +105,7 @@ sub santize_hdr {
     $hdr =~ s{\A_}{}xmsg;
     $hdr =~ s{_\z}{}xmsg;
     return $hdr;
-}
+} ## end sub santize_hdr
 
 sub read_csv_file {
     open my $fh, "<:encoding(utf16)", $fname
@@ -141,7 +144,7 @@ sub read_csv_file {
                     $guests{ $guest } = santize_hdr( $guest );
                     $panel{ GuestMap }->{ $guest } = 1;
                 }
-            }
+            } ## end if ( $in_guest_columns...)
             $in_guest_columns = 1 if $header_alt =~ m{\AGuests\z}xmsi;
         } ## end foreach my $index ( keys @{...})
         next unless defined $panel{ Start_Time };
@@ -191,13 +194,12 @@ sub read_csv_file {
         if ( $panel{ Kind } eq $CAFE ) {
             $panel{ Cafe } = 1;
         }
-        $panel{ Start_Tm }   = $start;
-        $panel{ End_Tm }     = $end;
-        $panel{ Table_Rows } = 0;
-        $panel{ Class }      = \@classes;
-        $panel{ HRef }       = $id;
-        $panel{ Tokens }     = $tokens;
-        $panel{ Full }       = $full;
+        $panel{ Start_Tm } = $start;
+        $panel{ End_Tm }   = $end;
+        $panel{ Class }    = \@classes;
+        $panel{ HRef }     = $id;
+        $panel{ Tokens }   = $tokens;
+        $panel{ Full }     = $full;
 
         if ( $room_name =~ m{\ASPLIT}xmsi ) {
             next if $unified;
@@ -231,11 +233,25 @@ sub read_csv_file {
 
 } ## end sub read_csv_file
 
+sub add_guest_conflicts {
+    my ( $panel, @guests ) = @_;
+    my $gmap = $panel->{ GuestMap };
+    my $cmap;
+    foreach my $guest ( @guests ) {
+        next if $gmap->{ $guest };
+        $cmap //= $panel->{ GuestConflict } //= {};
+        next if $cmap->{ $guest };
+        $cmap->{ $guest } = 1;
+    } ## end foreach my $guest ( @guests)
+    return;
+} ## end sub add_guest_conflicts
+
 sub make_time_ranges {
     my %time_points = map { $_ => 1 } ( keys %time_region, keys %schedule );
     my @time_points = sort { $a <=> $b } keys %time_points;
 
     my $active_range;
+    my $active_time;
     my %active_panels;
     my $last_time;
     my %empty_times;
@@ -253,18 +269,37 @@ sub make_time_ranges {
                 }
             } ## end if ( exists $active_panels...)
             if ( defined( my $new_panel = $room->{ start }->{ $time } ) ) {
-                $new_panel->{ Table_Start } = $time;
+                my $region_info
+                    = ( $new_panel->{ Region }->{ $active_time } //= {} );
+                $region_info->{ Table_Rows } //= 0;
+                $region_info->{ Table_Start } = $time;
                 $active_panels{ $room_idx } = $new_panel;
-            }
+            } ## end if ( defined( my $new_panel...))
         } ## end foreach my $room_idx ( @room_ids)
+        my %active_guest;
         foreach my $panel ( values %active_panels ) {
-            ++$panel->{ Table_Rows };
-        }
+            my $region_info = $panel->{ Region }->{ $active_time } //= {};
+            ++$region_info->{ Table_Rows };
+            my $gmap = $panel->{ GuestMap };
+            if ( defined $gmap ) {
+                foreach my $guest ( keys %{ $gmap } ) {
+                    $active_guest{ $guest } = 1 if $gmap->{ $guest };
+                }
+            }
+        } ## end foreach my $panel ( values ...)
         if ( %active_panels ) {
             foreach my $empty ( keys %empty_times ) {
                 $active_range->{ row }->{ $empty } = $empty_times{ $empty };
             }
-            $active_range->{ row }->{ $time } = { %active_panels };
+            my $panels = { %active_panels };
+            $panels->{ GuestMap } = \%active_guest;
+            if ( %active_guest ) {
+                foreach my $panel ( values %active_panels ) {
+                    add_guest_conflicts( $panel, keys %active_guest );
+                }
+            }
+
+            $active_range->{ row }->{ $time } = $panels;
             $last_time                        = $time;
             %empty_times                      = ();
         } ## end if ( %active_panels )
@@ -289,29 +324,25 @@ sub make_time_ranges {
     };
 
     foreach my $split_time ( @time_points ) {
-        if ( !defined $active_range ) {
-            $time_region{ $split_time }->{ name } //= q{Before Convention};
-        }
         my $next_range = $time_region{ $split_time };
+        if ( !defined $active_range && !defined $next_range ) {
+            $next_range = add_split( $split_time, q{Before Convention} );
+        }
 
+        if ( %active_panels ) {
+            $process_half_hours->( $split_time );
+        }
         if ( defined $next_range ) {
-            if ( %active_panels ) {
-                $process_half_hours->( $split_time );
+            foreach my $panel ( values %active_panels ) {
+                my $region_info = $panel->{ Region }->{ $split_time } //= {};
+                $region_info->{ Table_Rows }  = 0;
+                $region_info->{ Table_Start } = $split_time;
             }
-            foreach my $room_idx ( keys %active_panels ) {
-                my %panel = %{ $active_panels{ $room_idx } };
-                $panel{ across_region }     = 1;
-                $panel{ Table_Rows }        = 0;
-                $panel{ Table_Start }       = $split_time;
-                $active_panels{ $room_idx } = \%panel;
-            } ## end foreach my $room_idx ( keys...)
             $active_range = $next_range;
+            $active_time  = $split_time;
             undef $last_time;
             %empty_times = ();
         } ## end if ( defined $next_range)
-        elsif ( %active_panels ) {
-            $process_half_hours->( $split_time );
-        }
         $process_time->( $split_time );
     } ## end foreach my $split_time ( @time_points)
 } ## end sub make_time_ranges
@@ -350,6 +381,18 @@ sub out_class {
     return if $res eq q{};
     return class => $res;
 } ## end sub out_class
+
+sub has_guest {
+    my ( $panels, $guest, @invalid_result ) = @_;
+    return @invalid_result unless defined $guest;
+    return @invalid_result unless exists $guests{ $guest };
+    foreach my $idx ( @room_ids ) {
+        my $panel = $panels->{ $idx };
+        next unless defined $panel;
+        return 1 if $panel->{ GuestMap }->{ $guest };
+    }
+    return;
+} ## end sub has_guest
 
 sub decode_time {
     my ( $time, $field ) = @_;
@@ -433,14 +476,16 @@ sub dump_header {
 } ## end sub dump_header
 
 sub dump_room {
-    my ( $guest, $time, $idx, $panel ) = @_;
+    my ( $region, $guest, $time, $idx, $panel ) = @_;
 
     if ( !defined $panel ) {
         out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->},
             $h->td( { out_class( qw{ empty } ) } );
         return;
     }
-    if ( $panel->{ Table_Start } ne $time ) {
+
+    my $region_info = $panel->{ Region }->{ $region->{ time } } // {};
+    if ( $region_info->{ Table_Start } ne $time ) {
         out_line q{<!--}, $rooms{ $idx }->{ name }, q{ },
             $panel->{ Uniq_ID }, q{ continued-->};
         return;
@@ -458,7 +503,7 @@ sub dump_room {
     }
 
     my @classes = ( q{}, @{ $panel->{ Class } } );
-    if ( $panel->{ GuestMap }->{ $guest} ) {
+    if ( $panel->{ GuestMap }->{ $guest } ) {
         push @classes, q{SelectedGuest};
     }
 
@@ -466,7 +511,7 @@ sub dump_room {
     out_open qw{ td },
         {
         id      => $panel->{ HRef } . q{Grid},
-        rowspan => $panel->{ Table_Rows },
+        rowspan => ( $region_info->{ Table_Rows } // 1 ),
         out_class(
             qw{ schedloccolumn },
             map { q{panel} . $_ } @classes
@@ -532,7 +577,7 @@ sub dump_row {
     } ## end else [ if ( $day_column ) ]
 
     foreach my $idx ( @room_ids ) {
-        dump_room( $guest, $time, $idx, $panels->{ $idx } );
+        dump_room( $region, $guest, $time, $idx, $panels->{ $idx } );
     }
     out_close qw{ tr };
 } ## end sub dump_row
@@ -678,19 +723,24 @@ sub dump_desc_panel {
 } ## end sub dump_desc_panel
 
 sub dump_desc_region_rows {
-    my ( $region, $guest ) = @_;
+    my ( $region, $guest, $exclude_guest ) = @_;
+    undef $exclude_guest unless defined $guest && exists $guests{ $guest };
 
     my $rows = $region->{ row };
     $region->{ activeday } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
     $region->{ lasttime } = $times[ -1 ];
+DUMP_TIME:
     foreach my $time ( @times ) {
         my $need_time_header = 1;
         my $panels           = $rows->{ $time };
+        if ( $exclude_guest ) {
+            next if has_guest( $panels, $guest );
+        }
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
-            if ( defined $guest ) {
-                next unless $panel->{ GuestMap}->{ $guest };
+            if ( defined $guest && !$exclude_guest ) {
+                next unless $panel->{ GuestMap }->{ $guest };
             }
             if ( $panel->{ Start_Tm } == $time ) {
                 if ( $need_time_header ) {
@@ -703,7 +753,7 @@ sub dump_desc_region_rows {
         unless ( $need_time_header ) {
             dump_desc_time_end( $region, $time );
         }
-    } ## end foreach my $time ( @times )
+    } ## end DUMP_TIME: foreach my $time ( @times )
 } ## end sub dump_desc_region_rows
 
 sub dump_desc_region {
@@ -712,7 +762,24 @@ sub dump_desc_region {
     dump_desc_start( $region );
     dump_desc_region_rows( $region, $guest );
     dump_desc_end( $region );
+
+    if ( exists $guests{ $guest } ) {
+        dump_desc_start( $region );
+        dump_desc_region_rows( $region, $guest, 1 );
+        dump_desc_end( $region );
+    }
 } ## end sub dump_desc_region
+
+sub dump_desc_all_regions {
+    my ( $guest, $exclude_guest ) = @_;
+
+    dump_desc_start();
+    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+        my $region = $time_region{ $region_time };
+        dump_desc_region_rows( $region, $guest, $exclude_guest );
+    }
+    dump_desc_end();
+} ## end sub dump_desc_all_regions
 
 sub dump_tables {
     my ( $guest ) = @_;
@@ -724,18 +791,21 @@ sub dump_tables {
 
     if ( $oname eq q{-} ) {
         $ofname = "<STDOUT>";
-        $ofh = \*STDOUT;
+        $ofh    = \*STDOUT;
     }
     else {
         if ( -d $oname ) {
-            $ofname = File::Spec->catfile( $oname, ( $guest_file || q{index} ) . q{.html} );
-        }
+            $ofname = File::Spec->catfile(
+                $oname,
+                ( $guest_file || q{index} ) . q{.html}
+            );
+        } ## end if ( -d $oname )
         elsif ( $guest_file ) {
             $ofname = $oname . q{.} . $guest_file . q{.html};
         }
         open $ofh, ">:encoding(utf8)", $ofname
             or die qq{Unable to write: $ofname\n};
-    }
+    } ## end else [ if ( $oname eq q{-} ) ]
 
     say { $ofh } q{<!doctype html>};
     out_open qw{ html };
@@ -784,12 +854,10 @@ sub dump_tables {
     }
 
     if ( $separate_desc ) {
-        dump_desc_start();
-        foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-            my $region = $time_region{ $region_time };
-            dump_desc_region_rows( $region, $guest );
+        dump_desc_all_regions( $guest );
+        if ( exists $guests{ $guest } ) {
+            dump_desc_all_regions( $guest, 1 );
         }
-        dump_desc_end();
     } ## end if ( $separate_desc )
 
     out_close qw{ body };
@@ -814,7 +882,7 @@ sub main {
         q{perday!}   => \$perday,
         q{separate!} => \$separate_desc,
         q{style=s}   => \$inline_style,
-        q{guests!} => \$split_guest,
+        q{guests!}   => \$split_guest,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $fname //= shift @args;
@@ -825,11 +893,11 @@ sub main {
 
     make_time_ranges;
 
-if( $split_guest ) {
-    foreach my $guest ( keys %guests ) {
-        dump_tables( $guest );
+    if ( $split_guest ) {
+        foreach my $guest ( keys %guests ) {
+            dump_tables( $guest );
+        }
     }
-}
     dump_tables;
 } ## end sub main
 
