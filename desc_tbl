@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use common::sense;
+use strict;
 use utf8;
 use Text::CSV;
 use File::Spec;
@@ -15,6 +16,38 @@ use File::Slurp qw{read_file};
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
 Readonly our $CAFE      => q{Café};
+
+# Panel fields
+Readonly our $FIELD_BY_END_SECONDS     => q{*BY_END};
+Readonly our $FIELD_BY_REGION          => q{*BY_REGION};
+Readonly our $FIELD_BY_ROW_SECONDS     => q{*BY_SECONDS};
+Readonly our $FIELD_BY_START_SECONDS   => q{*BY_START};
+Readonly our $FIELD_CAFE               => q{*CAFE};
+Readonly our $FIELD_CSS_CLASSES        => q{*CLASSES};
+Readonly our $FIELD_CSS_HREF           => q{*HREF};
+Readonly our $FIELD_DAY_BEING_OUTPUT   => q{*ACTIVEDAY};
+Readonly our $FIELD_END_TIME_SECONDS   => q{*END_SEC};
+Readonly our $FIELD_GUEST_CONFLICT     => q{*GUEST_CONFLICT};
+Readonly our $FIELD_GUEST_MAP          => q{*GUEST_MAP};
+Readonly our $FIELD_LAST_TIME_OUTPUT   => q{*LASTTIME};
+Readonly our $FIELD_REGION_NAME        => q{*NAME};
+Readonly our $FIELD_ROOM_INFO          => q{*ROOM_INFO};
+Readonly our $FIELD_ROOM_NAME          => q{*NAME};
+Readonly our $FIELD_START_TIME_SECONDS => q{*START_SEC};
+Readonly our $FIELD_TABLE_ROWS         => q{*NUM_ROWS};
+Readonly our $HTML_TABLE               => $HTML_TABLE;
+Readonly our $TABLE_DIFFICULTY         => q{Difficulty};
+Readonly our $TABLE_END_TIME           => q{End_Time};
+Readonly our $TABLE_FULL               => q{Full};
+Readonly our $TABLE_HOTEL_ROOM         => q{Real_Room};
+Readonly our $TABLE_KIND               => q{Kind};
+Readonly our $TABLE_PANEL_NAME         => q{Name};
+Readonly our $TABLE_PANELIST           => q{Panelist};
+Readonly our $TABLE_ROOM_INDEX         => q{Room_Idx};
+Readonly our $TABLE_ROOM_NAME          => q{Room};
+Readonly our $TABLE_START_TIME         => q{Start_Time};
+Readonly our $TABLE_TOKENS             => q{Tokens};
+Readonly our $TABLE_UNIQUE_ID          => q{Uniq_ID};
 
 our $fname;
 our $oname;
@@ -85,8 +118,8 @@ sub time_split {
 sub add_split {
     my ( $time, $name ) = @_;
     my $region = $time_region{ $time } //= {};
-    $region->{ name } //= $name;
-    $region->{ time } = $time;
+    $region->{ $FIELD_REGION_NAME } //= $name;
+    $region->{ $FIELD_START_TIME_SECONDS } = $time;
     return $region;
 } ## end sub add_split
 
@@ -142,20 +175,20 @@ sub read_csv_file {
                 }
                 foreach my $guest ( @guests ) {
                     $guests{ $guest } = santize_hdr( $guest );
-                    $panel{ GuestMap }->{ $guest } = 1;
+                    $panel{ $FIELD_GUEST_MAP }->{ $guest } = 1;
                 }
             } ## end if ( $in_guest_columns...)
             $in_guest_columns = 1 if $header_alt =~ m{\AGuests\z}xmsi;
         } ## end foreach my $index ( keys @{...})
-        next unless defined $panel{ Start_Time };
-        next unless $panel{ Name } =~ m{\S}xms;
-        my $start = str2time( $panel{ Start_Time } );
+        next unless defined $panel{ $TABLE_START_TIME };
+        next unless $panel{ $TABLE_PANEL_NAME } =~ m{\S}xms;
+        my $start = str2time( $panel{ $TABLE_START_TIME } );
         my $end
-            = defined $panel{ End_Time }
-            ? str2time( $panel{ End_Time } )
+            = defined $panel{ $TABLE_END_TIME }
+            ? str2time( $panel{ $TABLE_END_TIME } )
             : $start;
-        my $idx  = $panel{ Room_Idx };
-        my $id   = $panel{ Uniq_ID };
+        my $idx  = $panel{ $TABLE_ROOM_INDEX };
+        my $id   = $panel{ $TABLE_UNIQUE_ID };
         my $kind = $id // q{Unknown};
         $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
 
@@ -167,15 +200,15 @@ sub read_csv_file {
             $ids{ $id } = 1;
         }
 
-        my $room_name  = $panel{ Room };
-        my $difficulty = $panel{ Difficulty };
-        my $tokens     = $panel{ Tokens };
-        my $full       = $panel{ Full };
+        my $room_name  = $panel{ $TABLE_ROOM_NAME };
+        my $difficulty = $panel{ $TABLE_DIFFICULTY };
+        my $tokens     = $panel{ $TABLE_TOKENS };
+        my $full       = $panel{ $TABLE_FULL };
         my @classes    = q{Type} . $kind;
-        if ( $difficulty =~ m{\A\d+\z}xms ) {
+        if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
             push @classes, q{Difficulty} . $difficulty;
         }
-        if ( $tokens eq q{0} ) {
+        if ( defined $tokens && $tokens eq q{0} ) {
             undef $tokens;
         }
         if ( defined $tokens ) {
@@ -184,29 +217,31 @@ sub read_csv_file {
             $tokens =~ s{\s*\z}{}xms;
             $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
         } ## end if ( defined $tokens )
-        if ( $full =~ m{\Anot??}xms || $full eq q{} ) {
-            undef $full;
-        }
         if ( defined $full ) {
-            push @classes, q{Full};
-        }
+            if ( $full =~ m{\Anot??}xms || $full eq q{} ) {
+                undef $full;
+            }
+            else {
+                push @classes, q{Full};
+            }
+        } ## end if ( defined $full )
 
-        if ( $panel{ Kind } eq $CAFE ) {
-            $panel{ Cafe } = 1;
+        if ( $panel{ $TABLE_KIND } eq $CAFE ) {
+            $panel{ $FIELD_CAFE } = 1;
         }
-        $panel{ Start_Tm } = $start;
-        $panel{ End_Tm }   = $end;
-        $panel{ Class }    = \@classes;
-        $panel{ HRef }     = $id;
-        $panel{ Tokens }   = $tokens;
-        $panel{ Full }     = $full;
+        $panel{ $FIELD_START_TIME_SECONDS } = $start;
+        $panel{ $FIELD_END_TIME_SECONDS }   = $end;
+        $panel{ $FIELD_CSS_CLASSES }        = \@classes;
+        $panel{ $FIELD_CSS_HREF }           = $id;
+        $panel{ $TABLE_TOKENS }             = $tokens;
+        $panel{ $TABLE_FULL }               = $full;
 
         if ( $room_name =~ m{\ASPLIT}xmsi ) {
             next if $unified;
             if ( $perday ) {
                 next unless $room_name =~ m{\ASPLITDAY}xmsi;
             }
-            add_split $start, $panel{ Name };
+            add_split $start, $panel{ $TABLE_PANEL_NAME };
             next;
         } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
 
@@ -217,12 +252,12 @@ sub read_csv_file {
         add_time $end;
 
         my $room = $rooms{ $idx } //= {};
-        $panel{ RoomInfo } = $room;
-        $room->{ $idx } = $idx;
-        $room->{ name }  //= $room_name;
-        $room->{ hotel } //= $panel{ Real_Room };
-        $room->{ start }->{ $start } = \%panel;
-        $room->{ end }->{ $end }     = \%panel;
+        $panel{ $FIELD_ROOM_INFO } = $room;
+        $room->{ $TABLE_ROOM_INDEX } = $idx;
+        $room->{ $FIELD_ROOM_NAME }  //= $room_name;
+        $room->{ $TABLE_HOTEL_ROOM } //= $panel{ $TABLE_HOTEL_ROOM };
+        $room->{ $FIELD_BY_START_SECONDS }->{ $start } = \%panel;
+        $room->{ $FIELD_BY_END_SECONDS }->{ $end }     = \%panel;
     } ## end while ( my $raw = splitline...)
 
     $fh->close
@@ -235,11 +270,11 @@ sub read_csv_file {
 
 sub add_guest_conflicts {
     my ( $panel, @guests ) = @_;
-    my $gmap = $panel->{ GuestMap };
+    my $gmap = $panel->{ $FIELD_GUEST_MAP };
     my $cmap;
     foreach my $guest ( @guests ) {
         next if $gmap->{ $guest };
-        $cmap //= $panel->{ GuestConflict } //= {};
+        $cmap //= $panel->{ $FIELD_GUEST_CONFLICT } //= {};
         next if $cmap->{ $guest };
         $cmap->{ $guest } = 1;
     } ## end foreach my $guest ( @guests)
@@ -263,24 +298,31 @@ sub make_time_ranges {
             my $room = $rooms{ $room_idx };
             if ( exists $active_panels{ $room_idx } ) {
                 my $panel     = $active_panels{ $room_idx };
-                my $panel_end = $panel->{ End_Tm };
+                my $panel_end = $panel->{ $FIELD_END_TIME_SECONDS };
                 if ( $panel_end <= $time ) {
                     delete $active_panels{ $room_idx };
                 }
             } ## end if ( exists $active_panels...)
-            if ( defined( my $new_panel = $room->{ start }->{ $time } ) ) {
+            if (defined(
+                    my $new_panel
+                        = $room->{ $FIELD_BY_START_SECONDS }->{ $time }
+                )
+                )
+            {
                 my $region_info
-                    = ( $new_panel->{ Region }->{ $active_time } //= {} );
-                $region_info->{ Table_Rows } //= 0;
-                $region_info->{ Table_Start } = $time;
+                    = $new_panel->{ $FIELD_BY_REGION }->{ $active_time }
+                    //= {};
+                $region_info->{ $FIELD_TABLE_ROWS } //= 0;
+                $region_info->{ $FIELD_START_TIME_SECONDS } = $time;
                 $active_panels{ $room_idx } = $new_panel;
             } ## end if ( defined( my $new_panel...))
         } ## end foreach my $room_idx ( @room_ids)
         my %active_guest;
         foreach my $panel ( values %active_panels ) {
-            my $region_info = $panel->{ Region }->{ $active_time } //= {};
-            ++$region_info->{ Table_Rows };
-            my $gmap = $panel->{ GuestMap };
+            my $region_info = $panel->{ $FIELD_BY_REGION }->{ $active_time }
+                //= {};
+            ++$region_info->{ $FIELD_TABLE_ROWS };
+            my $gmap = $panel->{ $FIELD_GUEST_MAP };
             if ( defined $gmap ) {
                 foreach my $guest ( keys %{ $gmap } ) {
                     $active_guest{ $guest } = 1 if $gmap->{ $guest };
@@ -289,19 +331,20 @@ sub make_time_ranges {
         } ## end foreach my $panel ( values ...)
         if ( %active_panels ) {
             foreach my $empty ( keys %empty_times ) {
-                $active_range->{ row }->{ $empty } = $empty_times{ $empty };
+                $active_range->{ $FIELD_BY_ROW_SECONDS }->{ $empty }
+                    = $empty_times{ $empty };
             }
             my $panels = { %active_panels };
-            $panels->{ GuestMap } = \%active_guest;
+            $panels->{ $FIELD_GUEST_MAP } = \%active_guest;
             if ( %active_guest ) {
                 foreach my $panel ( values %active_panels ) {
                     add_guest_conflicts( $panel, keys %active_guest );
                 }
             }
 
-            $active_range->{ row }->{ $time } = $panels;
-            $last_time                        = $time;
-            %empty_times                      = ();
+            $active_range->{ $FIELD_BY_ROW_SECONDS }->{ $time } = $panels;
+            $last_time                                          = $time;
+            %empty_times                                        = ();
         } ## end if ( %active_panels )
         elsif ( defined $last_time ) {
             $empty_times{ $time } = { %active_panels };
@@ -334,10 +377,11 @@ sub make_time_ranges {
         }
         if ( defined $next_range ) {
             foreach my $panel ( values %active_panels ) {
-                my $region_info = $panel->{ Region }->{ $split_time } //= {};
-                $region_info->{ Table_Rows }  = 0;
-                $region_info->{ Table_Start } = $split_time;
-            }
+                my $region_info
+                    = $panel->{ $FIELD_BY_REGION }->{ $split_time } //= {};
+                $region_info->{ $FIELD_TABLE_ROWS }         = 0;
+                $region_info->{ $FIELD_START_TIME_SECONDS } = $split_time;
+            } ## end foreach my $panel ( values ...)
             $active_range = $next_range;
             $active_time  = $split_time;
             undef $last_time;
@@ -389,7 +433,7 @@ sub has_guest {
     foreach my $idx ( @room_ids ) {
         my $panel = $panels->{ $idx };
         next unless defined $panel;
-        return 1 if $panel->{ GuestMap }->{ $guest };
+        return 1 if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
     }
     return;
 } ## end sub has_guest
@@ -434,8 +478,8 @@ sub dump_labels {
         q{Time}
     );
     foreach my $idx ( @room_ids ) {
-        my $hotel = $rooms{ $idx }->{ hotel };
-        my $name  = $rooms{ $idx }->{ name };
+        my $hotel = $rooms{ $idx }->{ $TABLE_HOTEL_ROOM };
+        my $name  = $rooms{ $idx }->{ $FIELD_ROOM_NAME };
         if ( $hotel ne $name ) {
             $name = $hotel . $h->br() . $name;
         }
@@ -454,7 +498,7 @@ sub dump_labels {
 sub dump_header {
     my ( $region ) = @_;
 
-    out_open qw{ table }, { out_class( qw{ schedule } ) };
+    out_open $HTML_TABLE, { out_class( qw{ schedule } ) };
 
     out_open qw{ colgroup };
     if ( $day_column ) {
@@ -479,54 +523,58 @@ sub dump_room {
     my ( $region, $guest, $time, $idx, $panel ) = @_;
 
     if ( !defined $panel ) {
-        out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->},
+        out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->},
             $h->td( { out_class( qw{ empty } ) } );
         return;
     }
 
-    my $region_info = $panel->{ Region }->{ $region->{ time } } // {};
-    if ( $region_info->{ Table_Start } ne $time ) {
-        out_line q{<!--}, $rooms{ $idx }->{ name }, q{ },
-            $panel->{ Uniq_ID }, q{ continued-->};
+    my $region_info = $panel->{ $FIELD_BY_REGION }
+        ->{ $region->{ $FIELD_START_TIME_SECONDS } } // {};
+    if ( $region_info->{ $FIELD_START_TIME_SECONDS } ne $time ) {
+        out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{ },
+            $panel->{ $TABLE_UNIQUE_ID }, q{ continued-->};
         return;
     }
 
-    my $difficulty = $panel->{ Difficulty };
-    my $name       = $panel->{ Name };
-    my $panelist   = $panel->{ Panelist };
-    my $tokens     = $panel->{ Tokens };
+    my $difficulty = $panel->{ $TABLE_DIFFICULTY };
+    my $name       = $panel->{ $TABLE_PANEL_NAME };
+    my $panelist   = $panel->{ $TABLE_PANELIST };
+    my $tokens     = $panel->{ $TABLE_TOKENS };
     my $room       = $rooms{ $idx };
 
-    if ( $panel->{ Cafe } ) {
+    if ( $panel->{ $FIELD_CAFE } ) {
         $panelist = $name;
         $name     = q{Café featuring};
     }
 
-    my @classes = ( q{}, @{ $panel->{ Class } } );
-    if ( $panel->{ GuestMap }->{ $guest } ) {
+    my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
+    if ( $panel->{ $FIELD_GUEST_MAP }->{ $guest } ) {
         push @classes, q{SelectedGuest};
     }
 
-    out_line q{<!--}, $rooms{ $idx }->{ name }, q{-->};
+    out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
     out_open qw{ td },
         {
-        id      => $panel->{ HRef } . q{Grid},
-        rowspan => ( $region_info->{ Table_Rows } // 1 ),
+        id      => $panel->{ $FIELD_CSS_HREF } . q{Grid},
+        rowspan => ( $region_info->{ $FIELD_TABLE_ROWS } // 1 ),
         out_class(
             qw{ schedloccolumn },
             map { q{panel} . $_ } @classes
         )
         };
 
-    out_line $h->div( { out_class( qw{ panelid } ) }, $panel->{ Uniq_ID } );
-    out_open q{a}, { href => q{#} . $panel->{ HRef } };
+    out_line $h->div(
+        { out_class( qw{ panelid } ) },
+        $panel->{ $TABLE_UNIQUE_ID }
+    );
+    out_open q{a}, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
 
-    if ( $panel->{ Full } ) {
+    if ( $panel->{ $TABLE_FULL } ) {
         out_line $h->div(
             { out_class( qw{ panelfulllabel } ) },
             q{Workshop is Full}
         );
-    } ## end if ( $panel->{ Full } )
+    } ## end if ( $panel->{ $TABLE_FULL...})
     out_line $h->span( { out_class( qw{ panelname } ) }, $name );
 
     if ( defined $tokens ) {
@@ -550,7 +598,18 @@ sub dump_room {
 sub dump_row {
     my ( $region, $guest, $time, $panels ) = @_;
 
-    out_open qw{ tr }, { out_class( qw{ schedtimerow } ) };
+    my @time_row_classes = qw{ schedtimerow };
+    my @time_classes     = qw{ schedhead schedtime schedtimecolumn };
+
+    if (   defined $guest
+        && exists $guests{ $guest }
+        && $panels->{ $FIELD_GUEST_MAP }->{ $guest } )
+    {
+        push @time_row_classes, qw{ schedtimerowguest };
+        push @time_classes,     qw{ schedtimeguest };
+    } ## end if ( defined $guest &&...)
+
+    out_open qw{ tr }, { out_class( @time_row_classes ) };
 
     if ( $day_column ) {
         out_line $h->th(
@@ -558,20 +617,20 @@ sub dump_row {
             decode_time( $time, qw{ day } )
         );
         out_line $h->th(
-            { out_class( qw{ schedhead schedtime schedtimecolumn } ) },
+            { out_class( @time_classes ) },
             decode_time( $time, qw{ time } )
         );
     } ## end if ( $day_column )
     else {
         my ( $day, $tm ) = decode_time( $time );
-        if (   $region->{ lasttime } == $time
-            || $region->{ activeday } ne $day )
+        if (   $region->{ $FIELD_LAST_TIME_OUTPUT } == $time
+            || $region->{ $FIELD_DAY_BEING_OUTPUT } ne $day )
         {
             $tm = $day . $h->br() . $tm;
-            $region->{ activeday } = $day;
-        } ## end if ( $region->{ lasttime...})
+            $region->{ $FIELD_DAY_BEING_OUTPUT } = $day;
+        } ## end if ( $region->{ $FIELD_LAST_TIME_OUTPUT...})
         out_line $h->th(
-            { out_class( qw{ schedhead schedtime schedtimecolumn } ) },
+            { out_class( @time_classes ) },
             $tm
         );
     } ## end else [ if ( $day_column ) ]
@@ -589,17 +648,17 @@ sub dump_foot {
     dump_labels qw{ foot };
     out_close qw{ tr };
     out_close qw{ tfoot };
-    out_close qw{ table };
+    out_close $HTML_TABLE;
 } ## end sub dump_foot
 
 sub dump_region {
     my ( $region, $guest ) = @_;
 
     dump_header( $region );
-    my $rows = $region->{ row };
-    $region->{ activeday } = undef;
+    my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
+    $region->{ $FIELD_DAY_BEING_OUTPUT } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
-    $region->{ lasttime } = $times[ -1 ];
+    $region->{ $FIELD_LAST_TIME_OUTPUT } = $times[ -1 ];
     foreach my $time ( @times ) {
         dump_row( $region, $guest, $time, $rows->{ $time } );
     }
@@ -621,7 +680,7 @@ sub dump_desc_end {
 sub dump_desc_time_start {
     my ( $region, $time ) = @_;
 
-    out_open qw{ table }, { out_class( qw{ desctime } ) };
+    out_open $HTML_TABLE, { out_class( qw{ desctime } ) };
     out_open qw{ colgroup };
     out_line $h->col( { out_class( qw{ desccol } ) } );
     out_close qw{ colgroup };
@@ -640,36 +699,36 @@ sub dump_desc_time_end {
     my ( $region, $time ) = @_;
 
     out_close qw{ tbody };
-    out_close qw{ table };
+    out_close $HTML_TABLE;
 } ## end sub dump_desc_time_end
 
 sub dump_desc_panel {
     my ( $region, $time, $panel ) = @_;
 
-    my $difficulty = $panel->{ Difficulty };
-    my $name       = $panel->{ Name };
-    my $panelist   = $panel->{ Panelist };
-    my $tokens     = $panel->{ Tokens };
-    my $room       = $panel->{ RoomInfo };
+    my $difficulty = $panel->{ $TABLE_DIFFICULTY };
+    my $name       = $panel->{ $TABLE_PANEL_NAME };
+    my $panelist   = $panel->{ $TABLE_PANELIST };
+    my $tokens     = $panel->{ $TABLE_TOKENS };
+    my $room       = $panel->{ $FIELD_ROOM_INFO };
 
-    if ( $panel->{ Cafe } ) {
+    if ( $panel->{ $FIELD_CAFE } ) {
         $name = q{Cosplay Café Featuring } . $name;
     }
 
-    my @classes = ( q{}, @{ $panel->{ Class } } );
+    my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
 
     out_open qw{ tr }, { out_class( qw{desctimebody} ) };
     out_open qw{ td },
         {
-        id => $panel->{ HRef },
+        id => $panel->{ $FIELD_CSS_HREF },
         out_class( map { q{desc} . $_ } @classes )
         };
     out_line $h->div(
         { out_class( qw{ descid } ) },
-        $panel->{ Uniq_ID }
+        $panel->{ $TABLE_UNIQUE_ID }
     );
     out_line $h->a(
-        {   href => q{#} . $panel->{ HRef } . q{Grid},
+        {   href => q{#} . $panel->{ $FIELD_CSS_HREF } . q{Grid},
             out_class( qw{descname} )
         },
         $name
@@ -681,7 +740,10 @@ sub dump_desc_panel {
             q{Required tokens: } . $tokens
         );
     } ## end if ( defined $tokens )
-    out_line $h->p( { out_class( qw{ descroom } ) }, $room->{ hotel } );
+    out_line $h->p(
+        { out_class( qw{ descroom } ) },
+        $room->{ $TABLE_HOTEL_ROOM }
+    );
     if ( $panelist =~ m{\S}xms ) {
         out_line $h->p( { out_class( qw{ descpanelist} ) }, $panelist );
     }
@@ -696,7 +758,7 @@ sub dump_desc_panel {
     if ( defined $panel->{ Note } ) {
         push @note, $h->i( $panel->{ Note } );
     }
-    if ( defined $panel->{ Full } ) {
+    if ( defined $panel->{ $TABLE_FULL } ) {
         push @note,
             $h->span(
             { out_class( qw{ descfulllabel } ) },
@@ -726,10 +788,10 @@ sub dump_desc_region_rows {
     my ( $region, $guest, $exclude_guest ) = @_;
     undef $exclude_guest unless defined $guest && exists $guests{ $guest };
 
-    my $rows = $region->{ row };
-    $region->{ activeday } = undef;
+    my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
+    $region->{ $FIELD_DAY_BEING_OUTPUT } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
-    $region->{ lasttime } = $times[ -1 ];
+    $region->{ $FIELD_LAST_TIME_OUTPUT } = $times[ -1 ];
 DUMP_TIME:
     foreach my $time ( @times ) {
         my $need_time_header = 1;
@@ -740,15 +802,15 @@ DUMP_TIME:
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
             if ( defined $guest && !$exclude_guest ) {
-                next unless $panel->{ GuestMap }->{ $guest };
+                next unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
             }
-            if ( $panel->{ Start_Tm } == $time ) {
+            if ( $panel->{ $FIELD_START_TIME_SECONDS } == $time ) {
                 if ( $need_time_header ) {
                     dump_desc_time_start( $region, $time );
                     undef $need_time_header;
                 }
                 dump_desc_panel( $region, $time, $panel );
-            } ## end if ( $panel->{ Start_Tm...})
+            } ## end if ( $panel->{ $FIELD_START_TIME_SECONDS...})
         } ## end foreach my $idx ( @room_ids)
         unless ( $need_time_header ) {
             dump_desc_time_end( $region, $time );
