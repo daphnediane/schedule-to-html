@@ -18,6 +18,22 @@ Readonly our $HALF_HOUR => 30 * 60;
 Readonly our $CAFE      => q{Café};
 
 # Panel fields
+Readonly our $TABLE_DESCRIPTION => q{Description};
+Readonly our $TABLE_DIFFICULTY  => q{Difficulty};
+Readonly our $TABLE_END_TIME    => q{End_Time};
+Readonly our $TABLE_FULL        => q{Full};
+Readonly our $TABLE_HOTEL_ROOM  => q{Real_Room};
+Readonly our $TABLE_KIND        => q{Kind};
+Readonly our $TABLE_NOTE        => q{Note};
+Readonly our $TABLE_PANEL_NAME  => q{Name};
+Readonly our $TABLE_PANELIST    => q{Panelist};
+Readonly our $TABLE_ROOM_INDEX  => q{Room_Idx};
+Readonly our $TABLE_ROOM_NAME   => q{Room};
+Readonly our $TABLE_START_TIME  => q{Start_Time};
+Readonly our $TABLE_TOKENS      => q{Tokens};
+Readonly our $TABLE_UNIQUE_ID   => q{Uniq_ID};
+
+# Custom fields
 Readonly our $FIELD_BY_END_SECONDS     => q{*BY_END};
 Readonly our $FIELD_BY_REGION          => q{*BY_REGION};
 Readonly our $FIELD_BY_ROW_SECONDS     => q{*BY_SECONDS};
@@ -35,32 +51,55 @@ Readonly our $FIELD_ROOM_INFO          => q{*ROOM_INFO};
 Readonly our $FIELD_ROOM_NAME          => q{*NAME};
 Readonly our $FIELD_START_TIME_SECONDS => q{*START_SEC};
 Readonly our $FIELD_TABLE_ROWS         => q{*NUM_ROWS};
-Readonly our $HTML_ANCHOR              => q{a};
-Readonly our $HTML_BODY                => q{body};
-Readonly our $HTML_COLGROUP            => q{colgroup};
-Readonly our $HTML_DIV                 => q{div};
-Readonly our $HTML_HEAD                => q{head};
-Readonly our $HTML_HTML                => q{html};
-Readonly our $HTML_TABLE               => q{table};
-Readonly our $HTML_TABLE_BODY          => q{tbody};
-Readonly our $HTML_TABLE_DATA          => q{td};
-Readonly our $HTML_TABLE_FOOT          => q{tfoot};
-Readonly our $HTML_TABLE_HEAD          => q{thead};
-Readonly our $HTML_TABLE_ROW           => q{tr};
-Readonly our $TABLE_DESCRIPTION        => q{Description};
-Readonly our $TABLE_DIFFICULTY         => q{Difficulty};
-Readonly our $TABLE_END_TIME           => q{End_Time};
-Readonly our $TABLE_FULL               => q{Full};
-Readonly our $TABLE_HOTEL_ROOM         => q{Real_Room};
-Readonly our $TABLE_KIND               => q{Kind};
-Readonly our $TABLE_NOTE               => q{Note};
-Readonly our $TABLE_PANEL_NAME         => q{Name};
-Readonly our $TABLE_PANELIST           => q{Panelist};
-Readonly our $TABLE_ROOM_INDEX         => q{Room_Idx};
-Readonly our $TABLE_ROOM_NAME          => q{Room};
-Readonly our $TABLE_START_TIME         => q{Start_Time};
-Readonly our $TABLE_TOKENS             => q{Tokens};
-Readonly our $TABLE_UNIQUE_ID          => q{Uniq_ID};
+
+# HTML Elements
+Readonly our $HTML_ANCHOR     => q{a};
+Readonly our $HTML_BODY       => q{body};
+Readonly our $HTML_COLGROUP   => q{colgroup};
+Readonly our $HTML_DIV        => q{div};
+Readonly our $HTML_HEAD       => q{head};
+Readonly our $HTML_HTML       => q{html};
+Readonly our $HTML_TABLE      => q{table};
+Readonly our $HTML_TABLE_BODY => q{tbody};
+Readonly our $HTML_TABLE_DATA => q{td};
+Readonly our $HTML_TABLE_FOOT => q{tfoot};
+Readonly our $HTML_TABLE_HEAD => q{thead};
+Readonly our $HTML_TABLE_ROW  => q{tr};
+
+# HTML Anchors
+Readonly our $ANCHOR_FMT_GRID => q{%sGrid};
+
+# CSS Classes
+Readonly our $CLASS_DESC_SECTION             => q{descriptions};
+Readonly our $CLASS_DESC_TIME_COLUMN         => q{desccol};
+Readonly our $CLASS_DESC_TIME_TABLE          => q{desctime};
+Readonly our $CLASS_GRID_CELL_DAY            => q{schedday};
+Readonly our $CLASS_GRID_CELL_GUEST_BUSY     => q{schedtimeguest};
+Readonly our $CLASS_GRID_CELL_HEADER         => q{schedhead};
+Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{roomloc};
+Readonly our $CLASS_GRID_COLUMN_DAY          => q{scheddaycolumn};
+Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedloc%scolumn};
+Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedloccolumn};
+Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedtimecolumn};
+Readonly our $CLASS_GRID_ROW_GUEST_BUSY      => q{schedtimerowguest};
+Readonly our $CLASS_GRID_ROW_HEADER          => q{schedheadrow};
+Readonly our $CLASS_GRID_TABLE               => q{schedule};
+Readonly our $CLASS_POSTFIX_FMT_DIFFICULTY   => q{Difficulty%s};
+Readonly our $CLASS_POSTFIX_FMT_TYPE         => q{Type%s};
+Readonly our $CLASS_POSTFIX_FULL             => q{Full};
+Readonly our $CLASS_POSTFIX_GUEST_PANEL      => q{SelectedGuest};
+Readonly our $CLASS_POSTFIX_CONFLICT_PANEL   => q{ConflictGuest};
+Readonly our $CLASS_POSTFIX_NEED_TOKENS      => q{NeedTokens};
+Readonly our $CLASS_GRID_CELL_PREFIX         => q{panel};
+Readonly our $CLASS_GRID_SUBCELL_ID          => q{panelid};
+
+# Grid headers
+Readonly our $HEADING_DAY  => q{Day};
+Readonly our $HEADING_TIME => q{Time};
+
+# Formatting strings
+Readonly our $FMT_DAY  => q{%A};
+Readonly our $FMT_TIME => q{%I:%M %p};
 
 our $fname;
 our $oname;
@@ -99,8 +138,8 @@ sub splitline {
             {
                 unless ( @raw ) {
                     chomp $full_line;
-                    die "Unable to process: [", $full, "]\nin line: ",
-                        $full_line, qq{\n};
+                    die
+                        qq{Unable to process: [${full}]\nin line: ${full_line}\n};
                 }
                 $full .= shift @raw;
             } ## end while ( $full !~ ...)
@@ -154,11 +193,11 @@ sub santize_hdr {
 } ## end sub santize_hdr
 
 sub read_csv_file {
-    open my $fh, "<:encoding(utf16)", $fname
-        or die qq{Unable to read: $fname\n};
+    open my $fh, q{<:encoding(utf16)}, $fname
+        or die qq{Unable to read: ${fname}\n};
 
     my $header = splitline( $fh )
-        or die "Missing header in: ", $fname, "\n";
+        or die qq{Missing header in: ${fname}\n};
 
     my %ids;
 
@@ -217,15 +256,15 @@ sub read_csv_file {
         my $difficulty = $panel{ $TABLE_DIFFICULTY };
         my $tokens     = $panel{ $TABLE_TOKENS };
         my $full       = $panel{ $TABLE_FULL };
-        my @classes    = q{Type} . $kind;
+        my @classes    = sprintf $CLASS_POSTFIX_FMT_TYPE, $kind;
         if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
-            push @classes, q{Difficulty} . $difficulty;
+            push @classes, sprintf $CLASS_POSTFIX_FMT_DIFFICULTY, $difficulty;
         }
         if ( defined $tokens && $tokens eq q{0} ) {
             undef $tokens;
         }
         if ( defined $tokens ) {
-            push @classes, q{NeedTokens};
+            push @classes, $CLASS_POSTFIX_NEED_TOKENS;
             $tokens =~ s{\A\s*}{}xms;
             $tokens =~ s{\s*\z}{}xms;
             $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
@@ -235,7 +274,7 @@ sub read_csv_file {
                 undef $full;
             }
             else {
-                push @classes, q{Full};
+                push @classes, $CLASS_POSTFIX_FULL;
             }
         } ## end if ( defined $full )
 
@@ -457,8 +496,8 @@ sub decode_time {
     my ( $time, $field ) = @_;
 
     my @ltime = localtime $time;
-    my $day   = strftime q{%A}, @ltime;
-    my $tm    = strftime q{%I:%M %p}, @ltime;
+    my $day   = strftime $FMT_DAY, @ltime;
+    my $tm    = strftime $FMT_TIME, @ltime;
 
     if ( defined $field ) {
         my $out_day  = ( $field =~ m{(day|both)}xms );
@@ -479,20 +518,20 @@ sub dump_labels {
     if ( $day_column ) {
         out_line $h->th(
             {   out_class(
-                    qw{schedhead},
-                    $kind eq $HTML_TABLE_HEAD ? qw{scheddaycolumn} : ()
+                    $CLASS_GRID_CELL_HEADER,
+                    $kind eq $HTML_TABLE_HEAD ? $CLASS_GRID_COLUMN_DAY : ()
                 )
             },
-            q{Day}
+            $HEADING_DAY
         );
     } ## end if ( $day_column )
     out_line $h->th(
         {   out_class(
-                qw{schedhead},
-                $kind eq $HTML_TABLE_HEAD ? qw{schedtimecolumn} : ()
+                $CLASS_GRID_CELL_HEADER,
+                $kind eq $HTML_TABLE_HEAD ? $CLASS_GRID_COLUMN_TIME : ()
             )
         },
-        q{Time}
+        $HEADING_TIME
     );
     foreach my $idx ( @room_ids ) {
         my $hotel = $rooms{ $idx }->{ $TABLE_HOTEL_ROOM };
@@ -502,8 +541,11 @@ sub dump_labels {
         }
         out_line $h->th(
             {   out_class(
-                    qw{schedhead schedloccolumn roomloc},
-                    $kind eq $HTML_TABLE_HEAD ? qq{schedloc${idx}column} : ()
+                    $CLASS_GRID_CELL_HEADER, $CLASS_GRID_COLUMN_ROOM,
+                    $CLASS_GRID_CELL_ROOM_NAME,
+                    $kind eq $HTML_TABLE_HEAD
+                    ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX, $idx )
+                    : ()
                 )
             },
             $name
@@ -515,20 +557,21 @@ sub dump_labels {
 sub dump_header {
     my ( $region ) = @_;
 
-    out_open $HTML_TABLE, { out_class( qw{ schedule } ) };
+    out_open $HTML_TABLE, { out_class( $CLASS_GRID_TABLE ) };
 
     out_open $HTML_COLGROUP;
     if ( $day_column ) {
-        out_line $h->col( { out_class( qw{ scheddaycolumn } ) } );
+        out_line $h->col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
     }
-    out_line $h->col( { out_class( qw{ schedtimecolumn } ) } );
+    out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
     foreach my $idx ( @room_ids ) {
-        out_line $h->col( { class => qq{schedloc${idx}column} } );
+        out_line $h->col(
+            { out_class( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX, $idx ) } );
     }
     out_close $HTML_COLGROUP;
 
     out_open $HTML_TABLE_HEAD;
-    out_open $HTML_TABLE_ROW, { out_class( qq{schedheadrow} ) };
+    out_open $HTML_TABLE_ROW, { out_class( $CLASS_GRID_ROW_HEADER ) };
     dump_labels $HTML_TABLE_HEAD;
     out_close $HTML_TABLE_ROW;
     out_close $HTML_TABLE_HEAD;
@@ -566,22 +609,25 @@ sub dump_room {
 
     my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
     if ( $panel->{ $FIELD_GUEST_MAP }->{ $guest } ) {
-        push @classes, q{SelectedGuest};
+        push @classes, $CLASS_POSTFIX_GUEST_PANEL;
+    }
+    if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
+        push @classes, $CLASS_POSTFIX_CONFLICT_PANEL;
     }
 
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
     out_open $HTML_TABLE_DATA,
         {
-        id      => $panel->{ $FIELD_CSS_HREF } . q{Grid},
+        id => ( sprintf $ANCHOR_FMT_GRID, $panel->{ $FIELD_CSS_HREF } ),
         rowspan => ( $region_info->{ $FIELD_TABLE_ROWS } // 1 ),
         out_class(
-            qw{ schedloccolumn },
-            map { q{panel} . $_ } @classes
+            $CLASS_GRID_COLUMN_ROOM,
+            map { $CLASS_GRID_CELL_PREFIX . $_ } @classes
         )
         };
 
     out_line $h->div(
-        { out_class( qw{ panelid } ) },
+        { out_class( $CLASS_GRID_SUBCELL_ID ) },
         $panel->{ $TABLE_UNIQUE_ID }
     );
     out_open $HTML_ANCHOR, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
@@ -616,21 +662,28 @@ sub dump_row {
     my ( $region, $guest, $time, $panels ) = @_;
 
     my @time_row_classes = qw{ schedtimerow };
-    my @time_classes     = qw{ schedhead schedtime schedtimecolumn };
+    my @time_classes     = (
+        $CLASS_GRID_CELL_HEADER, qw{ schedtime },
+        $CLASS_GRID_COLUMN_TIME
+    );
 
     if (   defined $guest
         && exists $guests{ $guest }
         && $panels->{ $FIELD_GUEST_MAP }->{ $guest } )
     {
-        push @time_row_classes, qw{ schedtimerowguest };
-        push @time_classes,     qw{ schedtimeguest };
+        push @time_row_classes, $CLASS_GRID_ROW_GUEST_BUSY;
+        push @time_classes,     $CLASS_GRID_CELL_GUEST_BUSY;
     } ## end if ( defined $guest &&...)
 
     out_open $HTML_TABLE_ROW, { out_class( @time_row_classes ) };
 
     if ( $day_column ) {
         out_line $h->th(
-            { out_class( qw{ schedhead schedday scheddaycolumn } ) },
+            {   out_class(
+                    $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_DAY,
+                    $CLASS_GRID_COLUMN_DAY
+                )
+            },
             decode_time( $time, qw{ day } )
         );
         out_line $h->th(
@@ -661,7 +714,7 @@ sub dump_row {
 sub dump_foot {
     out_close $HTML_TABLE_BODY;
     out_open $HTML_TABLE_FOOT;
-    out_open $HTML_TABLE_ROW, { out_class( qq{schedheadrow} ) };
+    out_open $HTML_TABLE_ROW, { out_class( $CLASS_GRID_ROW_HEADER ) };
     dump_labels $HTML_TABLE_FOOT;
     out_close $HTML_TABLE_ROW;
     out_close $HTML_TABLE_FOOT;
@@ -685,7 +738,7 @@ sub dump_region {
 sub dump_desc_start {
     my ( $region ) = @_;
 
-    out_open $HTML_DIV, { out_class( qw{ descriptions } ) };
+    out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION ) };
 }
 
 sub dump_desc_end {
@@ -695,17 +748,18 @@ sub dump_desc_end {
 }
 
 sub dump_desc_time_start {
-    my ( $region, $time ) = @_;
+    my ( $region, $guest, $exclude_guest, $time ) = @_;
 
-    out_open $HTML_TABLE, { out_class( qw{ desctime } ) };
+    out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
     out_open $HTML_COLGROUP;
-    out_line $h->col( { out_class( qw{ desccol } ) } );
+    out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
     out_close $HTML_COLGROUP;
     out_line $h->thead(
         { out_class( qw{desctimeheader} ) },
         $h->tr(
             $h->th(
-                { out_class( qw{desccol} ) }, decode_time( $time, qw{ both } )
+                { out_class( $CLASS_DESC_TIME_COLUMN ) },
+                decode_time( $time, qw{ both } )
             )
         )
     );
@@ -720,7 +774,29 @@ sub dump_desc_time_end {
 } ## end sub dump_desc_time_end
 
 sub dump_desc_panel {
-    my ( $region, $time, $panel ) = @_;
+    my ($region, $guest, $exclude_guest, $need_time_header_ref, $time,
+        $panel
+    ) = @_;
+
+    return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
+
+    my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
+
+    if ( defined $guest ) {
+        if ( $exclude_guest ) {
+            if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
+                push @classes, $CLASS_POSTFIX_CONFLICT_PANEL;
+            }
+        }
+        else {
+            return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+            push @classes, $CLASS_POSTFIX_GUEST_PANEL;
+        }
+    } ## end if ( defined $guest )
+    if ( $$need_time_header_ref ) {
+        dump_desc_time_start( $region, $guest, $exclude_guest, $time );
+        undef $$need_time_header_ref;
+    }
 
     my $difficulty = $panel->{ $TABLE_DIFFICULTY };
     my $name       = $panel->{ $TABLE_PANEL_NAME };
@@ -731,8 +807,6 @@ sub dump_desc_panel {
     if ( $panel->{ $FIELD_CAFE } ) {
         $name = q{Cosplay Café Featuring } . $name;
     }
-
-    my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
 
     out_open $HTML_TABLE_ROW, { out_class( qw{desctimebody} ) };
     out_open $HTML_TABLE_DATA,
@@ -803,7 +877,10 @@ sub dump_desc_panel {
 
 sub dump_desc_region_rows {
     my ( $region, $guest, $exclude_guest ) = @_;
-    undef $exclude_guest unless defined $guest && exists $guests{ $guest };
+    if ( defined $guest ) {
+        undef $guest unless exists $guests{ $guest };
+    }
+    undef $exclude_guest unless defined $guest;
 
     my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
     $region->{ $FIELD_DAY_BEING_OUTPUT } = undef;
@@ -818,16 +895,11 @@ DUMP_TIME:
         }
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
-            if ( defined $guest && !$exclude_guest ) {
-                next unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
-            }
-            if ( $panel->{ $FIELD_START_TIME_SECONDS } == $time ) {
-                if ( $need_time_header ) {
-                    dump_desc_time_start( $region, $time );
-                    undef $need_time_header;
-                }
-                dump_desc_panel( $region, $time, $panel );
-            } ## end if ( $panel->{ $FIELD_START_TIME_SECONDS...})
+            next unless defined $panel;
+            dump_desc_panel(
+                $region,            $guest, $exclude_guest,
+                \$need_time_header, $time,  $panel
+            );
         } ## end foreach my $idx ( @room_ids)
         unless ( $need_time_header ) {
             dump_desc_time_end( $region, $time );
@@ -869,7 +941,7 @@ sub dump_tables {
     my $ofname = $oname;
 
     if ( $oname eq q{-} ) {
-        $ofname = "<STDOUT>";
+        $ofname = q{<STDOUT>};
         $ofh    = \*STDOUT;
     }
     else {
@@ -882,8 +954,8 @@ sub dump_tables {
         elsif ( $guest_file ) {
             $ofname = $oname . q{.} . $guest_file . q{.html};
         }
-        open $ofh, ">:encoding(utf8)", $ofname
-            or die qq{Unable to write: $ofname\n};
+        open $ofh, q{>:encoding(utf8)}, $ofname
+            or die qq{Unable to write: ${ofname}\n};
     } ## end else [ if ( $oname eq q{-} ) ]
 
     say { $ofh } q{<!doctype html>};
