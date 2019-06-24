@@ -39,7 +39,7 @@ Readonly our $FIELD_BY_REGION          => q{*BY_REGION};
 Readonly our $FIELD_BY_ROW_SECONDS     => q{*BY_SECONDS};
 Readonly our $FIELD_BY_START_SECONDS   => q{*BY_START};
 Readonly our $FIELD_CAFE               => q{*CAFE};
-Readonly our $FIELD_CSS_CLASSES        => q{*CLASSES};
+Readonly our $FIELD_CSS_SUBCLASSES     => q{*CLASSES};
 Readonly our $FIELD_CSS_HREF           => q{*HREF};
 Readonly our $FIELD_DAY_BEING_OUTPUT   => q{*ACTIVEDAY};
 Readonly our $FIELD_END_TIME_SECONDS   => q{*END_SEC};
@@ -76,6 +76,7 @@ Readonly our $CLASS_DESC_TIME_TABLE          => q{desctime};
 Readonly our $CLASS_GRID_CELL_DAY            => q{schedday};
 Readonly our $CLASS_GRID_CELL_GUEST_BUSY     => q{schedtimeguest};
 Readonly our $CLASS_GRID_CELL_HEADER         => q{schedhead};
+Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
 Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{roomloc};
 Readonly our $CLASS_GRID_COLUMN_DAY          => q{scheddaycolumn};
 Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedloc%scolumn};
@@ -84,14 +85,19 @@ Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedtimecolumn};
 Readonly our $CLASS_GRID_ROW_GUEST_BUSY      => q{schedtimerowguest};
 Readonly our $CLASS_GRID_ROW_HEADER          => q{schedheadrow};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
-Readonly our $CLASS_POSTFIX_FMT_DIFFICULTY   => q{Difficulty%s};
-Readonly our $CLASS_POSTFIX_FMT_TYPE         => q{Type%s};
-Readonly our $CLASS_POSTFIX_FULL             => q{Full};
-Readonly our $CLASS_POSTFIX_GUEST_PANEL      => q{SelectedGuest};
-Readonly our $CLASS_POSTFIX_CONFLICT_PANEL   => q{ConflictGuest};
-Readonly our $CLASS_POSTFIX_NEED_TOKENS      => q{NeedTokens};
-Readonly our $CLASS_GRID_CELL_PREFIX         => q{panel};
-Readonly our $CLASS_GRID_SUBCELL_ID          => q{panelid};
+
+# CSS Subclasses
+Readonly our $SUBCLASS_CONFLICT_PANEL   => q{ConflictGuest};
+Readonly our $SUBCLASS_FMT_DIFFICULTY   => q{Difficulty%s};
+Readonly our $SUBCLASS_FMT_TYPE         => q{Type%s};
+Readonly our $SUBCLASS_FULL             => q{Full};
+Readonly our $SUBCLASS_GUEST_PANEL      => q{SelectedGuest};
+Readonly our $SUBCLASS_NEED_TOKENS      => q{NeedTokens};
+Readonly our $SUBCLASS_PIECE_FULL       => q{fulllabel};
+Readonly our $SUBCLASS_PIECE_ID         => q{id};
+Readonly our $SUBCLASS_PIECE_NAME       => q{name};
+Readonly our $SUBCLASS_PIECE_TOKENS     => q{tokens};
+Readonly our $SUBCLASS_PIECE_FMT_TOKENS => q{tokens%s};
 
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
@@ -256,15 +262,15 @@ sub read_csv_file {
         my $difficulty = $panel{ $TABLE_DIFFICULTY };
         my $tokens     = $panel{ $TABLE_TOKENS };
         my $full       = $panel{ $TABLE_FULL };
-        my @classes    = sprintf $CLASS_POSTFIX_FMT_TYPE, $kind;
+        my @subclasses = sprintf $SUBCLASS_FMT_TYPE, $kind;
         if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
-            push @classes, sprintf $CLASS_POSTFIX_FMT_DIFFICULTY, $difficulty;
+            push @subclasses, sprintf $SUBCLASS_FMT_DIFFICULTY, $difficulty;
         }
         if ( defined $tokens && $tokens eq q{0} ) {
             undef $tokens;
         }
         if ( defined $tokens ) {
-            push @classes, $CLASS_POSTFIX_NEED_TOKENS;
+            push @subclasses, $SUBCLASS_NEED_TOKENS;
             $tokens =~ s{\A\s*}{}xms;
             $tokens =~ s{\s*\z}{}xms;
             $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
@@ -274,7 +280,7 @@ sub read_csv_file {
                 undef $full;
             }
             else {
-                push @classes, $CLASS_POSTFIX_FULL;
+                push @subclasses, $SUBCLASS_FULL;
             }
         } ## end if ( defined $full )
 
@@ -283,7 +289,7 @@ sub read_csv_file {
         }
         $panel{ $FIELD_START_TIME_SECONDS } = $start;
         $panel{ $FIELD_END_TIME_SECONDS }   = $end;
-        $panel{ $FIELD_CSS_CLASSES }        = \@classes;
+        $panel{ $FIELD_CSS_SUBCLASSES }     = \@subclasses;
         $panel{ $FIELD_CSS_HREF }           = $id;
         $panel{ $TABLE_TOKENS }             = $tokens;
         $panel{ $TABLE_FULL }               = $full;
@@ -607,12 +613,12 @@ sub dump_room {
         $name     = q{Café featuring};
     }
 
-    my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
+    my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
     if ( $panel->{ $FIELD_GUEST_MAP }->{ $guest } ) {
-        push @classes, $CLASS_POSTFIX_GUEST_PANEL;
+        push @subclasses, $SUBCLASS_GUEST_PANEL;
     }
     if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
-        push @classes, $CLASS_POSTFIX_CONFLICT_PANEL;
+        push @subclasses, $SUBCLASS_CONFLICT_PANEL;
     }
 
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
@@ -622,27 +628,47 @@ sub dump_room {
         rowspan => ( $region_info->{ $FIELD_TABLE_ROWS } // 1 ),
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
-            map { $CLASS_GRID_CELL_PREFIX . $_ } @classes
+            map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } @subclasses
         )
         };
 
     out_line $h->div(
-        { out_class( $CLASS_GRID_SUBCELL_ID ) },
+        {   out_class(
+                sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $SUBCLASS_PIECE_ID
+            )
+        },
         $panel->{ $TABLE_UNIQUE_ID }
     );
     out_open $HTML_ANCHOR, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
 
     if ( $panel->{ $TABLE_FULL } ) {
         out_line $h->div(
-            { out_class( qw{ panelfulllabel } ) },
+            {   out_class(
+                    sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_FULL
+                )
+            },
             q{Workshop is Full}
         );
     } ## end if ( $panel->{ $TABLE_FULL...})
-    out_line $h->span( { out_class( qw{ panelname } ) }, $name );
+    out_line $h->span(
+        {   out_class(
+                sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
+                $SUBCLASS_PIECE_NAME
+            )
+        },
+        $name
+    );
 
     if ( defined $tokens ) {
         out_line $h->div(
-            { out_class( qw{ paneltokens }, qq{paneltokens${tokens}} ) },
+            {   out_class(
+                    map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } (
+                        $SUBCLASS_PIECE_TOKENS,
+                        sprintf $SUBCLASS_PIECE_FMT_TOKENS, $tokens
+                    )
+                )
+            },
             q{Tokens: } . $tokens
         );
     } ## end if ( defined $tokens )
@@ -780,17 +806,17 @@ sub dump_desc_panel {
 
     return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
 
-    my @classes = ( q{}, @{ $panel->{ $FIELD_CSS_CLASSES } } );
+    my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
 
     if ( defined $guest ) {
         if ( $exclude_guest ) {
             if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
-                push @classes, $CLASS_POSTFIX_CONFLICT_PANEL;
+                push @subclasses, $SUBCLASS_CONFLICT_PANEL;
             }
         }
         else {
             return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
-            push @classes, $CLASS_POSTFIX_GUEST_PANEL;
+            push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
     } ## end if ( defined $guest )
     if ( $$need_time_header_ref ) {
@@ -812,7 +838,7 @@ sub dump_desc_panel {
     out_open $HTML_TABLE_DATA,
         {
         id => $panel->{ $FIELD_CSS_HREF },
-        out_class( map { q{desc} . $_ } @classes )
+        out_class( map { q{desc} . $_ } @subclasses )
         };
     out_line $h->div(
         { out_class( qw{ descid } ) },
