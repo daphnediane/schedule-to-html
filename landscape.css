@@ -95,6 +95,10 @@ html {
 		color: #18191C;
 		vertical-align: top;
 	}
+	.schedTimeSlotGuestBusy {
+		background-color: black;
+		color: white;
+	}
 }
 @media only print {
 	.schedule td,.schedule th {
@@ -111,6 +115,10 @@ html {
 	}
 	.schedule th.schedHeader,.schedule td.schedHeader {
 		border: thin solid #cccccc;
+	}
+	.schedTimeSlotGuestBusy {
+		background-color: white;
+		color: black;
 	}
 }
 
@@ -178,7 +186,7 @@ html {
 	vertical-align: top;
 }
 .panelFull {
-	color: rgba(0,0,0,0.3);
+	color: rgba(0,0,0,0.5);
 }
 @media not print {
 	.panelName,.panelFullLabel {
@@ -402,10 +410,17 @@ tr.descPanelRow {
 		background-color: white;
 	}
 }
+.panelConflictGuest {
+	opacity: 0.3;
+}
+.panelSelectedGuest {
+	background-color: black;
+	color: white;
+}
 
 @media not print {
 	.panel:target,.desc:target {
-		background-color: black;
-		color: white;
+		background-color: white;
+		color: black;
 	}
 }
