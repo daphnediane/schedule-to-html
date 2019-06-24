@@ -958,6 +958,16 @@ sub dump_desc_all_regions {
     dump_desc_end();
 } ## end sub dump_desc_all_regions
 
+sub cache_inline_style {
+    my ( $file ) = @_;
+    return unless defined $file;
+    state %cache;
+    return $cache{ $file } //= read_file(
+        $file,
+        { chomp => 1, array_ref => 1, err_mode => q{carp} }
+    );
+} ## end sub cache_inline_style
+
 sub dump_tables {
     my ( $guest ) = @_;
     my $guest_file = $guests{ $guest };
@@ -998,29 +1008,21 @@ sub dump_tables {
         }
     );
 
-    if ( defined $inline_style ) {
-        my $lines = read_file(
-            $inline_style,
-            { chomp => 1, array_ref => 1, err_mode => q{carp} }
-        );
-        if ( $lines ) {
-            out_open qw{style};
-            foreach my $line ( @{ $lines } ) {
-                out_line $line;
-            }
-            out_close qw{style};
-        } ## end if ( $lines )
-        else {
-            undef $inline_style;
+    my $lines = cache_inline_style( $inline_style );
+    if ( $lines ) {
+        out_open qw{style};
+        foreach my $line ( @{ $lines } ) {
+            out_line $line;
         }
-    } ## end if ( defined $inline_style)
-    if ( !defined $inline_style ) {
+        out_close qw{style};
+    } ## end if ( $lines )
+    else {
         out_line $h->link(
             {   href => q{index.css}, rel => q{stylesheet},
                 type => q{text/css}
             }
         );
-    } ## end if ( !defined $inline_style)
+    } ## end else [ if ( $lines ) ]
     out_close $HTML_HEAD;
     out_open $HTML_BODY;
 

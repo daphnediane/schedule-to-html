@@ -9,6 +9,8 @@
 .*
 Changes
 core
+output
+prev_output
 report
 !.clang-format
 !.gitignore
