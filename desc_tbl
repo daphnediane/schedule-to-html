@@ -59,6 +59,7 @@ Readonly our $HTML_COLGROUP   => q{colgroup};
 Readonly our $HTML_DIV        => q{div};
 Readonly our $HTML_HEAD       => q{head};
 Readonly our $HTML_HTML       => q{html};
+Readonly our $HTML_STYLE      => q{style};
 Readonly our $HTML_TABLE      => q{table};
 Readonly our $HTML_TABLE_BODY => q{tbody};
 Readonly our $HTML_TABLE_DATA => q{td};
@@ -70,34 +71,46 @@ Readonly our $HTML_TABLE_ROW  => q{tr};
 Readonly our $ANCHOR_FMT_GRID => q{%sGrid};
 
 # CSS Classes
+Readonly our $CLASS_DESC_FMT_SUBCLASS        => q{desc%s};
+Readonly our $CLASS_DESC_PANEL_ROW           => q{descPanelRow};
 Readonly our $CLASS_DESC_SECTION             => q{descriptions};
-Readonly our $CLASS_DESC_TIME_COLUMN         => q{desccol};
-Readonly our $CLASS_DESC_TIME_TABLE          => q{desctime};
-Readonly our $CLASS_GRID_CELL_DAY            => q{schedday};
-Readonly our $CLASS_GRID_CELL_GUEST_BUSY     => q{schedtimeguest};
-Readonly our $CLASS_GRID_CELL_HEADER         => q{schedhead};
+Readonly our $CLASS_DESC_TIME_COLUMN         => q{descTimeSlotColumn};
+Readonly our $CLASS_DESC_TIME_HEADER         => q{descTimeSlotRowHeader};
+Readonly our $CLASS_DESC_TIME_SLOT           => q{descTimeSlot};
+Readonly our $CLASS_DESC_TIME_TABLE          => q{descTimeSlotTable};
+Readonly our $CLASS_GRID_CELL_DAY            => q{schedWeekDay};
+Readonly our $CLASS_GRID_CELL_EMPTY          => q{schedRoomEmpty};
 Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
-Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{roomloc};
-Readonly our $CLASS_GRID_COLUMN_DAY          => q{scheddaycolumn};
-Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedloc%scolumn};
-Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedloccolumn};
-Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedtimecolumn};
-Readonly our $CLASS_GRID_ROW_GUEST_BUSY      => q{schedtimerowguest};
-Readonly our $CLASS_GRID_ROW_HEADER          => q{schedheadrow};
+Readonly our $CLASS_GRID_CELL_GUEST_BUSY     => q{schedTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_CELL_HEADER         => q{schedHeader};
+Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{schedRoomName};
+Readonly our $CLASS_GRID_CELL_TIME_SLOT      => q{schedTimeSlot};
+Readonly our $CLASS_GRID_COLUMN_DAY          => q{schedColumnDay};
+Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedColumnRoom%s};
+Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedColumnsRoom};
+Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedColumnTime};
+Readonly our $CLASS_GRID_ROW_GUEST_BUSY      => q{schedRowTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
+Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
 
 # CSS Subclasses
-Readonly our $SUBCLASS_CONFLICT_PANEL   => q{ConflictGuest};
-Readonly our $SUBCLASS_FMT_DIFFICULTY   => q{Difficulty%s};
-Readonly our $SUBCLASS_FMT_TYPE         => q{Type%s};
-Readonly our $SUBCLASS_FULL             => q{Full};
-Readonly our $SUBCLASS_GUEST_PANEL      => q{SelectedGuest};
-Readonly our $SUBCLASS_NEED_TOKENS      => q{NeedTokens};
-Readonly our $SUBCLASS_PIECE_FULL       => q{fulllabel};
-Readonly our $SUBCLASS_PIECE_ID         => q{id};
-Readonly our $SUBCLASS_PIECE_NAME       => q{name};
-Readonly our $SUBCLASS_PIECE_TOKENS     => q{tokens};
-Readonly our $SUBCLASS_PIECE_FMT_TOKENS => q{tokens%s};
+Readonly our $SUBCLASS_CONFLICT_PANEL    => q{ConflictGuest};
+Readonly our $SUBCLASS_FMT_DIFFICULTY    => q{Difficulty%s};
+Readonly our $SUBCLASS_FMT_TYPE          => q{Type%s};
+Readonly our $SUBCLASS_FULL              => q{Full};
+Readonly our $SUBCLASS_GUEST_PANEL       => q{SelectedGuest};
+Readonly our $SUBCLASS_NEED_TOKENS       => q{NeedTokens};
+Readonly our $SUBCLASS_PIECE_DESCRIPTION => q{Description};
+Readonly our $SUBCLASS_PIECE_FMT_TOKENS  => q{Tokens%s};
+Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
+Readonly our $SUBCLASS_PIECE_ID          => q{ID};
+Readonly our $SUBCLASS_PIECE_NAME        => q{Name};
+Readonly our $SUBCLASS_PIECE_NOTE        => q{Note};
+Readonly our $SUBCLASS_PIECE_PANELIST    => q{Panelist};
+Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
+Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
+Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
 
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
@@ -590,7 +603,7 @@ sub dump_room {
 
     if ( !defined $panel ) {
         out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->},
-            $h->td( { out_class( qw{ empty } ) } );
+            $h->td( { out_class( $CLASS_GRID_CELL_EMPTY ) } );
         return;
     }
 
@@ -675,7 +688,11 @@ sub dump_room {
 
     if ( $panelist =~ m{\S}xms ) {
         out_line $h->span(
-            { out_class( qw{ panelist } ) },
+            {   out_class(
+                    sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_PANELIST
+                )
+            },
             $panelist
         );
     } ## end if ( $panelist =~ m{\S}xms)
@@ -687,9 +704,9 @@ sub dump_room {
 sub dump_row {
     my ( $region, $guest, $time, $panels ) = @_;
 
-    my @time_row_classes = qw{ schedtimerow };
+    my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
     my @time_classes     = (
-        $CLASS_GRID_CELL_HEADER, qw{ schedtime },
+        $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_TIME_SLOT,
         $CLASS_GRID_COLUMN_TIME
     );
 
@@ -781,10 +798,13 @@ sub dump_desc_time_start {
     out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
     out_close $HTML_COLGROUP;
     out_line $h->thead(
-        { out_class( qw{desctimeheader} ) },
+        { out_class( $CLASS_DESC_TIME_HEADER ) },
         $h->tr(
             $h->th(
-                { out_class( $CLASS_DESC_TIME_COLUMN ) },
+                {   out_class(
+                        $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT
+                    )
+                },
                 decode_time( $time, qw{ both } )
             )
         )
@@ -834,40 +854,61 @@ sub dump_desc_panel {
         $name = q{Cosplay Café Featuring } . $name;
     }
 
-    out_open $HTML_TABLE_ROW, { out_class( qw{desctimebody} ) };
+    out_open $HTML_TABLE_ROW, { out_class( $CLASS_DESC_PANEL_ROW ) };
     out_open $HTML_TABLE_DATA,
         {
         id => $panel->{ $FIELD_CSS_HREF },
-        out_class( map { q{desc} . $_ } @subclasses )
+        out_class( map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } @subclasses )
         };
     out_line $h->div(
-        { out_class( qw{ descid } ) },
+        { out_class( sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ID ) },
         $panel->{ $TABLE_UNIQUE_ID }
     );
     out_line $h->a(
         {   href => q{#} . $panel->{ $FIELD_CSS_HREF } . q{Grid},
-            out_class( qw{descname} )
+            out_class(
+                sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_NAME
+            )
         },
         $name
     );
 
     if ( defined $tokens ) {
         out_line $h->div(
-            { out_class( qw{ descTokens }, qq{descTokens{$tokens}} ) },
+            {   out_class(
+                    map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } (
+                        $SUBCLASS_PIECE_TOKENS,
+                        sprintf $SUBCLASS_PIECE_FMT_TOKENS, $tokens
+                    )
+                )
+            },
             q{Required tokens: } . $tokens
         );
     } ## end if ( defined $tokens )
     out_line $h->p(
-        { out_class( qw{ descroom } ) },
+        {   out_class(
+                sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ROOM
+            )
+        },
         $room->{ $TABLE_HOTEL_ROOM }
     );
     if ( $panelist =~ m{\S}xms ) {
-        out_line $h->p( { out_class( qw{ descpanelist} ) }, $panelist );
-    }
+        out_line $h->p(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_PANELIST
+                )
+            },
+            $panelist
+        );
+    } ## end if ( $panelist =~ m{\S}xms)
 
     my $descbody = $panel->{ $TABLE_DESCRIPTION };
     out_line $h->p(
-        { out_class( qw{ descbody } ) },
+        {   out_class(
+                sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_DESCRIPTION
+            )
+        },
         $panel->{ $TABLE_DESCRIPTION }
     );
 
@@ -878,20 +919,28 @@ sub dump_desc_panel {
     if ( defined $panel->{ $TABLE_FULL } ) {
         push @note,
             $h->span(
-            { out_class( qw{ descfulllabel } ) },
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_FULL
+                )
+            },
             q{This workshop is full.}
             );
     } ## end if ( defined $panel->{...})
     if ( @note ) {
         out_line $h->p(
-            { out_class( qw{ descnote } ) },
-            join q{ }, @note
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_NOTE
+                )
+            },
+            join q{ },
+            @note
         );
     } ## end if ( @note )
     if ( defined $difficulty ) {
         out_line $h->p(
             {   out_class(
-                    qw{ descDifficulty }, qq{descDifficulty${difficulty}}
+                    sprintf $CLASS_DESC_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_DIFFICULTY
                 )
             },
             q{Difficulty level: } . $difficulty
@@ -1010,11 +1059,11 @@ sub dump_tables {
 
     my $lines = cache_inline_style( $inline_style );
     if ( $lines ) {
-        out_open qw{style};
+        out_open $HTML_STYLE;
         foreach my $line ( @{ $lines } ) {
             out_line $line;
         }
-        out_close qw{style};
+        out_close $HTML_STYLE;
     } ## end if ( $lines )
     else {
         out_line $h->link(

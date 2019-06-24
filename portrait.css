@@ -77,7 +77,7 @@ html {
 	}
 }
 
-.schedhead {
+.schedHeader {
 	font-family: nunito-sans,Arial,Helvetica,sans-serif;
 	position: sticky;
 	position: -webkit-sticky;
@@ -85,11 +85,11 @@ html {
 	left: 0px;
 	z-index: 998;
 }
-.schedheadrow .schedtimecolumn {
+.schedRowHeaders .schedColumnTime {
 	z-index: 999;
 }
 @media not print {
-	.schedhead {
+	.schedHeader {
 		font-family: 'Trade Gothic LT W01 Bold','Trade Gothic',nunito-sans,Arial,Helvetica,sans-serif;
 		font-weight: bold;
 		background-color: #00BCDD;
@@ -101,15 +101,15 @@ html {
 	.schedule td,.schedule th {
 		border: thin solid black;
 	}
-	.schedhead {
+	.schedHeader {
 		background-color: black;
 		color: white;
 		vertical-align: middle;
 	}
-	.schedtime,.schedday {
+	.schedTimeSlot,.schedWeekDay {
 		vertical-align: top;
 	}
-	.schedule th.schedhead,.schedule td.schedhead {
+	.schedule th.schedHeader,.schedule td.schedHeader {
 		border: thin solid #cccccc;
 	}
 }
@@ -119,7 +119,7 @@ html {
 }
 
 @media not print {
-	.schedtimerow {
+	.schedRowTimeSlot {
 		border-top: medium groove rgba(183,235,248,0.50);
 		border-bottom: medium groove rgba(183,235,248,0.50);
 	}
@@ -138,25 +138,25 @@ html {
 	}
 }
 
-.scheddaycolumn {
+.schedColumnDay {
 	width: 8%;
 }
-.schedtimecolumn {
+.schedColumnTime {
 	min-width: 4.5em;
 	width: 8%;
 }
-.panel,.empty {
+.panel,.schedRoomEmpty {
 	height: 3em;
 }
-.schedloccolumn {
+.schedColumnsRoom {
 	width: 11.5%;
 }
 
-.panelid {
+.panelID {
 	display: none;
 }
 
-.descid {
+.descID {
 	display: none;
 }
 
@@ -165,23 +165,23 @@ html {
 	color: inherit;
 }
 
-.panelist {
+.panelPanelist {
 	display: block;
 }
 @media only print {
-	.panelist {
+	.panelPanelist {
 		font-weight: lighter;
 	}
 }
 
-.panelname {
+.panelName {
 	vertical-align: top;
 }
 .panelFull {
 	color: rgba(0,0,0,0.3);
 }
 @media not print {
-	.panelname,.panelfulllabel {
+	.panelName,.panelFullLabel {
 /*
 		font-weight: 500;
 		font-family: 'Avenir LT W01_55 Roman1475520',Avenir,nunito-sans,Arial,Helvetica,sans-serif;
@@ -189,15 +189,15 @@ html {
 		font-family: 'Trade Gothic LT W01 Bold','Trade Gothic',nunito-sans,Arial,Helvetica,sans-serif;
 		font-weight: bold;
 	}
-	.panelfulllabel {
+	.panelFullLabel {
 		color: #D9292C;
 	}
 }
 @media only print {
-	.panelname,.panelfulllabel {
+	.panelName,.panelFullLabel {
 		font-weight: bold;
 	}
-	.panelfulllabel {
+	.panelFullLabel {
 		color: black;
 	}
 }
@@ -223,7 +223,7 @@ html {
 	}
 }
 
-.desctime {
+.descTimeSlotTable {
 	margin-top: 0em;
 	margin-bottom: 0.5em;
 	border-collapse: separate;
@@ -232,22 +232,22 @@ html {
 	width: 100%;
 }
 @media not print {
-	.desctime {
+	.descTimeSlotTable {
 		break-inside: avoid-column;
 	}
 }
 
-.desctimeheader {
+.descTimeSlotRowHeader {
 	break-before: auto;
 	break-after: avoid-column;
 }
 
-tr.desctimebody {
+tr.descPanelRow {
 	padding-top: 0.5em;
 	padding-bottom: 0.5em;
 }
 
-.desccol {
+.descTimeSlot {
 	position: sticky;
 	position: -webkit-sticky;
 	top: 0px;
@@ -259,22 +259,22 @@ tr.desctimebody {
 	font-family: nunito-sans,Arial,Helvetica,sans-serif;
 }
 @media not print {
-	.desccol {
+	.descTimeSlot {
 		font-family: 'Trade Gothic LT W01 Bold','Trade Gothic',nunito-sans,Arial,Helvetica,sans-serif;
 		font-weight: bold;
 		font-size: larger;	
 	}
-	.desctimeheader th {
+	.descTimeSlotRowHeader th {
 		background-color: #00BCDD;
 		color: black;
 	}
 }
 @media only print {
-	.desccol {
+	.descTimeSlot {
 		font-weight: bold;
 		font-size: larger;	
 	}
-	.desctimeheader th {
+	.descTimeSlotRowHeader th {
 		background-color: white;
 		color: black;
 	}
@@ -300,36 +300,36 @@ tr.desctimebody {
 	color: inherit;
 }
 
-.desctimebody {
+.descPanelRow {
 	list-style-type: none;
 	padding-left: 0px;
 }
 
 @media not print {
-	.descname,.descfulllabel {
+	.descName,.descFullLabel {
 		font-family: 'Trade Gothic LT W01 Bold','Trade Gothic',nunito-sans,Arial,Helvetica,sans-serif;
 		font-weight: bold;
 	}
-	.descname {
+	.descName {
 		color: black;
 	}
-	.descfulllabel {
+	.descFullLabel {
 		color: #D9292C;
 	}
 }
 @media only print {
-	.descname,.descfulllabel {
+	.descName,.descFullLabel {
 		font-weight: bold;
 		color: black;
 	}
 }
 
-.descname,.descpanelist,.descroom,.descTokens {
+.descName,.descPanelist,.descRoomName,.descTokens {
 	margin-block-start: 0em;
 	margin-block-end: 0em;
 }
 
-.descroom {
+.descRoomName {
 	float: right;
 }
 
@@ -342,13 +342,13 @@ tr.desctimebody {
 }
 
 @media not print {
-	.descnote i {
+	.descNote i {
 		font-family: 'Avenir LT W01_55 Obliqu1475526',Avenir,nunito-sans,Arial,Helvetica,sans-serif;
 		font-style: oblique;
 	}
 }
 
-.paneltokens {
+.panelTokens {
 	font-weight: bolder;
 	text-decoration: underline;
 	color: #642CB8;
@@ -395,7 +395,7 @@ tr.desctimebody {
 	}
 }
 @media only print {
-	.empty {
+	.schedRoomEmpty {
 		background-color: #cccccc;
 	}
 	.panel {
