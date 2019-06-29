@@ -786,10 +786,10 @@ sub dump_desc_start {
 
     if ( exists $guests{ $guest } ) {
         if ( $exclude_guest ) {
-            out_line $h->h2( q{Schedule excluding your panels} );
+            out_line $h->h2( q{Schedule excluding guest panels} );
         }
         else {
-            out_line $h->h2( q{Your schedule} );
+            out_line $h->h2( q{Schedule for } . $guest );
         }
     }
 
