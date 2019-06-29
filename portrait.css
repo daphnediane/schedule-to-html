@@ -417,6 +417,9 @@ tr.descPanelRow {
 	background-color: black;
 	color: white;
 }
+.descConflictGuest {
+	opacity: 0.3;
+}
 
 @media not print {
 	.panel:target,.desc:target {

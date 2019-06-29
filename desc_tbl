@@ -244,6 +244,9 @@ sub read_csv_file {
                 if ( $header_alt =~ m{\AOther_Guests?\z}xmsi ) {
                     @guests = split m{\s*,\s*}xms, $raw_text;
                 }
+                if ( $header_text =~ m{\(CC\)}xms ) {
+                    push @guests, q{Cowbutt Crunchies};
+                }
                 foreach my $guest ( @guests ) {
                     $guests{ $guest } = santize_hdr( $guest );
                     $panel{ $FIELD_GUEST_MAP }->{ $guest } = 1;
@@ -779,7 +782,16 @@ sub dump_region {
 } ## end sub dump_region
 
 sub dump_desc_start {
-    my ( $region ) = @_;
+    my ( $region, $guest, $exclude_guest ) = @_;
+
+    if ( exists $guests{ $guest } ) {
+        if ( $exclude_guest ) {
+            out_line $h->h2( q{Schedule excluding your panels} );
+        }
+        else {
+            out_line $h->h2( q{Your schedule} );
+        }
+    }
 
     out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION ) };
 }
@@ -791,12 +803,23 @@ sub dump_desc_end {
 }
 
 sub dump_desc_time_start {
-    my ( $region, $guest, $exclude_guest, $time ) = @_;
+    my ( $region, $guest, $exclude_guest, $time, $busy ) = @_;
 
     out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
     out_open $HTML_COLGROUP;
     out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
     out_close $HTML_COLGROUP;
+
+    my $tm_text = decode_time( $time, qw{ both } );
+    if ( $busy ) {
+        if ( $exclude_guest ) {
+            $tm_text .= q{ Conflict};
+        }
+        else {
+        $tm_text .= q{ Busy};
+        }
+    }
+
     out_line $h->thead(
         { out_class( $CLASS_DESC_TIME_HEADER ) },
         $h->tr(
@@ -805,7 +828,7 @@ sub dump_desc_time_start {
                         $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT
                     )
                 },
-                decode_time( $time, qw{ both } )
+                $tm_text
             )
         )
     );
@@ -821,26 +844,30 @@ sub dump_desc_time_end {
 
 sub dump_desc_panel {
     my ($region, $guest, $exclude_guest, $need_time_header_ref, $time,
-        $panel
+        $panel, $busy
     ) = @_;
 
     return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
 
     my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
+    my $conflict;
 
     if ( defined $guest ) {
         if ( $exclude_guest ) {
             if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
                 push @subclasses, $SUBCLASS_CONFLICT_PANEL;
+                $conflict = 1;
             }
+            return if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
         }
         else {
             return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
     } ## end if ( defined $guest )
+
     if ( $$need_time_header_ref ) {
-        dump_desc_time_start( $region, $guest, $exclude_guest, $time );
+        dump_desc_time_start( $region, $guest, $exclude_guest, $time, $busy );
         undef $$need_time_header_ref;
     }
 
@@ -913,6 +940,9 @@ sub dump_desc_panel {
     );
 
     my @note;
+    if ( $conflict ) {
+        push @note, $h->b( q{Conflicts with one of your panels.} );
+    }
     if ( defined $panel->{ $TABLE_NOTE } ) {
         push @note, $h->i( $panel->{ $TABLE_NOTE } );
     }
@@ -965,15 +995,16 @@ DUMP_TIME:
     foreach my $time ( @times ) {
         my $need_time_header = 1;
         my $panels           = $rows->{ $time };
+        my $busy;
         if ( $exclude_guest ) {
-            next if has_guest( $panels, $guest );
+            $busy = 1 if has_guest( $panels, $guest );
         }
         foreach my $idx ( @room_ids ) {
             my $panel = $panels->{ $idx };
             next unless defined $panel;
             dump_desc_panel(
                 $region,            $guest, $exclude_guest,
-                \$need_time_header, $time,  $panel
+                \$need_time_header, $time,  $panel, $busy
             );
         } ## end foreach my $idx ( @room_ids)
         unless ( $need_time_header ) {
@@ -985,12 +1016,12 @@ DUMP_TIME:
 sub dump_desc_region {
     my ( $region, $guest ) = @_;
 
-    dump_desc_start( $region );
+    dump_desc_start( $region, $guest );
     dump_desc_region_rows( $region, $guest );
     dump_desc_end( $region );
 
     if ( exists $guests{ $guest } ) {
-        dump_desc_start( $region );
+        dump_desc_start( $region, $guest, 1 );
         dump_desc_region_rows( $region, $guest, 1 );
         dump_desc_end( $region );
     }
@@ -999,7 +1030,7 @@ sub dump_desc_region {
 sub dump_desc_all_regions {
     my ( $guest, $exclude_guest ) = @_;
 
-    dump_desc_start();
+    dump_desc_start( undef, $guest, $exclude_guest);
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
         dump_desc_region_rows( $region, $guest, $exclude_guest );
