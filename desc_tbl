@@ -16,6 +16,7 @@ use File::Slurp qw{read_file};
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
 Readonly our $CAFE      => q{Café};
+Readonly our $GUEST_ANY => q{All Guests};
 
 # Panel fields
 Readonly our $TABLE_DESCRIPTION => q{Description};
@@ -78,6 +79,9 @@ Readonly our $CLASS_DESC_TIME_COLUMN         => q{descTimeSlotColumn};
 Readonly our $CLASS_DESC_TIME_HEADER         => q{descTimeSlotRowHeader};
 Readonly our $CLASS_DESC_TIME_SLOT           => q{descTimeSlot};
 Readonly our $CLASS_DESC_TIME_TABLE          => q{descTimeSlotTable};
+Readonly our $CLASS_DESC_TYPE_COLUMN         => q{descTypeColumn};
+Readonly our $CLASS_DESC_TYPE_HEADER         => q{descTypeHeader};
+Readonly our $CLASS_DESC_TYPE_TABLE          => q{descTypeTable};
 Readonly our $CLASS_GRID_CELL_DAY            => q{schedWeekDay};
 Readonly our $CLASS_GRID_CELL_EMPTY          => q{schedRoomEmpty};
 Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
@@ -128,6 +132,8 @@ our $perday;
 our $separate_desc;
 our $inline_style;
 our $split_guest;
+our $postcard;
+our $just_guest;
 
 our %guests;
 our %schedule;
@@ -247,6 +253,9 @@ sub read_csv_file {
                 if ( $header_text =~ m{\(CC\)}xms ) {
                     push @guests, q{Cowbutt Crunchies};
                 }
+                if ( @guests ) {
+                    push @guests, $GUEST_ANY;
+                }
                 foreach my $guest ( @guests ) {
                     $guests{ $guest } = santize_hdr( $guest );
                     $panel{ $FIELD_GUEST_MAP }->{ $guest } = 1;
@@ -347,6 +356,7 @@ sub add_guest_conflicts {
     my $gmap = $panel->{ $FIELD_GUEST_MAP };
     my $cmap;
     foreach my $guest ( @guests ) {
+        next if $guest eq $GUEST_ANY;
         next if $gmap->{ $guest };
         $cmap //= $panel->{ $FIELD_GUEST_CONFLICT } //= {};
         next if $cmap->{ $guest };
@@ -785,22 +795,52 @@ sub dump_desc_start {
     my ( $region, $guest, $exclude_guest ) = @_;
 
     if ( exists $guests{ $guest } ) {
-        if ( $exclude_guest ) {
-            out_line $h->h2( q{Schedule excluding guest panels} );
-        }
+        my $hdr_text
+            = $exclude_guest
+            ? q{Schedule excluding guest panels}
+            : q{Schedule for } . $guest;
+
+        if ( $postcard ) {
+            out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
+            out_open $HTML_COLGROUP;
+            out_line $h->col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
+            out_close $HTML_COLGROUP;
+
+            out_line $h->thead(
+                { out_class( $CLASS_DESC_TYPE_HEADER ) },
+                $h->tr(
+                    $h->th(
+                        { out_class( $CLASS_DESC_TYPE_COLUMN ) },
+                        $hdr_text
+                    )
+                )
+            );
+            out_open $HTML_TABLE_BODY;
+            out_open $HTML_TABLE_ROW;
+            out_open $HTML_TABLE_DATA;
+        } ## end if ( $postcard )
         else {
-            out_line $h->h2( q{Schedule for } . $guest );
+            out_line $h->h2( $hdr_text );
         }
-    }
+    } ## end if ( exists $guests{ $guest...})
 
     out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION ) };
-}
+} ## end sub dump_desc_start
 
 sub dump_desc_end {
-    my ( $region ) = @_;
+    my ( $region, $guest, $exclude_guest ) = @_;
 
     out_close $HTML_DIV;
-}
+
+    if ( exists $guests{ $guest } ) {
+        if ( $postcard ) {
+            out_close $HTML_TABLE_DATA;
+            out_close $HTML_TABLE_ROW;
+            out_close $HTML_TABLE_BODY;
+            out_close $HTML_TABLE;
+        } ## end if ( $postcard )
+    } ## end if ( exists $guests{ $guest...})
+} ## end sub dump_desc_end
 
 sub dump_desc_time_start {
     my ( $region, $guest, $exclude_guest, $time, $busy ) = @_;
@@ -816,9 +856,9 @@ sub dump_desc_time_start {
             $tm_text .= q{ Conflict};
         }
         else {
-        $tm_text .= q{ Busy};
+            $tm_text .= q{ Busy};
         }
-    }
+    } ## end if ( $busy )
 
     out_line $h->thead(
         { out_class( $CLASS_DESC_TIME_HEADER ) },
@@ -844,7 +884,7 @@ sub dump_desc_time_end {
 
 sub dump_desc_panel {
     my ($region, $guest, $exclude_guest, $need_time_header_ref, $time,
-        $panel, $busy
+        $panel,  $busy
     ) = @_;
 
     return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
@@ -859,7 +899,7 @@ sub dump_desc_panel {
                 $conflict = 1;
             }
             return if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
-        }
+        } ## end if ( $exclude_guest )
         else {
             return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
             push @subclasses, $SUBCLASS_GUEST_PANEL;
@@ -1003,8 +1043,8 @@ DUMP_TIME:
             my $panel = $panels->{ $idx };
             next unless defined $panel;
             dump_desc_panel(
-                $region,            $guest, $exclude_guest,
-                \$need_time_header, $time,  $panel, $busy
+                $region, $guest, $exclude_guest,
+                \$need_time_header, $time, $panel, $busy
             );
         } ## end foreach my $idx ( @room_ids)
         unless ( $need_time_header ) {
@@ -1018,24 +1058,24 @@ sub dump_desc_region {
 
     dump_desc_start( $region, $guest );
     dump_desc_region_rows( $region, $guest );
-    dump_desc_end( $region );
+    dump_desc_end( $region, $guest );
 
-    if ( exists $guests{ $guest } ) {
+    if ( exists $guests{ $guest } && !$just_guest ) {
         dump_desc_start( $region, $guest, 1 );
         dump_desc_region_rows( $region, $guest, 1 );
-        dump_desc_end( $region );
+        dump_desc_end( $region, $guest, 1 );
     }
 } ## end sub dump_desc_region
 
 sub dump_desc_all_regions {
     my ( $guest, $exclude_guest ) = @_;
 
-    dump_desc_start( undef, $guest, $exclude_guest);
+    dump_desc_start( undef, $guest, $exclude_guest );
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
         dump_desc_region_rows( $region, $guest, $exclude_guest );
     }
-    dump_desc_end();
+    dump_desc_end( undef, $guest, $exclude_guest );
 } ## end sub dump_desc_all_regions
 
 sub cache_inline_style {
@@ -1114,7 +1154,7 @@ sub dump_tables {
 
     if ( $separate_desc ) {
         dump_desc_all_regions( $guest );
-        if ( exists $guests{ $guest } ) {
+        if ( exists $guests{ $guest } && !$just_guest ) {
             dump_desc_all_regions( $guest, 1 );
         }
     } ## end if ( $separate_desc )
@@ -1134,14 +1174,16 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{input=s}   => \$fname,
-        q{output=s}  => \$oname,
-        q{day!}      => \$day_column,
-        q{unified!}  => \$unified,
-        q{perday!}   => \$perday,
-        q{separate!} => \$separate_desc,
-        q{style=s}   => \$inline_style,
-        q{guests!}   => \$split_guest,
+        q{input=s}    => \$fname,
+        q{output=s}   => \$oname,
+        q{day!}       => \$day_column,
+        q{unified!}   => \$unified,
+        q{perday!}    => \$perday,
+        q{separate!}  => \$separate_desc,
+        q{style=s}    => \$inline_style,
+        q{guests!}    => \$split_guest,
+        q{postcard!}  => \$postcard,
+        q{justguest!} => \$just_guest,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $fname //= shift @args;
@@ -1151,6 +1193,8 @@ sub main {
     read_csv_file( $fname );
 
     make_time_ranges;
+
+    $split_guest //= 1 if $just_guest;
 
     if ( $split_guest ) {
         foreach my $guest ( keys %guests ) {
