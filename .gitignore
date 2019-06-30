@@ -12,6 +12,7 @@ core
 output
 perday
 perhalf
+posters
 prev_output
 report
 !.clang-format
