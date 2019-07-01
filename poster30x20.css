@@ -54,7 +54,8 @@ html {
 	html {
 		background: white;
 		color: black;
-		column-span: all;
+		column-count: 2;
+		column-span: none;
 	}
 }
 
@@ -70,10 +71,8 @@ html {
 }
 @media only print {
 	.schedule {
-		page-break-before: always;
-		page-break-after: auto;
 		column-span: none;
-		break-before: all;
+		break-before: column;
 	}
 }
 
@@ -108,16 +107,18 @@ html {
 	.schedHeader {
 		background-color: black;
 		color: white;
+		height: 3em;
 		vertical-align: middle;
 	}
 	.schedTimeSlot,.schedWeekDay {
-		background-color: #aaaaaa;
 		vertical-align: top;
 	}
+	.schedule th.schedHeader,.schedule td.schedHeader {
+		border: thin solid #cccccc;
+	}
 	.schedTimeSlotGuestBusy {
-		border: thin solid white;
-		background-color: black;
-		color: white;
+		background-color: white;
+		color: black;
 	}
 }
 
@@ -209,53 +210,24 @@ html {
 	}
 }
 
-.descTypeTable {
-	margin-top: 0em;
-	margin-bottom: 0.5em;
-	border-collapse: separate;
-	border-spacing: 0.5em;
-	table-layout: fixed;
-	width: 100%;
-}
-.descTypeHeader {
-	position: sticky;
-	position: -webkit-sticky;
-	top: 0px;
-	z-index: 998;
-	vertical-align: top;
-	text-align: left;
-	padding-top: 0.5em;
-	padding-bottom: 0.5em;
-	font-family: nunito-sans,Arial,Helvetica,sans-serif;
-}
-
 .descriptions {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 	column-span: none;
 }
 @media not print {
-	.descTypeHeader {
-		font-family: 'Trade Gothic LT W01 Bold','Trade Gothic',nunito-sans,Arial,Helvetica,sans-serif;
-		font-weight: bold;
-		font-size: x-large;	
-	}
 	.descriptions {
 		column-count: auto;
 		column-width: 25em;
 	}
 }
 @media only print {
-	.descTypeHeader {
-		font-weight: bold;
-		font-size: x-large;	
-	}
 	.schedule {
-		font-size: 7.5pt;
+		font-size: 7px;
 	}
 	.descriptions {
-		column-count: auto;
-		column-width: 25em;
+		font-size: 7.3pt;
+		column-count: 2;
 	}
 }
 
@@ -429,25 +401,21 @@ tr.descPanelRow {
 		/* Craftsmanship Judging */
 		background-color: #D2F9C8;
 	}
-	.panelSelectedGuest {
-		background-color: black;
-		color: white;
-	}
 }
 @media only print {
 	.schedRoomEmpty {
-		background-color: #dddddd;
+		background-color: #cccccc;
 	}
 	.panel {
 		background-color: white;
 	}
-	.panelSelectedGuest {
-		background-color: black;
-		color: white;
-	}
 }
 .panelConflictGuest {
 	opacity: 0.3;
+}
+.panelSelectedGuest {
+	background-color: black;
+	color: white;
 }
 .descConflictGuest {
 	opacity: 0.3;
