@@ -1218,7 +1218,7 @@ sub dump_tables {
         } ## end foreach my $region_time ( sort...)
     } ## end if ( $show_grid )
 
-    if ( $show_descriptions && $separate_desc ) {
+    if ( $show_descriptions && ( $separate_desc || !$show_grid ) ) {
         dump_desc_all_regions( $guest );
         if ( exists $guests{ $guest } && !$just_guest ) {
             dump_desc_all_regions( $guest, 1 );
