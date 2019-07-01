@@ -9,12 +9,10 @@
 	.schedule {
 		column-span: none;
 		break-before: column;
+		font-size: 7px;
 	}
 	.schedHeader {
 		height: 3em;
-	}
-	.schedule {
-		font-size: 7px;
 	}
 	.descriptions {
 		font-size: 7.3pt;

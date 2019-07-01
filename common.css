@@ -162,6 +162,33 @@ html {
 	}
 }
 
+.descTypeTable {
+	margin-top: 0em;
+	margin-bottom: 0.5em;
+	border-collapse: separate;
+	border-spacing: 0.5em;
+	table-layout: fixed;
+	width: 100%;
+}
+.descTypeHeader {
+	position: sticky;
+	position: -webkit-sticky;
+	top: 0px;
+	z-index: 998;
+	vertical-align: top;
+	text-align: left;
+	padding-top: 0.5em;
+	padding-bottom: 0.5em;
+	font-family: nunito-sans,Arial,Helvetica,sans-serif;
+}
+@media not print {
+	.descTypeHeader {
+		font-family: 'Trade Gothic LT W01 Bold','Trade Gothic',nunito-sans,Arial,Helvetica,sans-serif;
+		font-weight: bold;
+		font-size: x-large;	
+	}
+}
+
 .descriptions {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
@@ -344,6 +371,11 @@ tr.descPanelRow {
 		/* Craftsmanship Judging */
 		background-color: #D2F9C8;
 	}
+
+	.panelSelectedGuest {
+		background-color: black;
+		color: white;
+	}
 }
 @media only print {
 	.schedRoomEmpty {
@@ -352,13 +384,15 @@ tr.descPanelRow {
 	.panel {
 		background-color: white;
 	}
+
+	.panelSelectedGuest {
+		background-color: black;
+		color: white;
+	}
 }
+
 .panelConflictGuest {
 	opacity: 0.3;
-}
-.panelSelectedGuest {
-	background-color: black;
-	color: white;
 }
 .descConflictGuest {
 	opacity: 0.3;
