@@ -130,11 +130,14 @@ our $day_column;
 our $unified;
 our $perday;
 our $separate_desc;
-our $inline_style;
+our @styles;
+our $inline_css;
 our $split_guest;
 our $postcard;
 our $just_guest;
 our $hide_unused;
+our $show_grid;
+our $show_descriptions;
 
 our %guests;
 our %schedule;
@@ -1165,36 +1168,62 @@ sub dump_tables {
         }
     );
 
-    my $lines = cache_inline_style( $inline_style );
-    if ( $lines ) {
+    my $is_in_styles;
+    my $open_styles = sub {
+        return if $is_in_styles;
         out_open $HTML_STYLE;
-        foreach my $line ( @{ $lines } ) {
-            out_line $line;
-        }
+        $is_in_styles = 1;
+    };
+    my $close_styles = sub {
+        return unless $is_in_styles;
         out_close $HTML_STYLE;
-    } ## end if ( $lines )
-    else {
-        out_line $h->link(
-            {   href => q{index.css}, rel => q{stylesheet},
-                type => q{text/css}
+        undef $is_in_styles;
+    };
+    foreach my $style ( @styles ) {
+        my $is_html = $style =~ m{.html?\z}xms;
+        my $lines;
+        if ( $inline_css || $is_html ) {
+            $lines = cache_inline_style( $style );
+        }
+        if ( $lines ) {
+            if ( $is_html ) {
+                $close_styles->();
             }
-        );
-    } ## end else [ if ( $lines ) ]
+            else {
+                $open_styles->();
+            }
+            foreach my $line ( @{ $lines } ) {
+                out_line $line;
+            }
+        } ## end if ( $lines )
+        elsif ( !$is_html ) {
+            $close_styles->();
+            out_line $h->link(
+                { href => $style, rel => q{stylesheet}, type => q{text/css} }
+            );
+        } ## end elsif ( !$is_html )
+    } ## end foreach my $style ( @styles)
+    $close_styles->();
+
     out_close $HTML_HEAD;
     out_open $HTML_BODY;
 
-    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-        my $region = $time_region{ $region_time };
-        dump_region( $region, $guest );
-        dump_desc_region( $region, $guest ) unless $separate_desc;
-    }
+    if ( $show_grid ) {
+        foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+            my $region = $time_region{ $region_time };
+            dump_region( $region, $guest );
+            if ( $show_descriptions && !$separate_desc ) {
+                dump_desc_region( $region, $guest );
+            }
+        } ## end foreach my $region_time ( sort...)
+    } ## end if ( $show_grid )
 
-    if ( $separate_desc ) {
+    if ( $show_descriptions && $separate_desc ) {
         dump_desc_all_regions( $guest );
         if ( exists $guests{ $guest } && !$just_guest ) {
             dump_desc_all_regions( $guest, 1 );
         }
-    } ## end if ( $separate_desc )
+    } ## end if ( $show_descriptions...)
 
     out_close $HTML_BODY;
     out_close $HTML_HTML;
@@ -1211,18 +1240,29 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{input=s}     => \$fname,
-        q{output=s}    => \$oname,
-        q{day!}        => \$day_column,
-        q{unified!}    => \$unified,
-        q{perday!}     => \$perday,
-        q{separate!}   => \$separate_desc,
-        q{style=s}     => \$inline_style,
-        q{guests!}     => \$split_guest,
-        q{postcard!}   => \$postcard,
-        q{justguest!}  => \$just_guest,
-        q{hideunused!} => \$hide_unused,
+        q{input=s}       => \$fname,
+        q{output=s}      => \$oname,
+        q{day!}          => \$day_column,
+        q{unified!}      => \$unified,
+        q{perday!}       => \$perday,
+        q{separate!}     => \$separate_desc,
+        q{style=s@}      => \@styles,
+        q{inline_css!}   => \$inline_css,
+        q{guests!}       => \$split_guest,
+        q{postcard!}     => \$postcard,
+        q{justguest!}    => \$just_guest,
+        q{hideunused!}   => \$hide_unused,
+        q{grid!}         => \$show_grid,
+        q{descriptions!} => \$show_descriptions,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
+
+    $inline_css //= 1 if @styles;
+    push @styles, qw{ index.css } unless @styles;
+
+    $show_grid         //= 0 if $show_descriptions;
+    $show_descriptions //= 0 if $show_grid;
+    $show_grid         //= 1;
+    $show_descriptions //= 1;
 
     $fname //= shift @args;
     $oname //= shift @args;
