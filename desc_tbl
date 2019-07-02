@@ -296,6 +296,10 @@ sub read_csv_file {
         my $tokens     = $panel{ $TABLE_TOKENS };
         my $full       = $panel{ $TABLE_FULL };
         my @subclasses = sprintf $SUBCLASS_FMT_TYPE, $kind;
+        if ( defined $difficulty && $difficulty =~ m{\A[?]+\z}xms ) {
+            undef $difficulty;
+            $panel{ $TABLE_DIFFICULTY } = undef;
+        }
         if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
             push @subclasses, sprintf $SUBCLASS_FMT_DIFFICULTY, $difficulty;
         }
@@ -864,7 +868,9 @@ sub dump_desc_start {
         }
     } ## end if ( exists $guests{ $guest...})
 
-    out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION ) };
+    state $my_idx = 0;
+    my $alt_class = $CLASS_DESC_SECTION . ( ++ $my_idx );
+    out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION, $alt_class ) };
 } ## end sub dump_desc_start
 
 sub dump_desc_end {
