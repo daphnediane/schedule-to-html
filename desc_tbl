@@ -1276,7 +1276,12 @@ sub dump_kiosk {
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
     out_line $h->title( q{Cosplay America 2019 Schedule} );
     out_line $h->link(
-        { href => q{kiosk.css}, rel => q{stylesheet}, type => q{text/css} } );
+        {   href => q{css/kiosk.css}, rel => q{stylesheet},
+            type => q{text/css}
+        }
+    );
+    out_line $h->script(
+        { type => q{text/javascript}, src => q{js/kiosk.js} } );
 
     out_close $HTML_HEAD;
     out_open $HTML_BODY;
@@ -1288,7 +1293,8 @@ sub dump_kiosk {
             alt => q{Cosplay America}
         }
     );
-    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_TIME ) };
+    out_open $HTML_DIV,
+        { out_class( $CLASS_KIOSK_TIME ), id => q{current_time} };
     out_line q{SOMEDAY ##:## ?M};
     out_close $HTML_DIV;
     out_close $HTML_DIV;
