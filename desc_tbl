@@ -97,6 +97,12 @@ Readonly our $CLASS_GRID_ROW_GUEST_BUSY      => q{schedRowTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
 Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
+Readonly our $CLASS_KIOSK_BAR                => q{top_bar};
+Readonly our $CLASS_KIOSK_DESCRIPTIONS       => q{bottom_half};
+Readonly our $CLASS_KIOSK_GRID_HEADERS       => q{table_headers};
+Readonly our $CLASS_KIOSK_GRID_ROWS          => q{table_rows};
+Readonly our $CLASS_KIOSK_LOGO               => q{logo};
+Readonly our $CLASS_KIOSK_TIME               => q{time};
 
 # CSS Subclasses
 Readonly our $SUBCLASS_CONFLICT_PANEL    => q{ConflictGuest};
@@ -138,6 +144,7 @@ our $just_guest;
 our $hide_unused;
 our $show_grid;
 our $show_descriptions;
+our $kiosk;
 
 our %guests;
 our %schedule;
@@ -869,7 +876,7 @@ sub dump_desc_start {
     } ## end if ( exists $guests{ $guest...})
 
     state $my_idx = 0;
-    my $alt_class = $CLASS_DESC_SECTION . ( ++ $my_idx );
+    my $alt_class = $CLASS_DESC_SECTION . ( ++$my_idx );
     out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION, $alt_class ) };
 } ## end sub dump_desc_start
 
@@ -1241,6 +1248,73 @@ sub dump_tables {
     undef $ofh;
 } ## end sub dump_tables
 
+sub dump_kiosk {
+    my %time_points = map { $_ => 1 } ( keys %time_region );
+    my $ofname = $oname;
+
+    if ( $oname eq q{-} ) {
+        $ofname = q{<STDOUT>};
+        $ofh    = \*STDOUT;
+    }
+    else {
+        if ( -d $oname ) {
+            $ofname = File::Spec->catfile(
+                $oname,
+                q{kiosk.html}
+            );
+        } ## end if ( -d $oname )
+        open $ofh, q{>:encoding(utf8)}, $ofname
+            or die qq{Unable to write: ${ofname}\n};
+    } ## end else [ if ( $oname eq q{-} ) ]
+
+    say { $ofh } q{<!doctype html>};
+
+    out_open $HTML_HTML;
+    out_open $HTML_HEAD;
+    out_line $h->meta( { charset => q{UTF-8} } );
+    out_line $h->meta(
+        { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
+    out_line $h->title( q{Cosplay America 2019 Schedule} );
+    out_line $h->link(
+        { href => q{kiosk.css}, rel => q{stylesheet}, type => q{text/css} } );
+
+    out_close $HTML_HEAD;
+    out_open $HTML_BODY;
+
+    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_BAR ) };
+    out_line $h->img(
+        {   out_class( $CLASS_KIOSK_LOGO ),
+            src => q{images/CosplayAmericaLogoAlt.svg},
+            alt => q{Cosplay America}
+        }
+    );
+    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_TIME ) };
+    out_line q{SOMEDAY ##:## ?M};
+    out_close $HTML_DIV;
+    out_close $HTML_DIV;
+
+    out_line $h->div( { out_class( $CLASS_KIOSK_GRID_HEADERS ) } );
+    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_GRID_ROWS ) };
+    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+        my $region = $time_region{ $region_time };
+        dump_region( $region );
+    }
+    out_close $HTML_DIV;
+
+    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_DESCRIPTIONS ) };
+    out_line $h->p( q{there} );
+    out_close $HTML_DIV;
+
+    out_close $HTML_BODY;
+    out_close $HTML_HTML;
+
+    if ( $oname ne q{-} ) {
+        $ofh->close
+            or die qq{Unable to close $ofname: $!\n};
+    }
+    undef $ofh;
+} ## end sub dump_kiosk
+
 sub main {
     my ( @args ) = @_;
 
@@ -1260,6 +1334,7 @@ sub main {
         q{hideunused!}   => \$hide_unused,
         q{grid!}         => \$show_grid,
         q{descriptions!} => \$show_descriptions,
+        q{kiosk!}        => \$kiosk,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $inline_css //= 1 if @styles;
@@ -1274,18 +1349,36 @@ sub main {
     $oname //= shift @args;
     $oname //= q{-};
 
+    if ( $kiosk ) {
+        $day_column        = undef;
+        $unified           = 1;
+        $perday            = undef;
+        $separate_desc     = undef;
+        @styles            = ();
+        $inline_css        = undef;
+        $split_guest       = undef;
+        $postcard          = undef;
+        $just_guest        = undef;
+        $show_grid         = 1;
+        $show_descriptions = 1;
+    } ## end if ( $kiosk )
     read_csv_file( $fname );
 
     make_time_ranges;
 
-    $split_guest //= 1 if $just_guest;
-
-    if ( $split_guest ) {
-        foreach my $guest ( keys %guests ) {
-            dump_tables( $guest );
-        }
+    if ( $kiosk ) {
+        dump_kiosk;
     }
-    dump_tables;
+    else {
+        $split_guest //= 1 if $just_guest;
+
+        if ( $split_guest ) {
+            foreach my $guest ( keys %guests ) {
+                dump_tables( $guest );
+            }
+        }
+        dump_tables;
+    } ## end else [ if ( $kiosk ) ]
 } ## end sub main
 
 main( @ARGV );
