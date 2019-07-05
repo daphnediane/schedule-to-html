@@ -125,6 +125,7 @@ Readonly our $SUBCLASS_FULL              => q{Full};
 Readonly our $SUBCLASS_GUEST_PANEL       => q{SelectedGuest};
 Readonly our $SUBCLASS_NEED_TOKENS       => q{NeedTokens};
 Readonly our $SUBCLASS_PIECE_DESCRIPTION => q{Description};
+Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
 Readonly our $SUBCLASS_PIECE_FMT_TOKENS  => q{Tokens%s};
 Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
 Readonly our $SUBCLASS_PIECE_ID          => q{ID};
@@ -132,8 +133,8 @@ Readonly our $SUBCLASS_PIECE_NAME        => q{Name};
 Readonly our $SUBCLASS_PIECE_NOTE        => q{Note};
 Readonly our $SUBCLASS_PIECE_PANELIST    => q{Panelist};
 Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
+Readonly our $SUBCLASS_PIECE_START       => q{Start};
 Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
-Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
 
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
@@ -505,14 +506,15 @@ sub make_time_ranges {
         my %next_panels = ();
 
         foreach my $time ( @times ) {
-            my $panels = $rows->{ $time };
             my $next_panels = $next_rows->{ $time } //= {};
             foreach my $room_idx ( @all_room_ids ) {
                 my $next = $next_panels{ $room_idx };
-                my $cur  = $panels->{ $room_idx };
                 $next_panels->{ $room_idx } = $next if defined $next;
-                $next_panels{ $room_idx } = $cur if defined $cur;
-            } ## end foreach my $room_idx ( @all_room_ids)
+            }
+            foreach my $panel ( @{ $panels_by_start{ $time } } ) {
+                my $room_idx = $panel->{ $TABLE_ROOM_INDEX };
+                $next_panels{ $room_idx } = $panel;
+            }
         } ## end foreach my $time ( @times )
     };
 
@@ -1056,13 +1058,24 @@ sub dump_desc_panel_body {
             q{Required tokens: } . $tokens
         );
     } ## end if ( defined $tokens )
-    out_line $h->p(
-        {   out_class(
-                sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ROOM
-            )
-        },
-        $room->{ $TABLE_HOTEL_ROOM }
-    );
+    if ( $kiosk ) {
+        out_line $h->p(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_START
+                )
+            },
+            decode_time( $panel->{ $FIELD_START_TIME_SECONDS }, qw{ both } )
+        );
+    } ## end if ( $kiosk )
+    else {
+        out_line $h->p(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ROOM
+                )
+            },
+            $room->{ $TABLE_HOTEL_ROOM }
+        );
+    } ## end else [ if ( $kiosk ) ]
     if ( $panelist =~ m{\S}xms ) {
         out_line $h->p(
             {   out_class(
@@ -1356,8 +1369,7 @@ sub dump_kiosk_desc {
             {   out_class(
                     $CLASS_KIOSK_COLUMN_ROOM, $CLASS_KIOSK_DESC_CELL_HEADER
                 )
-            },
-            q{Room}
+            }
         );
         out_line $h->th(
             {   out_class(
