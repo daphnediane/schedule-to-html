@@ -151,6 +151,7 @@ our %schedule;
 our %rooms;
 our %panels_by_start;
 our %time_region;
+our $earliest;
 
 our @all_room_ids;
 our @start_times;
@@ -215,6 +216,8 @@ sub add_split {
 sub add_time {
     my ( $time ) = @_;
     return if $schedule{ $time };
+    $earliest //= $time;
+    $earliest = $time if $time < $earliest;
     $schedule{ $time } = 1;
 }
 
@@ -574,6 +577,18 @@ sub decode_time {
     return ( $day, $tm );
 } ## end sub decode_time
 
+sub decode_time_id {
+    my ( $time ) = @_;
+    my @ltime = localtime $time;
+    state $base_day = (localtime $earliest)[6];
+    my $min = $ltime[1];
+    my $hour = $ltime[2];
+    my $day = $ltime[6] - $base_day;
+    if ( $day < 0 ) {
+        $day += 7;
+    }
+    return ( ( $day * 24 ) + $hour ) * 60 + $min;
+}
 sub room_ids {
     my ( $region ) = @_;
 
@@ -776,7 +791,8 @@ sub dump_row {
         push @time_classes,     $CLASS_GRID_CELL_GUEST_BUSY;
     } ## end if ( defined $guest &&...)
 
-    out_open $HTML_TABLE_ROW, { out_class( @time_row_classes ) };
+    my $time_id = q{sched_id_} . decode_time_id($time);
+    out_open $HTML_TABLE_ROW, { out_class( @time_row_classes ), id => $time_id };
 
     if ( $day_column ) {
         out_line $h->th(
