@@ -36,22 +36,23 @@ Readonly our $TABLE_TOKENS      => q{Tokens};
 Readonly our $TABLE_UNIQUE_ID   => q{Uniq_ID};
 
 # Custom fields
+Readonly our $FIELD_ACTIVE_ROOMS       => q{*ROOMS};
 Readonly our $FIELD_BY_REGION          => q{*BY_REGION};
 Readonly our $FIELD_BY_ROW_SECONDS     => q{*BY_SECONDS};
 Readonly our $FIELD_CAFE               => q{*CAFE};
-Readonly our $FIELD_CSS_SUBCLASSES     => q{*CLASSES};
 Readonly our $FIELD_CSS_HREF           => q{*HREF};
+Readonly our $FIELD_CSS_SUBCLASSES     => q{*CLASSES};
 Readonly our $FIELD_DAY_BEING_OUTPUT   => q{*ACTIVEDAY};
 Readonly our $FIELD_END_TIME_SECONDS   => q{*END_SEC};
 Readonly our $FIELD_GUEST_CONFLICT     => q{*GUEST_CONFLICT};
 Readonly our $FIELD_GUEST_MAP          => q{*GUEST_MAP};
 Readonly our $FIELD_LAST_TIME_OUTPUT   => q{*LASTTIME};
+Readonly our $FIELD_NEXT_PANEL         => q{*NEXT};
 Readonly our $FIELD_REGION_NAME        => q{*NAME};
 Readonly our $FIELD_ROOM_INFO          => q{*ROOM_INFO};
 Readonly our $FIELD_ROOM_NAME          => q{*NAME};
 Readonly our $FIELD_START_TIME_SECONDS => q{*START_SEC};
 Readonly our $FIELD_TABLE_ROWS         => q{*NUM_ROWS};
-Readonly our $FIELD_ACTIVE_ROOMS       => q{*ROOMS};
 
 # HTML Elements
 Readonly our $HTML_ANCHOR     => q{a};
@@ -98,9 +99,21 @@ Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
 Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
 Readonly our $CLASS_KIOSK_BAR                => q{top_bar};
+Readonly our $CLASS_KIOSK_COLUMN_CURRENT     => q{descColCurrent};
+Readonly our $CLASS_KIOSK_COLUMN_FUTURE      => q{descColNext};
+Readonly our $CLASS_KIOSK_COLUMN_ROOM        => q{descColRoom};
+Readonly our $CLASS_KIOSK_DESC_CELL_CURRENT  => q{descCurrent};
+Readonly our $CLASS_KIOSK_DESC_CELL_FUTURE   => q{descNext};
+Readonly our $CLASS_KIOSK_DESC_CELL_HEADER   => q{descHeader};
+Readonly our $CLASS_KIOSK_DESC_CELL_ROOM     => q{descRoom};
+Readonly our $CLASS_KIOSK_DESC_CELL_EMPTY    => q{descEmpty};
+Readonly our $CLASS_KIOSK_DESC_HEAD          => q{descHead};
+Readonly our $CLASS_KIOSK_DESC_ROW_HEADERS   => q{descRowHeader};
+Readonly our $CLASS_KIOSK_DESC_ROW_ROOM      => q{descRowRoom};
 Readonly our $CLASS_KIOSK_DESCRIPTIONS       => q{bottom_half};
 Readonly our $CLASS_KIOSK_GRID_HEADERS       => q{table_headers};
 Readonly our $CLASS_KIOSK_GRID_ROWS          => q{table_rows};
+Readonly our $CLASS_KIOSK_HIDDEN             => q{inactiveDesc};
 Readonly our $CLASS_KIOSK_LOGO               => q{logo};
 Readonly our $CLASS_KIOSK_TIME               => q{time};
 
@@ -219,7 +232,7 @@ sub add_time {
     $earliest //= $time;
     $earliest = $time if $time < $earliest;
     $schedule{ $time } = 1;
-}
+} ## end sub add_time
 
 sub santize_hdr {
     my ( $hdr ) = @_;
@@ -482,6 +495,27 @@ sub make_time_ranges {
         return;
     };
 
+    my $finish_region = sub {
+        return unless defined $region_active;
+        return unless $kiosk;
+        my $rows = $region_active->{ $FIELD_BY_ROW_SECONDS };
+        return unless $rows;
+        my $next_rows = $region_active->{ $FIELD_NEXT_PANEL } //= {};
+        my @times = sort { $b <=> $a } keys %{ $rows };
+        my %next_panels = ();
+
+        foreach my $time ( @times ) {
+            my $panels = $rows->{ $time };
+            my $next_panels = $next_rows->{ $time } //= {};
+            foreach my $room_idx ( @all_room_ids ) {
+                my $next = $next_panels{ $room_idx };
+                my $cur  = $panels->{ $room_idx };
+                $next_panels->{ $room_idx } = $next if defined $next;
+                $next_panels{ $room_idx } = $cur if defined $cur;
+            } ## end foreach my $room_idx ( @all_room_ids)
+        } ## end foreach my $time ( @times )
+    };
+
     my $check_for_next_region = sub {
         my ( $split_time ) = @_;
 
@@ -491,6 +525,7 @@ sub make_time_ranges {
             $next_range = add_split( $split_time, q{Before Convention} );
         }
 
+        $finish_region->();
         foreach my $panel ( values %panels_active ) {
             my $region_info
                 = $panel->{ $FIELD_BY_REGION }->{ $split_time } //= {};
@@ -508,6 +543,7 @@ sub make_time_ranges {
         $check_for_next_region->( $split_time );
         $process_time->( $split_time );
     }
+    $finish_region->();
 } ## end sub make_time_ranges
 
 sub out_line {
@@ -580,15 +616,16 @@ sub decode_time {
 sub decode_time_id {
     my ( $time ) = @_;
     my @ltime = localtime $time;
-    state $base_day = (localtime $earliest)[6];
-    my $min = $ltime[1];
-    my $hour = $ltime[2];
-    my $day = $ltime[6] - $base_day;
+    state $base_day = ( localtime $earliest )[ 6 ];
+    my $min  = $ltime[ 1 ];
+    my $hour = $ltime[ 2 ];
+    my $day  = $ltime[ 6 ] - $base_day;
     if ( $day < 0 ) {
         $day += 7;
     }
     return ( ( $day * 24 ) + $hour ) * 60 + $min;
-}
+} ## end sub decode_time_id
+
 sub room_ids {
     my ( $region ) = @_;
 
@@ -791,8 +828,9 @@ sub dump_row {
         push @time_classes,     $CLASS_GRID_CELL_GUEST_BUSY;
     } ## end if ( defined $guest &&...)
 
-    my $time_id = q{sched_id_} . decode_time_id($time);
-    out_open $HTML_TABLE_ROW, { out_class( @time_row_classes ), id => $time_id };
+    my $time_id = q{sched_id_} . decode_time_id( $time );
+    out_open $HTML_TABLE_ROW,
+        { out_class( @time_row_classes ), id => $time_id };
 
     if ( $day_column ) {
         out_line $h->th(
@@ -951,34 +989,29 @@ sub dump_desc_time_end {
     out_close $HTML_TABLE;
 } ## end sub dump_desc_time_end
 
-sub dump_desc_panel {
-    my ($region, $guest, $exclude_guest, $need_time_header_ref, $time,
-        $panel,  $busy
+sub dump_desc_panel_body {
+    my ($region, $guest, $exclude_guest,
+        $panel,  @extra_classes
     ) = @_;
 
-    return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
+    if ( !defined $panel ) {
+        out_line $h->td(
+            { out_class( @extra_classes, $CLASS_KIOSK_DESC_CELL_EMPTY ) } );
+        return;
+    }
 
     my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
     my $conflict;
 
     if ( defined $guest ) {
-        if ( $exclude_guest ) {
-            if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
-                push @subclasses, $SUBCLASS_CONFLICT_PANEL;
-                $conflict = 1;
-            }
-            return if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
-        } ## end if ( $exclude_guest )
-        else {
-            return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+        if ( $panel->{ $FIELD_GUEST_MAP }->{ $guest } ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
+        elsif ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
+            push @subclasses, $SUBCLASS_CONFLICT_PANEL;
+            $conflict = 1;
+        }
     } ## end if ( defined $guest )
-
-    if ( $$need_time_header_ref ) {
-        dump_desc_time_start( $region, $guest, $exclude_guest, $time, $busy );
-        undef $$need_time_header_ref;
-    }
 
     my $difficulty = $panel->{ $TABLE_DIFFICULTY };
     my $name       = $panel->{ $TABLE_PANEL_NAME };
@@ -990,11 +1023,13 @@ sub dump_desc_panel {
         $name = q{Cosplay Café Featuring } . $name;
     }
 
-    out_open $HTML_TABLE_ROW, { out_class( $CLASS_DESC_PANEL_ROW ) };
     out_open $HTML_TABLE_DATA,
         {
         id => $panel->{ $FIELD_CSS_HREF },
-        out_class( map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } @subclasses )
+        out_class(
+            @extra_classes,
+            map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } @subclasses
+        )
         };
     out_line $h->div(
         { out_class( sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ID ) },
@@ -1086,6 +1121,34 @@ sub dump_desc_panel {
         );
     } ## end if ( defined $difficulty)
     out_close $HTML_TABLE_DATA;
+} ## end sub dump_desc_panel_body
+
+sub dump_desc_panel {
+    my ($region, $guest, $exclude_guest, $need_time_header_ref, $time,
+        $panel,  $busy
+    ) = @_;
+
+    return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
+
+    if ( defined $guest ) {
+        if ( $exclude_guest ) {
+            return if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+        }
+        else {
+            return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+        }
+    } ## end if ( defined $guest )
+
+    if ( $$need_time_header_ref ) {
+        dump_desc_time_start( $region, $guest, $exclude_guest, $time, $busy );
+        undef $$need_time_header_ref;
+    }
+
+    out_open $HTML_TABLE_ROW, { out_class( $CLASS_DESC_PANEL_ROW ) };
+    dump_desc_panel_body(
+        $region, $guest, $exclude_guest,
+        $panel
+    );
     out_close $HTML_TABLE_ROW;
 } ## end sub dump_desc_panel
 
@@ -1264,6 +1327,91 @@ sub dump_tables {
     undef $ofh;
 } ## end sub dump_tables
 
+sub dump_kiosk_desc {
+    my ( $region ) = @_;
+
+    my $rows     = $region->{ $FIELD_BY_ROW_SECONDS };
+    my @times    = sort { $a <=> $b } keys %{ $rows };
+    my @room_ids = room_ids( $region );
+
+    my $cur_rows  = $region->{ $FIELD_BY_ROW_SECONDS } //= {};
+    my $next_rows = $region->{ $FIELD_NEXT_PANEL }     //= {};
+    foreach my $time ( @times ) {
+        my $time_id = q{desc_id_} . decode_time_id( $time );
+        out_open $HTML_DIV,
+            {
+            out_class( $CLASS_KIOSK_DESCRIPTIONS, $CLASS_KIOSK_HIDDEN ),
+            id => $time_id
+            };
+        out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
+        out_open $HTML_COLGROUP;
+        out_line $h->col( { out_class( $CLASS_KIOSK_COLUMN_ROOM ) } );
+        out_line $h->col( { out_class( $CLASS_KIOSK_COLUMN_CURRENT ) } );
+        out_line $h->col( { out_class( $CLASS_KIOSK_COLUMN_FUTURE ) } );
+        out_close $HTML_COLGROUP;
+        out_open $HTML_TABLE_HEAD, { out_class( $CLASS_KIOSK_DESC_HEAD ) };
+        out_open $HTML_TABLE_ROW,
+            { out_class( $CLASS_KIOSK_DESC_ROW_HEADERS ) };
+        out_line $h->th(
+            {   out_class(
+                    $CLASS_KIOSK_COLUMN_ROOM, $CLASS_KIOSK_DESC_CELL_HEADER
+                )
+            },
+            q{Room}
+        );
+        out_line $h->th(
+            {   out_class(
+                    $CLASS_KIOSK_COLUMN_CURRENT,
+                    $CLASS_KIOSK_DESC_CELL_HEADER
+                )
+            },
+            q{Current Panel}
+        );
+        out_line $h->th(
+            {   out_class(
+                    $CLASS_KIOSK_COLUMN_FUTURE, $CLASS_KIOSK_DESC_CELL_HEADER
+                )
+            },
+            q{Upcoming Panel}
+        );
+        out_close $HTML_TABLE_ROW;
+        out_close $HTML_TABLE_HEAD;
+        out_open $HTML_TABLE_BODY, { out_class( $CLASS_KIOSK_DESC_HEAD ) };
+        my $cur_panels  = $cur_rows->{ $time };
+        my $next_panels = $next_rows->{ $time };
+
+        foreach my $idx ( @room_ids ) {
+            my $hotel = $rooms{ $idx }->{ $TABLE_HOTEL_ROOM };
+            my $name  = $rooms{ $idx }->{ $FIELD_ROOM_NAME };
+            if ( $hotel ne $name ) {
+                $name = $hotel . $h->br() . $name;
+            }
+            out_open $HTML_TABLE_ROW,
+                { out_class( $CLASS_KIOSK_DESC_ROW_ROOM ) };
+            out_line $h->th(
+                {   out_class(
+                        $CLASS_KIOSK_DESC_CELL_ROOM,
+                        $CLASS_KIOSK_DESC_CELL_HEADER
+                    )
+                },
+                $name
+            );
+            dump_desc_panel_body(
+                $region,               undef, undef,
+                $cur_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_CURRENT
+            );
+            dump_desc_panel_body(
+                $region,                undef, undef,
+                $next_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_FUTURE
+            );
+            out_close $HTML_TABLE_ROW;
+        } ## end foreach my $idx ( @room_ids)
+        out_close $HTML_TABLE_BODY;
+        out_close $HTML_TABLE;
+        out_close $HTML_DIV;
+    } ## end foreach my $time ( @times )
+} ## end sub dump_kiosk_desc
+
 sub dump_kiosk {
     my %time_points = map { $_ => 1 } ( keys %time_region );
     my $ofname = $oname;
@@ -1323,9 +1471,10 @@ sub dump_kiosk {
     }
     out_close $HTML_DIV;
 
-    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_DESCRIPTIONS ) };
-    out_line $h->p( q{there} );
-    out_close $HTML_DIV;
+    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+        my $region = $time_region{ $region_time };
+        dump_kiosk_desc( $region );
+    }
 
     out_close $HTML_BODY;
     out_close $HTML_HTML;
