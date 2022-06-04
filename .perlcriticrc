@@ -16,3 +16,6 @@ equivalent_modules = common::sense
 
 [ValuesAndExpressions::ProhibitMagicNumbers]
 allowed_values = -1 0 1
+
+[ControlStructures::ProhibitPostfixControls]
+allow = unless

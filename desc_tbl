@@ -160,7 +160,7 @@ our $hide_unused;
 our $show_grid;
 our $show_descriptions;
 our $kiosk;
-our $title = q{Cosplay America 2019 Schedule};
+our $title = q{Cosplay America 2022 Schedule};
 
 our %guests;
 our %schedule;
@@ -235,6 +235,7 @@ sub add_time {
     $earliest //= $time;
     $earliest = $time if $time < $earliest;
     $schedule{ $time } = 1;
+    return;
 } ## end sub add_time
 
 sub santize_hdr {
