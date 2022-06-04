@@ -11,10 +11,12 @@ Convert spreadsheet to File Format: UTF-16 Unicode Text (.txt)
 
 And place file in the input directory.
 
-Run:
+## Run:
+
 desc_tbl --input input/spreadsheet.txt --output output/
 
-Options:
+## Options:
+```
   --input <file>  Input filename, UTF-16 spreadsheet
   --output <file> Output filename or directory
   --day           Include a column for week day
@@ -32,7 +34,10 @@ Options:
   --description   Includes panel descriptions, implies --no-grid
   --kiosk         Generate HTML for use in the Schedule Kiosk
   --title <NAME>  Sets the page titles
+```
 
-Licensing:
+## Licensing:
+
 For desc_tbl see LICENSE
+
 Files in .devcontainer may have their own license, SUCH as MIT
