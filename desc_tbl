@@ -145,22 +145,22 @@ Readonly our $HEADING_TIME => q{Time};
 Readonly our $FMT_DAY  => q{%A};
 Readonly our $FMT_TIME => q{%I:%M %p};
 
-our $fname;
-our $oname;
-our $day_column;
-our $unified;
-our $perday;
-our $separate_desc;
-our @styles;
-our $inline_css;
-our $split_guest;
-our $postcard;
-our $just_guest;
-our $hide_unused;
-our $show_grid;
-our $show_descriptions;
-our $kiosk;
-our $title = q{Cosplay America 2022 Schedule};
+our @option_css_styles;
+our $option_desc_at_end;
+our $option_embed_css;
+our $option_file_per_guest;
+our $option_hide_unused_rooms;
+our $option_input_file;
+our $option_is_postcard;
+our $option_just_guest;
+our $option_kiosk_mode;
+our $option_output;
+our $option_show_day_column;
+our $option_show_descriptions;
+our $option_show_grid;
+our $option_split_per_day;
+our $option_title;
+our $option_unified_grid;
 
 our %guests;
 our %schedule;
@@ -250,11 +250,11 @@ sub santize_hdr {
 } ## end sub santize_hdr
 
 sub read_csv_file {
-    open my $fh, q{<:encoding(utf16)}, $fname
-        or die qq{Unable to read: ${fname}\n};
+    open my $fh, q{<:encoding(utf16)}, $option_input_file
+        or die qq{Unable to read: ${option_input_file}\n};
 
     my $header = splitline( $fh )
-        or die qq{Missing header in: ${fname}\n};
+        or die qq{Missing header in: ${option_input_file}\n};
 
     my %ids;
 
@@ -359,8 +359,8 @@ sub read_csv_file {
         $panel{ $TABLE_FULL }               = $full;
 
         if ( $room_name =~ m{\ASPLIT}xmsi ) {
-            next if $unified;
-            if ( $perday ) {
+            next if $option_unified_grid;
+            if ( $option_split_per_day ) {
                 next unless $room_name =~ m{\ASPLITDAY}xmsi;
             }
             add_split $start, $panel{ $TABLE_PANEL_NAME };
@@ -382,7 +382,7 @@ sub read_csv_file {
     } ## end while ( my $raw = splitline...)
 
     $fh->close
-        or die qq{Unable to close $fname: $!\n};
+        or die qq{Unable to close ${option_input_file}: $!\n};
 
     @all_room_ids = sort { $a <=> $b } keys %rooms;
     @start_times  = sort { $a <=> $b } keys %schedule;
@@ -501,7 +501,7 @@ sub make_time_ranges {
 
     my $finish_region = sub {
         return unless defined $region_active;
-        return unless $kiosk;
+        return unless $option_kiosk_mode;
         my $rows = $region_active->{ $FIELD_BY_ROW_SECONDS };
         return unless $rows;
         my $next_rows   = $region_active->{ $FIELD_NEXT_PANEL } //= {};
@@ -634,7 +634,7 @@ sub decode_time_id {
 sub room_ids {
     my ( $region ) = @_;
 
-    if ( $hide_unused && defined $region ) {
+    if ( $option_hide_unused_rooms && defined $region ) {
         my @room_ids
             = sort { $a <=> $b } keys %{ $region->{ $FIELD_ACTIVE_ROOMS } };
         return @room_ids if @room_ids;
@@ -645,7 +645,7 @@ sub room_ids {
 sub dump_labels {
     my ( $kind, $region ) = @_;
 
-    if ( $day_column ) {
+    if ( $option_show_day_column ) {
         out_line $h->th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
@@ -654,7 +654,7 @@ sub dump_labels {
             },
             $HEADING_DAY
         );
-    } ## end if ( $day_column )
+    } ## end if ( $option_show_day_column)
     out_line $h->th(
         {   out_class(
                 $CLASS_GRID_CELL_HEADER,
@@ -692,7 +692,7 @@ sub dump_header {
     out_open $HTML_TABLE, { out_class( $CLASS_GRID_TABLE ) };
 
     out_open $HTML_COLGROUP;
-    if ( $day_column ) {
+    if ( $option_show_day_column ) {
         out_line $h->col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
     }
     out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
@@ -837,7 +837,7 @@ sub dump_row {
     out_open $HTML_TABLE_ROW,
         { out_class( @time_row_classes ), id => $time_id };
 
-    if ( $day_column ) {
+    if ( $option_show_day_column ) {
         out_line $h->th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_DAY,
@@ -850,7 +850,7 @@ sub dump_row {
             { out_class( @time_classes ) },
             decode_time( $time, qw{ time } )
         );
-    } ## end if ( $day_column )
+    } ## end if ( $option_show_day_column)
     else {
         my ( $day, $tm ) = decode_time( $time );
         if (   $region->{ $FIELD_LAST_TIME_OUTPUT } == $time
@@ -863,7 +863,7 @@ sub dump_row {
             { out_class( @time_classes ) },
             $tm
         );
-    } ## end else [ if ( $day_column ) ]
+    } ## end else [ if ( $option_show_day_column)]
 
     my @room_ids = room_ids( $region );
     foreach my $idx ( @room_ids ) {
@@ -910,7 +910,7 @@ sub dump_desc_start {
             ? q{Schedule excluding guest panels}
             : q{Schedule for } . $guest;
 
-        if ( $postcard ) {
+        if ( $option_is_postcard ) {
             out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
             out_open $HTML_COLGROUP;
             out_line $h->col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
@@ -928,7 +928,7 @@ sub dump_desc_start {
             out_open $HTML_TABLE_BODY;
             out_open $HTML_TABLE_ROW;
             out_open $HTML_TABLE_DATA;
-        } ## end if ( $postcard )
+        } ## end if ( $option_is_postcard)
         else {
             out_line $h->h2( $hdr_text );
         }
@@ -945,12 +945,12 @@ sub dump_desc_end {
     out_close $HTML_DIV;
 
     if ( exists $guests{ $guest } ) {
-        if ( $postcard ) {
+        if ( $option_is_postcard ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
             out_close $HTML_TABLE_BODY;
             out_close $HTML_TABLE;
-        } ## end if ( $postcard )
+        } ## end if ( $option_is_postcard)
     } ## end if ( exists $guests{ $guest...})
 } ## end sub dump_desc_end
 
@@ -1036,7 +1036,7 @@ sub dump_desc_panel_body {
             map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } @subclasses
         )
         };
-    out_open $HTML_DIV if $kiosk;
+    out_open $HTML_DIV if $option_kiosk_mode;
     out_line $h->div(
         { out_class( sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ID ) },
         $panel->{ $TABLE_UNIQUE_ID }
@@ -1062,7 +1062,7 @@ sub dump_desc_panel_body {
             q{Required tokens: } . $tokens
         );
     } ## end if ( defined $tokens )
-    if ( $kiosk ) {
+    if ( $option_kiosk_mode ) {
         out_line $h->p(
             {   out_class(
                     sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_START
@@ -1070,7 +1070,7 @@ sub dump_desc_panel_body {
             },
             decode_time( $panel->{ $FIELD_START_TIME_SECONDS }, qw{ both } )
         );
-    } ## end if ( $kiosk )
+    } ## end if ( $option_kiosk_mode)
     else {
         out_line $h->p(
             {   out_class(
@@ -1079,7 +1079,7 @@ sub dump_desc_panel_body {
             },
             $room->{ $TABLE_HOTEL_ROOM }
         );
-    } ## end else [ if ( $kiosk ) ]
+    } ## end else [ if ( $option_kiosk_mode)]
     if ( $panelist =~ m{\S}xms ) {
         out_line $h->p(
             {   out_class(
@@ -1137,7 +1137,7 @@ sub dump_desc_panel_body {
             q{Difficulty level: } . $difficulty
         );
     } ## end if ( defined $difficulty)
-    out_close $HTML_DIV if $kiosk;
+    out_close $HTML_DIV if $option_kiosk_mode;
     out_close $HTML_TABLE_DATA;
 } ## end sub dump_desc_panel_body
 
@@ -1210,7 +1210,7 @@ sub dump_desc_region {
     dump_desc_region_rows( $region, $guest );
     dump_desc_end( $region, $guest );
 
-    if ( exists $guests{ $guest } && !$just_guest ) {
+    if ( exists $guests{ $guest } && !$option_just_guest ) {
         dump_desc_start( $region, $guest, 1 );
         dump_desc_region_rows( $region, $guest, 1 );
         dump_desc_end( $region, $guest, 1 );
@@ -1232,6 +1232,12 @@ sub cache_inline_style {
     my ( $file ) = @_;
     return unless defined $file;
     state %cache;
+    if (   !File::Spec->file_name_is_absolute( $file )
+        && !-e $file
+        && -e File::Spec->catfile( q{css}, $file ) )
+    {
+        $file = File::Spec->catfile( q{css}, $file );
+    } ## end if ( !File::Spec->file_name_is_absolute...)
     return $cache{ $file } //= read_file(
         $file,
         { chomp => 1, array_ref => 1, err_mode => q{carp} }
@@ -1244,25 +1250,25 @@ sub dump_tables {
     undef $guest unless defined $guest_file;
 
     my %time_points = map { $_ => 1 } ( keys %time_region );
-    my $ofname      = $oname;
+    my $ofname      = $option_output;
 
-    if ( $oname eq q{-} ) {
+    if ( $option_output eq q{-} ) {
         $ofname = q{<STDOUT>};
         $ofh    = \*STDOUT;
     }
     else {
-        if ( -d $oname ) {
+        if ( -d $option_output ) {
             $ofname = File::Spec->catfile(
-                $oname,
+                $option_output,
                 ( $guest_file || q{index} ) . q{.html}
             );
-        } ## end if ( -d $oname )
+        } ## end if ( -d $option_output)
         elsif ( $guest_file ) {
-            $ofname = $oname . q{.} . $guest_file . q{.html};
+            $ofname = $option_output . q{.} . $guest_file . q{.html};
         }
         open $ofh, q{>:encoding(utf8)}, $ofname
             or die qq{Unable to write: ${ofname}\n};
-    } ## end else [ if ( $oname eq q{-} ) ]
+    } ## end else [ if ( $option_output eq...)]
 
     say { $ofh } q{<!doctype html>};
     out_open $HTML_HTML;
@@ -1270,7 +1276,7 @@ sub dump_tables {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( $title );
+    out_line $h->title( $option_title );
     out_line $h->link(
         {   href =>
                 q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
@@ -1289,10 +1295,10 @@ sub dump_tables {
         out_close $HTML_STYLE;
         undef $is_in_styles;
     };
-    foreach my $style ( @styles ) {
+    foreach my $style ( @option_css_styles ) {
         my $is_html = $style =~ m{.html?\z}xms;
         my $lines;
-        if ( $inline_css || $is_html ) {
+        if ( $option_embed_css || $is_html ) {
             $lines = cache_inline_style( $style );
         }
         if ( $lines ) {
@@ -1312,33 +1318,35 @@ sub dump_tables {
                 { href => $style, rel => q{stylesheet}, type => q{text/css} }
             );
         } ## end elsif ( !$is_html )
-    } ## end foreach my $style ( @styles)
+    } ## end foreach my $style ( @option_css_styles)
     $close_styles->();
 
     out_close $HTML_HEAD;
     out_open $HTML_BODY;
 
-    if ( $show_grid ) {
+    if ( $option_show_grid ) {
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
             dump_region( $region, $guest );
-            if ( $show_descriptions && !$separate_desc ) {
+            if ( $option_show_descriptions && !$option_desc_at_end ) {
                 dump_desc_region( $region, $guest );
             }
         } ## end foreach my $region_time ( sort...)
-    } ## end if ( $show_grid )
+    } ## end if ( $option_show_grid)
 
-    if ( $show_descriptions && ( $separate_desc || !$show_grid ) ) {
+    if ( $option_show_descriptions
+        && ( $option_desc_at_end || !$option_show_grid ) )
+    {
         dump_desc_all_regions( $guest );
-        if ( exists $guests{ $guest } && !$just_guest ) {
+        if ( exists $guests{ $guest } && !$option_just_guest ) {
             dump_desc_all_regions( $guest, 1 );
         }
-    } ## end if ( $show_descriptions...)
+    } ## end if ( $option_show_descriptions...)
 
     out_close $HTML_BODY;
     out_close $HTML_HTML;
 
-    if ( $oname ne q{-} ) {
+    if ( $option_output ne q{-} ) {
         $ofh->close
             or die qq{Unable to close $ofname: $!\n};
     }
@@ -1431,22 +1439,22 @@ sub dump_kiosk_desc {
 
 sub dump_kiosk {
     my %time_points = map { $_ => 1 } ( keys %time_region );
-    my $ofname      = $oname;
+    my $ofname      = $option_output;
 
-    if ( $oname eq q{-} ) {
+    if ( $option_output eq q{-} ) {
         $ofname = q{<STDOUT>};
         $ofh    = \*STDOUT;
     }
     else {
-        if ( -d $oname ) {
+        if ( -d $option_output ) {
             $ofname = File::Spec->catfile(
-                $oname,
+                $option_output,
                 q{kiosk.html}
             );
-        } ## end if ( -d $oname )
+        } ## end if ( -d $option_output)
         open $ofh, q{>:encoding(utf8)}, $ofname
             or die qq{Unable to write: ${ofname}\n};
-    } ## end else [ if ( $oname eq q{-} ) ]
+    } ## end else [ if ( $option_output eq...)]
 
     say { $ofh } q{<!doctype html>};
 
@@ -1455,7 +1463,7 @@ sub dump_kiosk {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( $title );
+    out_line $h->title( $option_title );
     out_line $h->link(
         {   href => q{css/kiosk.css}, rel => q{stylesheet},
             type => q{text/css}
@@ -1496,7 +1504,7 @@ sub dump_kiosk {
     out_close $HTML_BODY;
     out_close $HTML_HTML;
 
-    if ( $oname ne q{-} ) {
+    if ( $option_output ne q{-} ) {
         $ofh->close
             or die qq{Unable to close $ofname: $!\n};
     }
@@ -1508,66 +1516,67 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{input=s}       => \$fname,
-        q{output=s}      => \$oname,
-        q{day!}          => \$day_column,
-        q{unified!}      => \$unified,
-        q{perday!}       => \$perday,
-        q{separate!}     => \$separate_desc,
-        q{style=s@}      => \@styles,
-        q{inline_css!}   => \$inline_css,
-        q{guests!}       => \$split_guest,
-        q{postcard!}     => \$postcard,
-        q{justguest!}    => \$just_guest,
-        q{hideunused!}   => \$hide_unused,
-        q{grid!}         => \$show_grid,
-        q{descriptions!} => \$show_descriptions,
-        q{kiosk!}        => \$kiosk,
-        q{title=s}       => \$title,
+        q{day!}          => \$option_show_day_column,
+        q{descriptions!} => \$option_show_descriptions,
+        q{grid!}         => \$option_show_grid,
+        q{guests!}       => \$option_file_per_guest,
+        q{hideunused!}   => \$option_hide_unused_rooms,
+        q{inline_css!}   => \$option_embed_css,
+        q{input=s}       => \$option_input_file,
+        q{justguest!}    => \$option_just_guest,
+        q{kiosk!}        => \$option_kiosk_mode,
+        q{output=s}      => \$option_output,
+        q{perday!}       => \$option_split_per_day,
+        q{postcard!}     => \$option_is_postcard,
+        q{separate!}     => \$option_desc_at_end,
+        q{style=s@}      => \@option_css_styles,
+        q{title=s}       => \$option_title,
+        q{unified!}      => \$option_unified_grid,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
-    $inline_css //= 1 if @styles;
-    push @styles, qw{ index.css } unless @styles;
+    $option_embed_css //= 1 if @option_css_styles;
+    push @option_css_styles, qw{ index.css } unless @option_css_styles;
 
-    $show_grid         //= 0 if $show_descriptions;
-    $show_descriptions //= 0 if $show_grid;
-    $show_grid         //= 1;
-    $show_descriptions //= 1;
+    $option_show_grid         //= 0 if $option_show_descriptions;
+    $option_show_descriptions //= 0 if $option_show_grid;
+    $option_show_grid         //= 1;
+    $option_show_descriptions //= 1;
+    $option_title             //= q{Cosplay America 2022 Schedule};
 
-    $fname //= shift @args;
-    $oname //= shift @args;
-    $oname //= q{-};
+    $option_input_file //= shift @args;
+    $option_output     //= shift @args;
+    $option_output     //= q{-};
 
-    if ( $kiosk ) {
-        $day_column        = undef;
-        $unified           = 1;
-        $perday            = undef;
-        $separate_desc     = undef;
-        @styles            = ();
-        $inline_css        = undef;
-        $split_guest       = undef;
-        $postcard          = undef;
-        $just_guest        = undef;
-        $show_grid         = 1;
-        $show_descriptions = 1;
-    } ## end if ( $kiosk )
-    read_csv_file( $fname );
+    if ( $option_kiosk_mode ) {
+        $option_show_day_column   = undef;
+        $option_unified_grid      = 1;
+        $option_split_per_day     = undef;
+        $option_desc_at_end       = undef;
+        @option_css_styles        = ();
+        $option_embed_css         = undef;
+        $option_file_per_guest    = undef;
+        $option_is_postcard       = undef;
+        $option_just_guest        = undef;
+        $option_show_grid         = 1;
+        $option_show_descriptions = 1;
+    } ## end if ( $option_kiosk_mode)
+    read_csv_file( $option_input_file );
 
     make_time_ranges;
 
-    if ( $kiosk ) {
+    if ( $option_kiosk_mode ) {
         dump_kiosk;
     }
     else {
-        $split_guest //= 1 if $just_guest;
+        $option_file_per_guest //= 1 if $option_just_guest;
 
-        if ( $split_guest ) {
+        if ( $option_file_per_guest ) {
             foreach my $guest ( keys %guests ) {
                 dump_tables( $guest );
             }
         }
         dump_tables;
-    } ## end else [ if ( $kiosk ) ]
+    } ## end else [ if ( $option_kiosk_mode)]
 
     1;
 } ## end sub main
