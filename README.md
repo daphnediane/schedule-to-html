@@ -36,6 +36,17 @@ desc_tbl --input input/spreadsheet.txt --output output/
   --title <NAME>  Sets the page titles
 ```
 
+## CSS files
+
+* common.css -- Has default colors
+* guest4x6.css -- For printing to 4x6 cards, consider --postcard
+* landscape.css -- Printing is set to landscape mode
+* portrait.css -- Printing is set to portrait mode
+* poster20x30.css -- Printing to 20x30 posters
+* poster30x20.css -- Printing to 30x20 posters
+* poster30x20v2.css -- 30x20 with smaller font size, more columns
+* poster30x20v3.css -- 30x20 with larger font size, more columns, page breaks
+
 ## Licensing:
 
 For desc_tbl see LICENSE
