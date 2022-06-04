@@ -49,7 +49,8 @@ desc_tbl --input input/spreadsheet.txt --output output/
 
 ## Important Spreadsheet contents
 
-All timestamps are in the form of M/DD/YYYY HH:MM where, M is month 1-12, D is day of month 1-31, YYYY is the year, HH is the hour ( 0-23 ), MM is the minute.
+All timestamps are in the form of M/DD/YYYY HH:MM where, M is month 1-12, D is
+day of month 1-31, YYYY is the year, HH is the hour ( 0-23 ), MM is the minute.
 
 Space in header names are treated as underscores.
 
@@ -66,19 +67,37 @@ Normal Columns:
 * Tokens - How many tokens to attend panel
 * Seats_Sold - currently ignored. Number of seats sold.
 * Capacity - currently ignored. Max number of seats.
-* Full - IF the panel is full (TODO this is getting replaced with Seats_Sold and Capacity )
-* Hide_Panelist - currently ignored. If not-blank, do not show any panelist
+* Full - IF the panel is full (TODO this is getting replaced with Seats_Sold and
+  Capacity )
+* Hide_Panelist - If not-blank, do not show any panelist
 * Alt_Panelist - Use as panelist instead of showing the selected names
+
+Panelist Columns
+
+The syntax for panelist columns is _Kind_:_Name_=_Group_, _Kind_:_Name_, or _Kind_:Other
+
+The following kinds are supported
+
+* G - Guest
+* S - Staff
+* I - Invited panelist
+* F - Fan panelist
+
+_Name_ is the name of the guest as shown. If the name is other, the contents of
+the cell should be a list of names separated by commas.
+
+_Group_ is the group that guest belongs to, if all members of a group are
+attending they will be listed as a group instead of individually.
+
+For each of these columns, if the contents are not blank, the panelist is
+attending, use asterisk "*" to have some one present but not listed.
 
 These columns are currently computed by the spreadsheet (TODO handle by the program)
 
-* Panelist - Computed name of the panelist
 * End_Time - Ending time of panel
 * Kind - Panel kind
 * Room_Idx - Id of room, used for sorting
 * Real_Room - Hotel room name
-
-There are additional fields for guests and stuff that I still need to document. Currently the logic that figures out which are guest names is broken.
 
 ## Licensing:
 

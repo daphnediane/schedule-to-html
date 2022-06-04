@@ -14,26 +14,26 @@ use Getopt::Long qw{GetOptionsFromArray};
 use File::Slurp qw{read_file};
 
 # Global variables
-Readonly our $HALF_HOUR    => 30 * 60;
-Readonly our $CAFE         => q{Café};
-Readonly our $GUEST_ANY    => q{All Guests};
-Readonly our $GUEST_J_OR_M => q{Jin and Miguel};
+Readonly our $HALF_HOUR => 30 * 60;
+Readonly our $CAFE      => q{Café};
+Readonly our $GUEST_ANY => q{All Guests};
 
 # Panel fields
-Readonly our $TABLE_DESCRIPTION => q{Description};
-Readonly our $TABLE_DIFFICULTY  => q{Difficulty};
-Readonly our $TABLE_END_TIME    => q{End_Time};
-Readonly our $TABLE_FULL        => q{Full};
-Readonly our $TABLE_HOTEL_ROOM  => q{Real_Room};
-Readonly our $TABLE_KIND        => q{Kind};
-Readonly our $TABLE_NOTE        => q{Note};
-Readonly our $TABLE_PANEL_NAME  => q{Name};
-Readonly our $TABLE_PANELIST    => q{Panelist};
-Readonly our $TABLE_ROOM_INDEX  => q{Room_Idx};
-Readonly our $TABLE_ROOM_NAME   => q{Room};
-Readonly our $TABLE_START_TIME  => q{Start_Time};
-Readonly our $TABLE_TOKENS      => q{Tokens};
-Readonly our $TABLE_UNIQUE_ID   => q{Uniq_ID};
+Readonly our $TABLE_DESCRIPTION   => q{Description};
+Readonly our $TABLE_DIFFICULTY    => q{Difficulty};
+Readonly our $TABLE_END_TIME      => q{End_Time};
+Readonly our $TABLE_FULL          => q{Full};
+Readonly our $TABLE_HOTEL_ROOM    => q{Real_Room};
+Readonly our $TABLE_KIND          => q{Kind};
+Readonly our $TABLE_NOTE          => q{Note};
+Readonly our $TABLE_PANEL_NAME    => q{Name};
+Readonly our $TABLE_PANELIST_ALT  => q{Alt_Panelist};
+Readonly our $TABLE_PANELIST_HIDE => q{Hide_Panelist};
+Readonly our $TABLE_ROOM_INDEX    => q{Room_Idx};
+Readonly our $TABLE_ROOM_NAME     => q{Room};
+Readonly our $TABLE_START_TIME    => q{Start_Time};
+Readonly our $TABLE_TOKENS        => q{Tokens};
+Readonly our $TABLE_UNIQUE_ID     => q{Uniq_ID};
 
 # Custom fields
 Readonly our $FIELD_ACTIVE_ROOMS       => q{*ROOMS};
@@ -48,6 +48,7 @@ Readonly our $FIELD_GUEST_CONFLICT     => q{*GUEST_CONFLICT};
 Readonly our $FIELD_GUEST_MAP          => q{*GUEST_MAP};
 Readonly our $FIELD_LAST_TIME_OUTPUT   => q{*LASTTIME};
 Readonly our $FIELD_NEXT_PANEL         => q{*NEXT};
+Readonly our $FIELD_PANELIST           => q{*PANELIST};
 Readonly our $FIELD_REGION_NAME        => q{*NAME};
 Readonly our $FIELD_ROOM_INFO          => q{*ROOM_INFO};
 Readonly our $FIELD_ROOM_NAME          => q{*NAME};
@@ -145,35 +146,49 @@ Readonly our $HEADING_TIME => q{Time};
 Readonly our $FMT_DAY  => q{%A};
 Readonly our $FMT_TIME => q{%I:%M %p};
 
-our @option_css_styles;
-our $option_desc_at_end;
-our $option_embed_css;
-our $option_file_per_guest;
-our $option_hide_unused_rooms;
-our $option_input_file;
-our $option_is_postcard;
-our $option_just_guest;
-our $option_kiosk_mode;
-our $option_output;
-our $option_show_day_column;
-our $option_show_descriptions;
-our $option_show_grid;
-our $option_split_per_day;
-our $option_title;
-our $option_unified_grid;
+Readonly our $PEOPLE_RANK_GUEST         => 0;
+Readonly our $PEOPLE_RANK_STAFF         => 1;
+Readonly our $PEOPLE_RANK_INVITED_GUEST => 2;
+Readonly our $PEOPLE_RANK_FAN_PANELIST  => 3;
+Readonly our $PEOPLE_RANK => {
+    g => $PEOPLE_RANK_GUEST,
+    s => $PEOPLE_RANK_STAFF,
+    i => $PEOPLE_RANK_INVITED_GUEST,
+    p => $PEOPLE_RANK_FAN_PANELIST,
+};
 
-our %guests;
-our %schedule;
-our %rooms;
-our %panels_by_start;
-our %time_region;
-our $earliest;
+my @option_css_styles;
+my $option_desc_at_end;
+my $option_embed_css;
+my $option_file_per_guest;
+my $option_hide_unused_rooms;
+my $option_input_file;
+my $option_is_postcard;
+my $option_just_guest;
+my $option_kiosk_mode;
+my $option_output;
+my $option_show_day_column;
+my $option_show_descriptions;
+my $option_show_grid;
+my $option_split_per_day;
+my $option_title;
+my $option_unified_grid;
 
-our @all_room_ids;
-our @start_times;
-our $ofh;
-our $level = 0;
-our $h     = HTML::Tiny->new( mode => q{html} );
+my %panelist_info   = ();
+my %panelgroup_info = ();
+
+my %guests;
+my %schedule;
+my %rooms;
+my %panels_by_start;
+my %time_region;
+my $earliest;
+
+my @all_room_ids;
+my @start_times;
+my $ofh;
+my $level = 0;
+my $h     = HTML::Tiny->new( mode => q{html} );
 
 sub splitline {
     my ( $fh ) = @_;
@@ -249,24 +264,89 @@ sub santize_hdr {
     return $hdr;
 } ## end sub santize_hdr
 
+sub lookup_panelist {
+    my ( $name_with_group, $index, $rank ) = @_;
+    $name_with_group //= q{};
+
+    if ( $name_with_group =~ m{\A\w:}xms ) {
+        my ( $rank_name, $remain ) = split m{:}xms,
+            $name_with_group, 2;
+        $rank            = $PEOPLE_RANK->{ lc $rank_name };
+        $name_with_group = $remain;
+    } ## end if ( $name_with_group ...)
+    return if $name_with_group eq q{};
+    return if $name_with_group eq q{*};
+    return unless defined $rank;
+
+    my $is_other;
+    my ( $panelist, $group ) = split m{=}xms, $name_with_group, 2;
+
+    if ( $panelist =~ m{\AOther\z}xmsi ) {
+        $panelist = $rank . q{:Other};
+        $is_other = 1;
+        undef $group;
+    }
+
+    my $info = $panelist_info{ $panelist } //= {};
+    $info->{ name }  = $panelist;
+    $info->{ rank }  = $rank;
+    $info->{ index } = $index;
+    $info->{ other } = 1 if $is_other;
+
+    if ( $group ) {
+
+        my $ginfo = $panelgroup_info{ $group } //= {};
+        $info->{ group } = $ginfo;
+        $ginfo->{ name } = $group;
+        $ginfo->{ index } //= $index;
+        $ginfo->{ rank }  //= $rank;
+        if ( $ginfo->{ rank } > $rank ) {
+            $ginfo->{ rank } = $rank;
+        }
+        my $members = $ginfo->{ members } //= {};
+        $members->{ $panelist } = 1;
+    } ## end if ( $group )
+
+    return $info;
+} ## end sub lookup_panelist
+
+sub to_panelist {
+    my ( $per_info, $index, $names ) = @_;
+
+    return           unless $per_info;
+    return $per_info unless $per_info->{ other };
+
+    return
+        map { lookup_panelist( $_, $index += 0.0001, $per_info->{ rank } ) }
+        split m{\s*,\s*}xms, $names;
+} ## end sub to_panelist
+
 sub read_csv_file {
     open my $fh, q{<:encoding(utf16)}, $option_input_file
         or die qq{Unable to read: ${option_input_file}\n};
 
     my $header = splitline( $fh )
         or die qq{Missing header in: ${option_input_file}\n};
+    my @san_header = map { santize_hdr( $_ ) } @{ $header };
+
+    my @is_panelist = ();
+
+    foreach my $index ( keys @{ $header } ) {
+        my $header_text = $header->[ $index ];
+        my $info        = lookup_panelist( $header_text, $index );
+        next unless defined $info;
+        $is_panelist[ $index ] = $info;
+    } ## end foreach my $index ( keys @{...})
 
     my %ids;
 
-    my $in_guest_columns;
     while ( my $raw = splitline( $fh ) ) {
         last unless defined $raw;
         my %panel;
+        my %seen_panelist;
         foreach my $index ( keys @{ $raw } ) {
             my $header_text = $header->[ $index ];
-            my $header_alt  = santize_hdr( $header_text );
-
-            undef $in_guest_columns if $header_alt =~ m{\AStaff\z}xmsi;
+            my $header_alt  = $san_header[ $index ];
 
             my $raw_text = $raw->[ $index ];
             if ( $raw_text =~ m{\s} ) {
@@ -277,27 +357,72 @@ sub read_csv_file {
             $panel{ $header_text } = $raw_text;
             $panel{ $header_alt }  = $raw_text;
 
-            if ( $in_guest_columns && defined $raw_text ) {
-                my @guests = ( $header_text );
-                if ( $header_alt =~ m{\AOther_Guests?\z}xmsi ) {
-                    @guests = split m{\s*,\s*}xms, $raw_text;
-                }
-                if ( $header_text =~ m{\(CC\)}xms ) {
-                    push @guests, q{Cowbutt Crunchies};
-                }
+            if ( defined $is_panelist[ $index ] && defined $raw_text ) {
+                my @guests;
+                my $hidden
+                    = $raw_text =~ m{\A\*}xms && $raw_text =~ m{\*\z}xms;
+                foreach my $per_info (
+                    to_panelist( $is_panelist[ $index ], $index, $raw_text ) )
+                {
+                    my $per_name = $per_info->{ name };
+                    $seen_panelist{ $per_name } = $per_info;
+                    if ( $per_info->{ rank } == $PEOPLE_RANK_GUEST
+                        && !$hidden )
+                    {
+                        push @guests, $per_name;
+                        push @guests, $per_info->{ group }->{ name }
+                            if $per_info->{ group };
+                    } ## end if ( $per_info->{ rank...})
+
+                } ## end foreach my $per_info ( to_panelist...)
+
                 if ( @guests ) {
                     push @guests, $GUEST_ANY;
-                }
-                if ( $header_text =~ m{\A ( Jin | Miguel ) \b }xmsi ) {
-                    push @guests, $GUEST_J_OR_M;
                 }
                 foreach my $guest ( @guests ) {
                     $guests{ $guest } = santize_hdr( $guest );
                     $panel{ $FIELD_GUEST_MAP }->{ $guest } = 1;
                 }
-            } ## end if ( $in_guest_columns...)
-            $in_guest_columns = 1 if $header_alt =~ m{\AGuests\z}xmsi;
+            } ## end if ( defined $is_panelist...)
         } ## end foreach my $index ( keys @{...})
+
+        if ( defined $panel{ $TABLE_PANELIST_HIDE } ) {
+            $panel{ $FIELD_PANELIST } = undef;
+        }
+        elsif ( defined $panel{ $TABLE_PANELIST_ALT } ) {
+            $panel{ $FIELD_PANELIST } = $panel{ $TABLE_PANELIST_ALT };
+        }
+        else {
+            my %shown;
+        PANELIST:
+            while ( my ( $per_name, $per_info ) = each %seen_panelist ) {
+                if ( $per_info->{ group } ) {
+                    foreach my $member (
+                        keys %{ $per_info->{ group }->{ members } } )
+                    {
+                        if ( !exists $seen_panelist{ $member } ) {
+                            $shown{ $per_name } = $per_info;
+                            next PANELIST;
+                        }
+                    } ## end foreach my $member ( keys %...)
+                    $shown{ $per_info->{ group }->{ name } }
+                        = $per_info->{ group };
+                    next PANELIST;
+                } ## end if ( $per_info->{ group...})
+
+                $shown{ $per_name } = $per_info;
+            } ## end PANELIST: while ( my ( $per_name, $per_info...))
+            if ( %shown ) {
+                my @panelist = map { $_->{ name } }
+                    sort {
+                           $a->{ rank }  <=> $b->{ rank }
+                        || $a->{ index } <=> $b->{ index }
+                        || $a->{ name } cmp $b->{ name }
+                    } values %shown;
+                $panel{ $FIELD_PANELIST } = join q{, }, @panelist;
+            } ## end if ( %shown )
+        } ## end else [ if ( defined $panel{ $TABLE_PANELIST_HIDE...})]
+
         next unless defined $panel{ $TABLE_START_TIME };
         next unless $panel{ $TABLE_PANEL_NAME } =~ m{\S}xms;
         my $start = str2time( $panel{ $TABLE_START_TIME } );
@@ -732,7 +857,7 @@ sub dump_room {
 
     my $difficulty = $panel->{ $TABLE_DIFFICULTY };
     my $name       = $panel->{ $TABLE_PANEL_NAME };
-    my $panelist   = $panel->{ $TABLE_PANELIST };
+    my $panelist   = $panel->{ $FIELD_PANELIST };
     my $tokens     = $panel->{ $TABLE_TOKENS };
     my $room       = $rooms{ $idx };
 
@@ -1020,7 +1145,7 @@ sub dump_desc_panel_body {
 
     my $difficulty = $panel->{ $TABLE_DIFFICULTY };
     my $name       = $panel->{ $TABLE_PANEL_NAME };
-    my $panelist   = $panel->{ $TABLE_PANELIST };
+    my $panelist   = $panel->{ $FIELD_PANELIST };
     my $tokens     = $panel->{ $TABLE_TOKENS };
     my $room       = $panel->{ $FIELD_ROOM_INFO };
 

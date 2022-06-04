@@ -1,4 +1,4 @@
-exclude = RequireRcsKeywords PostfixControls ProhibitUnlessBlocks ProhibitEscapedMetacharacters RequireVersionVar
+exclude = RequireRcsKeywords ProhibitPostfixControls ProhibitUnlessBlocks ProhibitEscapedMetacharacters RequireVersionVar
 verbose = %f:%l:%c: %m [%p], near '%r'.  (Severity: %s)\n
 
 [Variables::ProhibitPunctuationVars]
@@ -16,6 +16,3 @@ equivalent_modules = common::sense
 
 [ValuesAndExpressions::ProhibitMagicNumbers]
 allowed_values = -1 0 1
-
-[ControlStructures::ProhibitPostfixControls]
-allow = unless
