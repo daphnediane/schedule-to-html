@@ -18,3 +18,4 @@ report
 !.clang-format
 !.gitignore
 !.keep_empty_directory
+!.devcontainer

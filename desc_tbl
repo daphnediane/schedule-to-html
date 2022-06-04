@@ -160,6 +160,7 @@ our $hide_unused;
 our $show_grid;
 our $show_descriptions;
 our $kiosk;
+our $title = q{Cosplay America 2019 Schedule};
 
 our %guests;
 our %schedule;
@@ -1268,7 +1269,7 @@ sub dump_tables {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( q{Cosplay America 2019 Schedule} );
+    out_line $h->title( $title );
     out_line $h->link(
         {   href =>
                 q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
@@ -1453,7 +1454,7 @@ sub dump_kiosk {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( q{Cosplay America 2019 Schedule} );
+    out_line $h->title( $title );
     out_line $h->link(
         {   href => q{css/kiosk.css}, rel => q{stylesheet},
             type => q{text/css}
@@ -1521,6 +1522,7 @@ sub main {
         q{grid!}         => \$show_grid,
         q{descriptions!} => \$show_descriptions,
         q{kiosk!}        => \$kiosk,
+        q{title=s}       => \$title,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $inline_css //= 1 if @styles;
@@ -1570,3 +1572,5 @@ sub main {
 main( @ARGV );
 
 1;
+
+__END__
