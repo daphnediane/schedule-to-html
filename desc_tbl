@@ -365,14 +365,12 @@ sub read_csv_file {
                     to_panelist( $is_panelist[ $index ], $index, $raw_text ) )
                 {
                     my $per_name = $per_info->{ name };
-                    $seen_panelist{ $per_name } = $per_info;
-                    if ( $per_info->{ rank } == $PEOPLE_RANK_GUEST
-                        && !$hidden )
-                    {
+                    $seen_panelist{ $per_name } = $per_info unless $hidden;
+                    if ( $per_info->{ rank } == $PEOPLE_RANK_GUEST ) {
                         push @guests, $per_name;
                         push @guests, $per_info->{ group }->{ name }
                             if $per_info->{ group };
-                    } ## end if ( $per_info->{ rank...})
+                    }
 
                 } ## end foreach my $per_info ( to_panelist...)
 
