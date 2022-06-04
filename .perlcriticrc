@@ -1,0 +1,18 @@
+exclude = RequireRcsKeywords PostfixControls ProhibitUnlessBlocks ProhibitEscapedMetacharacters RequireVersionVar
+verbose = %f:%l:%c: %m [%p], near '%r'.  (Severity: %s)\n
+
+[Variables::ProhibitPunctuationVars]
+allow = $$ $! ${^PREMATCH} ${^POSTMATCH} ${^MATCH}
+
+[Subroutines::ProhibitUnusedPrivateSubroutines]
+private_name_regex = _(?!do_)\w+
+allow = _init _string
+
+[TestingAndDebugging::RequireUseStrict]
+equivalent_modules = common::sense
+
+[TestingAndDebugging::RequireUseWarnings]
+equivalent_modules = common::sense
+
+[ValuesAndExpressions::ProhibitMagicNumbers]
+allowed_values = -1 0 1

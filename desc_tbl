@@ -173,14 +173,14 @@ our @all_room_ids;
 our @start_times;
 our $ofh;
 our $level = 0;
-our $h = HTML::Tiny->new( mode => q{html} );
+our $h     = HTML::Tiny->new( mode => q{html} );
 
 sub splitline {
     my ( $fh ) = @_;
     my $line = $fh->getline;
     return unless defined $line;
     my $full_line = $line;
-    my @raw = split m{\t}xms, $line;
+    my @raw       = split m{\t}xms, $line;
     my @res;
     while ( @raw ) {
         my $piece = shift @raw;
@@ -272,7 +272,7 @@ sub read_csv_file {
                 $raw_text =~ s{\A \s*}{}xms;
                 $raw_text =~ s{\s* \z}{}xms;
             }
-            $raw_text = undef if $raw_text eq q{};
+            $raw_text              = undef if $raw_text eq q{};
             $panel{ $header_text } = $raw_text;
             $panel{ $header_alt }  = $raw_text;
 
@@ -403,7 +403,7 @@ sub add_guest_conflicts {
 } ## end sub add_guest_conflicts
 
 sub make_time_ranges {
-    my %time_points = map { $_ => 1 } ( keys %time_region, keys %schedule );
+    my %time_points = map  { $_ => 1 } ( keys %time_region, keys %schedule );
     my @time_points = sort { $a <=> $b } keys %time_points;
 
     my $region_active;
@@ -503,8 +503,8 @@ sub make_time_ranges {
         return unless $kiosk;
         my $rows = $region_active->{ $FIELD_BY_ROW_SECONDS };
         return unless $rows;
-        my $next_rows = $region_active->{ $FIELD_NEXT_PANEL } //= {};
-        my @times = sort { $b <=> $a } keys %{ $rows };
+        my $next_rows   = $region_active->{ $FIELD_NEXT_PANEL } //= {};
+        my @times       = sort { $b <=> $a } keys %{ $rows };
         my %next_panels = ();
 
         foreach my $time ( @times ) {
@@ -531,8 +531,8 @@ sub make_time_ranges {
 
         $finish_region->();
         foreach my $panel ( values %panels_active ) {
-            my $region_info
-                = $panel->{ $FIELD_BY_REGION }->{ $split_time } //= {};
+            my $region_info = $panel->{ $FIELD_BY_REGION }->{ $split_time }
+                //= {};
             $region_info->{ $FIELD_TABLE_ROWS }         = 0;
             $region_info->{ $FIELD_START_TIME_SECONDS } = $split_time;
         } ## end foreach my $panel ( values ...)
@@ -552,8 +552,8 @@ sub make_time_ranges {
 
 sub out_line {
     my ( @content ) = @_;
-    my $indent = join q{}, ( qq{\t} x $level );
-    my $content = join q{}, @content;
+    my $indent      = join q{}, ( qq{\t} x $level );
+    my $content     = join q{}, @content;
     foreach my $line ( split m{\n+}xms, $content ) {
         $line =~ s{\A\s+}{}xms;
         $line =~ s{\s+\Z}{}xms;
@@ -601,7 +601,7 @@ sub decode_time {
     my ( $time, $field ) = @_;
 
     my @ltime = localtime $time;
-    my $day   = strftime $FMT_DAY, @ltime;
+    my $day   = strftime $FMT_DAY,  @ltime;
     my $tm    = strftime $FMT_TIME, @ltime;
 
     if ( defined $field ) {
@@ -751,7 +751,7 @@ sub dump_room {
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
     out_open $HTML_TABLE_DATA,
         {
-        id => ( sprintf $ANCHOR_FMT_GRID, $panel->{ $FIELD_CSS_HREF } ),
+        id      => ( sprintf $ANCHOR_FMT_GRID, $panel->{ $FIELD_CSS_HREF } ),
         rowspan => ( $region_info->{ $FIELD_TABLE_ROWS } // 1 ),
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
@@ -1243,7 +1243,7 @@ sub dump_tables {
     undef $guest unless defined $guest_file;
 
     my %time_points = map { $_ => 1 } ( keys %time_region );
-    my $ofname = $oname;
+    my $ofname      = $oname;
 
     if ( $oname eq q{-} ) {
         $ofname = q{<STDOUT>};
@@ -1413,11 +1413,11 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
-                $region,               undef, undef,
+                $region, undef, undef,
                 $cur_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
-                $region,                undef, undef,
+                $region, undef, undef,
                 $next_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_FUTURE
             );
             out_close $HTML_TABLE_ROW;
@@ -1430,7 +1430,7 @@ sub dump_kiosk_desc {
 
 sub dump_kiosk {
     my %time_points = map { $_ => 1 } ( keys %time_region );
-    my $ofname = $oname;
+    my $ofname      = $oname;
 
     if ( $oname eq q{-} ) {
         $ofname = q{<STDOUT>};
@@ -1567,6 +1567,8 @@ sub main {
         }
         dump_tables;
     } ## end else [ if ( $kiosk ) ]
+
+    1;
 } ## end sub main
 
 main( @ARGV );

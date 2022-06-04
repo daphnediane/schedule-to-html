@@ -16,6 +16,9 @@ posters
 prev_output
 report
 !.clang-format
+!.devcontainer
 !.gitignore
 !.keep_empty_directory
-!.devcontainer
+!.perlcriticrc
+!.perltidyrc
+

@@ -30,3 +30,13 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         libtext-csv-perl \
         libtimedate-perl \
         perltidy
+RUN /usr/local/bin/cpan common::sense
+RUN /usr/local/bin/cpan Date::Parse
+RUN /usr/local/bin/cpan File::Slurp
+RUN /usr/local/bin/cpan Getopt::Long
+RUN /usr/local/bin/cpan HTML::Tiny
+RUN /usr/local/bin/cpan Perl::Critic
+RUN /usr/local/bin/cpan Perl::Ti
+RUN /usr/local/bin/cpan Readonly
+RUN /usr/local/bin/cpan Readonly::XS
+RUN /usr/local/bin/cpan Text::CSV
