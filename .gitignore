@@ -16,6 +16,10 @@ perhalf
 posters
 prev_output
 report
+
+# Do not include our font license keys
+css/license-fonts.css
+
 !.clang-format
 !.devcontainer
 !.gitignore
