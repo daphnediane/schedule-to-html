@@ -21,6 +21,7 @@ Readonly our $GUEST_ANY => q{All Guests};
 
 # Panel fields
 Readonly our $TABLE_DESCRIPTION   => q{Description};
+Readonly our $TABLE_DURATION      => q{Duration};
 Readonly our $TABLE_DIFFICULTY    => q{Difficulty};
 Readonly our $TABLE_END_TIME      => q{End_Time};
 Readonly our $TABLE_FULL          => q{Full};
@@ -541,10 +542,25 @@ sub read_csv_file {
         next unless defined $panel{ $TABLE_START_TIME };
         next unless $panel{ $TABLE_PANEL_NAME } =~ m{\S}xms;
         my $start = str2time( $panel{ $TABLE_START_TIME } );
-        my $end
-            = defined $panel{ $TABLE_END_TIME }
-            ? str2time( $panel{ $TABLE_END_TIME } )
-            : $start;
+        my $end   = $start;
+        if ( defined $panel{ $TABLE_DURATION } ) {
+            my ( $hour, $min ) = split m{:}xms, $panel{ $TABLE_DURATION }, 2;
+            $min += $hour * 60;
+            $end += $min * 60;
+        }
+        if ( defined $panel{ $TABLE_END_TIME } ) {
+            my $given_end = str2time( $panel{ $TABLE_END_TIME } );
+            if ( defined $end && $end != $start && $end != $given_end ) {
+                warn $panel{ $TABLE_UNIQUE_ID },
+                    q{ has a mismatch between START:},
+                    decode_time( $start, q{both} ), q{ + DUR:},
+                    $panel{ $TABLE_DURATION }, q{ = },
+                    decode_time( $end,       q{both} ), q{ and END:},
+                    decode_time( $given_end, q{both} ), qq{\n};
+            } ## end if ( defined $end && $end...)
+            $end = $given_end if defined $given_end;
+        } ## end if ( defined $panel{ $TABLE_END_TIME...})
+
         my $idx  = $panel{ $TABLE_ROOM_INDEX };
         my $id   = $panel{ $TABLE_UNIQUE_ID };
         my $kind = $id // q{Unknown};
@@ -773,7 +789,7 @@ sub make_time_ranges {
         $finish_region->();
         foreach my $panel ( values %panels_active ) {
             my $region_info = $panel->{ $FIELD_BY_REGION }->{ $split_time }
-                //= {};
+                //= {};    # fix visual code formatting error */
             $region_info->{ $FIELD_TABLE_ROWS }         = 0;
             $region_info->{ $FIELD_START_TIME_SECONDS } = $split_time;
         } ## end foreach my $panel ( values ...)

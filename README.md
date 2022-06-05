@@ -60,7 +60,8 @@ Normal Columns:
 * Name - Panel name
 * Room - Room name
 * Start_Time - Starting time of panel
-* Duration - currently ignored. HH:MM (hours and minutes)
+* Duration - HH:MM (hours and minutes)
+* End_Time - Ending time of panel (only one of Duration or End_Time is required)
 * Description - Description of the panel (UTF-16 text)
 * Note - Notes to display in description
 * Difficulty - Difficulty of the panel (1 to 5)
@@ -94,7 +95,6 @@ attending, use asterisk "*" to have some one present but not listed.
 
 These columns are currently computed by the spreadsheet (TODO handle by the program)
 
-* End_Time - Ending time of panel
 * Kind - Panel kind
 * Room_Idx - Id of room, used for sorting
 * Real_Room - Hotel room name
