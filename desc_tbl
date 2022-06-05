@@ -3,15 +3,16 @@
 use common::sense;
 use strict;
 use utf8;
-use Text::CSV;
-use File::Spec;
-use Date::Parse qw{ str2time };
-use POSIX qw{ strftime };
-use HTML::Tiny qw{};
-use Readonly;
 use Carp qw{verbose};
-use Getopt::Long qw{GetOptionsFromArray};
+use Date::Parse qw{ str2time };
 use File::Slurp qw{read_file};
+use File::Spec;
+use Getopt::Long qw{GetOptionsFromArray};
+use HTML::Tiny qw{};
+use POSIX qw{ strftime };
+use Spreadsheet::ParseXLSX;
+use Readonly;
+use Text::CSV;
 
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
@@ -142,6 +143,10 @@ Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
 
+# File types
+Readonly our $FILE_EXCEL => q{excel};
+Readonly our $FILE_TEXT  => q{text};
+
 # Formatting strings
 Readonly our $FMT_DAY  => q{%A};
 Readonly our $FMT_TIME => q{%I:%M %p};
@@ -150,7 +155,7 @@ Readonly our $PEOPLE_RANK_GUEST         => 0;
 Readonly our $PEOPLE_RANK_STAFF         => 1;
 Readonly our $PEOPLE_RANK_INVITED_GUEST => 2;
 Readonly our $PEOPLE_RANK_FAN_PANELIST  => 3;
-Readonly our $PEOPLE_RANK => {
+Readonly our $PEOPLE_RANK               => {
     g => $PEOPLE_RANK_GUEST,
     s => $PEOPLE_RANK_STAFF,
     i => $PEOPLE_RANK_INVITED_GUEST,
@@ -190,7 +195,104 @@ my $ofh;
 my $level = 0;
 my $h     = HTML::Tiny->new( mode => q{html} );
 
-sub splitline {
+my $parse_xlsx;
+
+sub open_xlsx_file {
+    my ( $fname ) = @_;
+
+    my $sheet_num = 0;
+    if ( $fname =~ s{:(\d+)\z}{}xms ) {
+        $sheet_num = $1;
+    }
+
+    my $p = Spreadsheet::ParseXLSX->new;
+    my $w = $p->parse( $fname )
+        or die qq{Unable to read: ${fname}\n};
+    my $ws      = $w->worksheet( $sheet_num );
+    my @columns = $ws->col_range();
+    my @rows    = $ws->row_range();
+
+    return {
+        type      => $FILE_EXCEL,
+        parser    => $p,
+        workbook  => $w,
+        worksheet => $ws,
+        cols      => \@columns,
+        next_row  => $rows[ 0 ],
+        last_row  => $rows[ 1 ]
+    };
+} ## end sub open_xlsx_file
+
+sub open_text_file {
+    my ( $fname ) = @_;
+
+    open my $fh, q{<:encoding(utf16)}, $fname
+        or die qq{Unable to read: ${fname}\n};
+
+    return {
+        type => $FILE_TEXT,
+        fh   => $fh,
+        name => $fname,
+    };
+} ## end sub open_text_file
+
+sub open_file {
+    my ( $fname ) = @_;
+
+    if ( $fname =~ m{\.xlsx(?: : \d+ )?\z}xmsg ) {
+        return open_xlsx_file( $fname );
+    }
+
+    return open_text_file( $fname );
+} ## end sub open_file
+
+sub close_excel {
+    return;
+}
+
+sub close_text {
+    my ( $handle ) = @_;
+
+    my $name = $handle->{ name };
+    $handle->{ fh }->close
+        or die qq{Unable to close ${name}: $!\n};
+
+    return;
+} ## end sub close_text
+
+sub close_file {
+    my ( $handle ) = @_;
+
+    if ( $handle->{ type } eq $FILE_EXCEL ) {
+        return close_excel( $handle );
+    }
+
+    if ( $handle->{ type } eq $FILE_TEXT ) {
+        return close_text( $handle );
+    }
+
+    die q{Unable to close: }, $handle->{ type }, q{: }, $handle->{ name },
+        qq{\n};
+} ## end sub close_file
+
+sub splitline_excel {
+    my ( $handle ) = @_;
+    return if $handle->{ next_row } > $handle->{ last_row };
+
+    my @res;
+    my $row = $handle->{ next_row };
+    $handle->{ next_row } = 1 + $row;
+    my $first_col = $handle->{ cols }->[ 0 ];
+    my $last_col  = $handle->{ cols }->[ 1 ];
+    my $ws        = $handle->{ worksheet };
+    my @res       = map {
+        my $cell = $ws->get_cell( $row, $_ );
+        defined $cell ? $cell->value() : undef
+    } $first_col .. $last_col;
+    return \@res;
+} ## end sub splitline_excel
+
+sub splitline_text {
     my ( $fh ) = @_;
     my $line = $fh->getline;
     return unless defined $line;
@@ -223,6 +325,21 @@ sub splitline {
         }
     } ## end while ( @raw )
     return \@res;
+} ## end sub splitline_text
+
+sub splitline {
+    my ( $handle ) = @_;
+
+    if ( $handle->{ type } eq $FILE_EXCEL ) {
+        return splitline_excel( $handle );
+    }
+
+    if ( $handle->{ type } eq $FILE_TEXT ) {
+        return splitline_text( $handle->{ fh } );
+    }
+
+    die q{Unable to read: }, $handle->{ type }, q{: }, $handle->{ name },
+        qq{\n};
 } ## end sub splitline
 
 sub time_split {
@@ -313,7 +430,7 @@ sub lookup_panelist {
 sub to_panelist {
     my ( $per_info, $index, $names ) = @_;
 
-    return           unless $per_info;
+    return unless $per_info;
     return $per_info unless $per_info->{ other };
 
     return
@@ -322,10 +439,10 @@ sub to_panelist {
 } ## end sub to_panelist
 
 sub read_csv_file {
-    open my $fh, q{<:encoding(utf16)}, $option_input_file
-        or die qq{Unable to read: ${option_input_file}\n};
+    my $handle = open_file( $option_input_file );
+    my $fh     = $handle->{ fh };
 
-    my $header = splitline( $fh )
+    my $header = splitline( $handle )
         or die qq{Missing header in: ${option_input_file}\n};
     my @san_header = map { santize_hdr( $_ ) } @{ $header };
 
@@ -340,7 +457,7 @@ sub read_csv_file {
 
     my %ids;
 
-    while ( my $raw = splitline( $fh ) ) {
+    while ( my $raw = splitline( $handle ) ) {
         last unless defined $raw;
         my %panel;
         my %seen_panelist;
@@ -413,7 +530,7 @@ sub read_csv_file {
             if ( %shown ) {
                 my @panelist = map { $_->{ name } }
                     sort {
-                           $a->{ rank }  <=> $b->{ rank }
+                           $a->{ rank } <=> $b->{ rank }
                         || $a->{ index } <=> $b->{ index }
                         || $a->{ name } cmp $b->{ name }
                     } values %shown;
@@ -504,8 +621,8 @@ sub read_csv_file {
         push @{ $panels_by_start{ $start } //= [] }, \%panel;
     } ## end while ( my $raw = splitline...)
 
-    $fh->close
-        or die qq{Unable to close ${option_input_file}: $!\n};
+    close_file( $handle );
+    undef $handle;
 
     @all_room_ids = sort { $a <=> $b } keys %rooms;
     @start_times  = sort { $a <=> $b } keys %schedule;
@@ -676,8 +793,8 @@ sub make_time_ranges {
 
 sub out_line {
     my ( @content ) = @_;
-    my $indent      = join q{}, ( qq{\t} x $level );
-    my $content     = join q{}, @content;
+    my $indent = join q{}, ( qq{\t} x $level );
+    my $content = join q{}, @content;
     foreach my $line ( split m{\n+}xms, $content ) {
         $line =~ s{\A\s+}{}xms;
         $line =~ s{\s+\Z}{}xms;
@@ -725,7 +842,7 @@ sub decode_time {
     my ( $time, $field ) = @_;
 
     my @ltime = localtime $time;
-    my $day   = strftime $FMT_DAY,  @ltime;
+    my $day   = strftime $FMT_DAY, @ltime;
     my $tm    = strftime $FMT_TIME, @ltime;
 
     if ( defined $field ) {
@@ -1545,11 +1662,11 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
-                $region, undef, undef,
+                $region,               undef, undef,
                 $cur_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
-                $region, undef, undef,
+                $region,                undef, undef,
                 $next_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_FUTURE
             );
             out_close $HTML_TABLE_ROW;
