@@ -7,9 +7,7 @@ Not very well documented sorry.
 
 Quick start:
 
-Convert spreadsheet to File Format: UTF-16 Unicode Text (.txt)
-
-And place file in the input directory.
+And place spreadsheet in the input directory.
 
 ## Run:
 
@@ -23,7 +21,8 @@ desc_tbl --input input/spreadsheet.txt --output output/
   --guests        Create a file per guest with their panels highlighted
   --hideunused    Only include rooms that have events scheduled
   --inline_css    Embed the CSS directly into the generated files instead
-  --input <file>  Input filename, UTF-16 spreadsheet
+  --input <file>  Input filename, UTF-16 spreadsheet or xlsx file
+                  May have a :# suffix to select a sheet by index
   --justguest     I believe this just includes guest panels
   --kiosk         Generate HTML for use in the Schedule Kiosk
   --output <file> Output filename or directory
@@ -98,6 +97,21 @@ These columns are currently computed by the spreadsheet (TODO handle by the prog
 * Kind - Panel kind
 * Room_Idx - Id of room, used for sorting
 * Real_Room - Hotel room name
+
+##
+
+Examples:
+
+Produces a schedule that will print nicely in landscape from edge:
+```
+desc_tbl \
+  --style license-fonts.css \
+  --style landscape.css \
+  --style common.css \
+  --input input/Schedule.xlsx \
+  --output output/ \
+  --seperate --perday
+```
 
 ## Licensing:
 
