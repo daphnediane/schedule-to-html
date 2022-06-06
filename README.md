@@ -20,7 +20,7 @@ desc_tbl --input input/spreadsheet.txt --output output/
   --grid          Includes the grid, implies --no-description
   --guests        Create a file per guest with their panels highlighted
   --hideunused    Only include rooms that have events scheduled
-  --inline_css    Embed the CSS directly into the generated files instead
+  --inline-css    Embed the CSS directly into the generated files instead
   --input <file>  Input filename, UTF-16 spreadsheet or xlsx file
                   May have a :# suffix to select a sheet by index
   --justguest     I believe this just includes guest panels

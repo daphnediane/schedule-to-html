@@ -17,7 +17,6 @@ use Text::CSV;
 # Global variables
 Readonly our $HALF_HOUR => 30 * 60;
 Readonly our $CAFE      => q{Café};
-Readonly our $GUEST_ANY => q{All Guests};
 
 # Panel fields
 Readonly our $TABLE_DESCRIPTION   => q{Description};
@@ -38,24 +37,24 @@ Readonly our $TABLE_TOKENS        => q{Tokens};
 Readonly our $TABLE_UNIQUE_ID     => q{Uniq_ID};
 
 # Custom fields
-Readonly our $FIELD_ACTIVE_ROOMS       => q{*ROOMS};
-Readonly our $FIELD_BY_REGION          => q{*BY_REGION};
-Readonly our $FIELD_BY_ROW_SECONDS     => q{*BY_SECONDS};
-Readonly our $FIELD_CAFE               => q{*CAFE};
-Readonly our $FIELD_CSS_HREF           => q{*HREF};
-Readonly our $FIELD_CSS_SUBCLASSES     => q{*CLASSES};
-Readonly our $FIELD_DAY_BEING_OUTPUT   => q{*ACTIVEDAY};
-Readonly our $FIELD_END_TIME_SECONDS   => q{*END_SEC};
-Readonly our $FIELD_GUEST_CONFLICT     => q{*GUEST_CONFLICT};
-Readonly our $FIELD_GUEST_MAP          => q{*GUEST_MAP};
-Readonly our $FIELD_LAST_TIME_OUTPUT   => q{*LASTTIME};
-Readonly our $FIELD_NEXT_PANEL         => q{*NEXT};
-Readonly our $FIELD_PANELIST           => q{*PANELIST};
-Readonly our $FIELD_REGION_NAME        => q{*NAME};
-Readonly our $FIELD_ROOM_INFO          => q{*ROOM_INFO};
-Readonly our $FIELD_ROOM_NAME          => q{*NAME};
-Readonly our $FIELD_START_TIME_SECONDS => q{*START_SEC};
-Readonly our $FIELD_TABLE_ROWS         => q{*NUM_ROWS};
+Readonly our $FIELD_ACTIVE_ROOMS            => q{*ROOMS};
+Readonly our $FIELD_BY_REGION               => q{*BY_REGION};
+Readonly our $FIELD_BY_ROW_SECONDS          => q{*BY_SECONDS};
+Readonly our $FIELD_CAFE                    => q{*CAFE};
+Readonly our $FIELD_CSS_HREF                => q{*HREF};
+Readonly our $FIELD_CSS_SUBCLASSES          => q{*CLASSES};
+Readonly our $FIELD_DAY_BEING_OUTPUT        => q{*ACTIVEDAY};
+Readonly our $FIELD_END_TIME_SECONDS        => q{*END_SEC};
+Readonly our $FIELD_PANELIST_BUSY_ELSEWHERE => q{*BUSY_ELSEWHERE};
+Readonly our $FIELD_PANELIST_MAP            => q{*PANELIST_MAP};
+Readonly our $FIELD_LAST_TIME_OUTPUT        => q{*LASTTIME};
+Readonly our $FIELD_NEXT_PANEL              => q{*NEXT};
+Readonly our $FIELD_ALL_PANELIST            => q{*PANELIST};
+Readonly our $FIELD_REGION_NAME             => q{*NAME};
+Readonly our $FIELD_ROOM_INFO               => q{*ROOM_INFO};
+Readonly our $FIELD_ROOM_NAME               => q{*NAME};
+Readonly our $FIELD_START_TIME_SECONDS      => q{*START_SEC};
+Readonly our $FIELD_TABLE_ROWS              => q{*NUM_ROWS};
 
 # HTML Elements
 Readonly our $HTML_ANCHOR     => q{a};
@@ -89,7 +88,7 @@ Readonly our $CLASS_DESC_TYPE_TABLE          => q{descTypeTable};
 Readonly our $CLASS_GRID_CELL_DAY            => q{schedWeekDay};
 Readonly our $CLASS_GRID_CELL_EMPTY          => q{schedRoomEmpty};
 Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
-Readonly our $CLASS_GRID_CELL_GUEST_BUSY     => q{schedTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_CELL_PANELIST_BUSY  => q{schedTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_CELL_HEADER         => q{schedHeader};
 Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{schedRoomName};
 Readonly our $CLASS_GRID_CELL_TIME_SLOT      => q{schedTimeSlot};
@@ -97,7 +96,7 @@ Readonly our $CLASS_GRID_COLUMN_DAY          => q{schedColumnDay};
 Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedColumnRoom%s};
 Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedColumnsRoom};
 Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedColumnTime};
-Readonly our $CLASS_GRID_ROW_GUEST_BUSY      => q{schedRowTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_ROW_PANELIST_BUSY   => q{schedRowTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
 Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
@@ -122,7 +121,7 @@ Readonly our $CLASS_KIOSK_LOGO               => q{logo};
 Readonly our $CLASS_KIOSK_TIME               => q{time};
 
 # CSS Subclasses
-Readonly our $SUBCLASS_CONFLICT_PANEL    => q{ConflictGuest};
+Readonly our $SUBCLASS_BUSY_PANEL        => q{ConflictGuest};
 Readonly our $SUBCLASS_FMT_DIFFICULTY    => q{Difficulty%s};
 Readonly our $SUBCLASS_FMT_TYPE          => q{Type%s};
 Readonly our $SUBCLASS_FULL              => q{Full};
@@ -152,20 +151,40 @@ Readonly our $FILE_TEXT  => q{text};
 Readonly our $FMT_DAY  => q{%A};
 Readonly our $FMT_TIME => q{%I:%M %p};
 
-Readonly our $PEOPLE_RANK_GUEST         => 0;
-Readonly our $PEOPLE_RANK_STAFF         => 1;
-Readonly our $PEOPLE_RANK_INVITED_GUEST => 2;
-Readonly our $PEOPLE_RANK_FAN_PANELIST  => 3;
-Readonly our $PEOPLE_RANK               => {
-    g => $PEOPLE_RANK_GUEST,
-    s => $PEOPLE_RANK_STAFF,
-    i => $PEOPLE_RANK_INVITED_GUEST,
-    p => $PEOPLE_RANK_FAN_PANELIST,
+# Panelist headers
+Readonly our $PANELIST_NAME          => q{name};
+Readonly our $PANELIST_RANK          => q{rank};
+Readonly our $PANELIST_INDEX         => q{index};
+Readonly our $PANELIST_OTHER         => q{other};
+Readonly our $PANELIST_IS_META       => q{meta};
+Readonly our $PANELIST_IS_INDIVIDUAL => q{individual};
+Readonly our $PANELIST_IS_GROUP      => q{is_group};
+Readonly our $PANELIST_GROUP         => q{group};
+Readonly our $GROUP_MEMBERS          => q{members};
+
+Readonly our $PANELIST_RANK_GUEST         => 0;
+Readonly our $PANELIST_RANK_STAFF         => 1;
+Readonly our $PANELIST_RANK_INVITED_GUEST => 2;
+Readonly our $PANELIST_RANK_FAN_PANELIST  => 3;
+Readonly our $PREFIX_TO_PANELIST_RANK     => {
+    g => $PANELIST_RANK_GUEST,
+    s => $PANELIST_RANK_STAFF,
+    i => $PANELIST_RANK_INVITED_GUEST,
+    p => $PANELIST_RANK_FAN_PANELIST,
+};
+
+Readonly our $GUEST_ANY      => q{All Guests};
+Readonly our $GUEST_ANY_INFO => {
+    $PANELIST_NAME    => $GUEST_ANY,
+    $PANELIST_RANK    => $PANELIST_RANK_GUEST,
+    $PANELIST_INDEX   => -1,
+    $PANELIST_IS_META => 1,
 };
 
 my @option_css_styles;
 my $option_desc_at_end;
 my $option_embed_css;
+my $option_file_per_day;
 my $option_file_per_guest;
 my $option_hide_unused_rooms;
 my $option_input_file;
@@ -180,10 +199,8 @@ my $option_split_per_day;
 my $option_title;
 my $option_unified_grid;
 
-my %panelist_info   = ();
-my %panelgroup_info = ();
+my %panelist_info = ();
 
-my %guests;
 my %schedule;
 my %rooms;
 my %panels_by_start;
@@ -192,7 +209,8 @@ my $earliest;
 
 my @all_room_ids;
 my @start_times;
-my $ofh;
+my $output_file_handle;
+my $output_file_name;
 my $level = 0;
 my $h     = HTML::Tiny->new( mode => q{html} );
 
@@ -357,6 +375,9 @@ sub time_split {
 sub add_split {
     my ( $time, $name ) = @_;
     my $region = $time_region{ $time } //= {};
+    if ( $option_split_per_day ) {
+        $name =~ s{\s.*}{}xms;
+    }
     $region->{ $FIELD_REGION_NAME } //= $name;
     $region->{ $FIELD_START_TIME_SECONDS } = $time;
     return $region;
@@ -389,40 +410,50 @@ sub lookup_panelist {
     if ( $name_with_group =~ m{\A\w:}xms ) {
         my ( $rank_name, $remain ) = split m{:}xms,
             $name_with_group, 2;
-        $rank            = $PEOPLE_RANK->{ lc $rank_name };
+        $rank            = $PREFIX_TO_PANELIST_RANK->{ lc $rank_name };
         $name_with_group = $remain;
     } ## end if ( $name_with_group ...)
     return if $name_with_group eq q{};
     return if $name_with_group eq q{*};
     return unless defined $rank;
 
-    my $is_other;
     my ( $panelist, $group ) = split m{=}xms, $name_with_group, 2;
 
     if ( $panelist =~ m{\AOther\z}xmsi ) {
         $panelist = $rank . q{:Other};
-        $is_other = 1;
-        undef $group;
-    }
 
-    my $info = $panelist_info{ $panelist } //= {};
-    $info->{ name }  = $panelist;
-    $info->{ rank }  = $rank;
-    $info->{ index } = $index;
-    $info->{ other } = 1 if $is_other;
+        return $panelist_info{ $panelist } //= {
+            $PANELIST_NAME          => $panelist,
+            $PANELIST_RANK          => $rank,
+            $PANELIST_INDEX         => $index,
+            $PANELIST_IS_INDIVIDUAL => 1,
+            $PANELIST_OTHER         => 1
+        };
+    } ## end if ( $panelist =~ m{\AOther\z}xmsi)
+
+    my $info = $panelist_info{ $panelist } //= {
+        $PANELIST_NAME          => $panelist,
+        $PANELIST_RANK          => $rank,
+        $PANELIST_INDEX         => $index,
+        $PANELIST_IS_INDIVIDUAL => 1
+    };
+    if ( $info->{ $PANELIST_RANK } > $rank ) {
+        $info->{ $PANELIST_RANK } = $rank;
+    }
 
     if ( $group ) {
 
-        my $ginfo = $panelgroup_info{ $group } //= {};
-        $info->{ group } = $ginfo;
-        $ginfo->{ name } = $group;
-        $ginfo->{ index } //= $index;
-        $ginfo->{ rank }  //= $rank;
-        if ( $ginfo->{ rank } > $rank ) {
-            $ginfo->{ rank } = $rank;
+        my $ginfo = $panelist_info{ $group } //= {
+            $PANELIST_NAME     => $group,
+            $PANELIST_RANK     => $rank,
+            $PANELIST_INDEX    => $index,
+            $PANELIST_IS_GROUP => 1
+        };
+        $info->{ $PANELIST_GROUP } = $ginfo;
+        if ( $ginfo->{ $PANELIST_RANK } > $rank ) {
+            $ginfo->{ $PANELIST_RANK } = $rank;
         }
-        my $members = $ginfo->{ members } //= {};
-        $members->{ $panelist } = 1;
+        $ginfo->{ $GROUP_MEMBERS }->{ $panelist } = 1;
     } ## end if ( $group )
 
     return $info;
@@ -432,10 +463,11 @@ sub to_panelist {
     my ( $per_info, $index, $names ) = @_;
 
     return unless $per_info;
-    return $per_info unless $per_info->{ other };
+    return $per_info unless $per_info->{ $PANELIST_OTHER };
 
-    return
-        map { lookup_panelist( $_, $index += 0.0001, $per_info->{ rank } ) }
+    return map {
+        lookup_panelist( $_, $index += 0.0001, $per_info->{ $PANELIST_RANK } )
+        }
         split m{\s*,\s*}xms, $names;
 } ## end sub to_panelist
 
@@ -476,66 +508,71 @@ sub read_csv_file {
             $panel{ $header_alt }  = $raw_text;
 
             if ( defined $is_panelist[ $index ] && defined $raw_text ) {
-                my @guests;
                 my $hidden
-                    = $raw_text =~ m{\A\*}xms && $raw_text =~ m{\*\z}xms;
+                    = $raw_text =~ m{\A[*]}xms || $raw_text =~ m{[*]\z}xms;
                 foreach my $per_info (
                     to_panelist( $is_panelist[ $index ], $index, $raw_text ) )
                 {
-                    my $per_name = $per_info->{ name };
+                    my $per_name = $per_info->{ $PANELIST_NAME };
                     $seen_panelist{ $per_name } = $per_info unless $hidden;
-                    if ( $per_info->{ rank } == $PEOPLE_RANK_GUEST ) {
-                        push @guests, $per_name;
-                        push @guests, $per_info->{ group }->{ name }
-                            if $per_info->{ group };
-                    }
+
+                    $panel{ $FIELD_PANELIST_MAP }->{ $per_name } = $per_info;
+
+                    if ( defined $per_info->{ $PANELIST_GROUP } ) {
+                        my $grp_info = $per_info->{ $PANELIST_GROUP };
+                        my $grp_name = $grp_info->{ $PANELIST_NAME };
+                        $panel{ $FIELD_PANELIST_MAP }->{ $grp_name }
+                            = $grp_info;
+                    } ## end if ( defined $per_info...)
+
+                    if ( $per_info->{ $PANELIST_RANK }
+                        == $PANELIST_RANK_GUEST )
+                    {
+                        $panel{ $FIELD_PANELIST_MAP }->{ $GUEST_ANY }
+                            = $GUEST_ANY_INFO;
+                    } ## end if ( $per_info->{ $PANELIST_RANK...})
 
                 } ## end foreach my $per_info ( to_panelist...)
-
-                if ( @guests ) {
-                    push @guests, $GUEST_ANY;
-                }
-                foreach my $guest ( @guests ) {
-                    $guests{ $guest } = santize_hdr( $guest );
-                    $panel{ $FIELD_GUEST_MAP }->{ $guest } = 1;
-                }
             } ## end if ( defined $is_panelist...)
         } ## end foreach my $index ( keys @{...})
 
         if ( defined $panel{ $TABLE_PANELIST_HIDE } ) {
-            $panel{ $FIELD_PANELIST } = undef;
+            $panel{ $FIELD_ALL_PANELIST } = undef;
         }
         elsif ( defined $panel{ $TABLE_PANELIST_ALT } ) {
-            $panel{ $FIELD_PANELIST } = $panel{ $TABLE_PANELIST_ALT };
+            $panel{ $FIELD_ALL_PANELIST } = $panel{ $TABLE_PANELIST_ALT };
         }
         else {
             my %shown;
         PANELIST:
             while ( my ( $per_name, $per_info ) = each %seen_panelist ) {
-                if ( $per_info->{ group } ) {
+                if ( $per_info->{ $PANELIST_GROUP } ) {
                     foreach my $member (
-                        keys %{ $per_info->{ group }->{ members } } )
+                        keys %{
+                            $per_info->{ $PANELIST_GROUP }->{ $GROUP_MEMBERS }
+                        }
+                        )
                     {
                         if ( !exists $seen_panelist{ $member } ) {
                             $shown{ $per_name } = $per_info;
                             next PANELIST;
                         }
                     } ## end foreach my $member ( keys %...)
-                    $shown{ $per_info->{ group }->{ name } }
-                        = $per_info->{ group };
+                    $shown{ $per_info->{ $PANELIST_GROUP }->{ $PANELIST_NAME }
+                    } = $per_info->{ $PANELIST_GROUP };
                     next PANELIST;
-                } ## end if ( $per_info->{ group...})
+                } ## end if ( $per_info->{ $PANELIST_GROUP...})
 
                 $shown{ $per_name } = $per_info;
             } ## end PANELIST: while ( my ( $per_name, $per_info...))
             if ( %shown ) {
-                my @panelist = map { $_->{ name } }
+                my @panelist = map { $_->{ $PANELIST_NAME } }
                     sort {
-                           $a->{ rank } <=> $b->{ rank }
-                        || $a->{ index } <=> $b->{ index }
-                        || $a->{ name } cmp $b->{ name }
+                           $a->{ $PANELIST_RANK } <=> $b->{ $PANELIST_RANK }
+                        || $a->{ $PANELIST_INDEX } <=> $b->{ $PANELIST_INDEX }
+                        || $a->{ $PANELIST_NAME } cmp $b->{ $PANELIST_NAME }
                     } values %shown;
-                $panel{ $FIELD_PANELIST } = join q{, }, @panelist;
+                $panel{ $FIELD_ALL_PANELIST } = join q{, }, @panelist;
             } ## end if ( %shown )
         } ## end else [ if ( defined $panel{ $TABLE_PANELIST_HIDE...})]
 
@@ -645,19 +682,20 @@ sub read_csv_file {
 
 } ## end sub read_csv_file
 
-sub add_guest_conflicts {
-    my ( $panel, @guests ) = @_;
-    my $gmap = $panel->{ $FIELD_GUEST_MAP };
+sub add_panelist_busy {
+    my ( $panel, @panelist_info ) = @_;
+    my $pmap = $panel->{ $FIELD_PANELIST_MAP };
     my $cmap;
-    foreach my $guest ( @guests ) {
-        next if $guest eq $GUEST_ANY;
-        next if $gmap->{ $guest };
-        $cmap //= $panel->{ $FIELD_GUEST_CONFLICT } //= {};
-        next if $cmap->{ $guest };
-        $cmap->{ $guest } = 1;
-    } ## end foreach my $guest ( @guests)
+    foreach my $info ( @panelist_info ) {
+        next unless defined $info;
+        next unless $info->{ $PANELIST_IS_INDIVIDUAL };
+        my $panelist = $info->{ $PANELIST_NAME };
+        next if exists $pmap->{ $panelist };
+        $cmap //= $panel->{ $FIELD_PANELIST_BUSY_ELSEWHERE } //= {};
+        $cmap->{ $panelist } //= $info;
+    } ## end foreach my $info ( @panelist_info)
     return;
-} ## end sub add_guest_conflicts
+} ## end sub add_panelist_busy
 
 sub make_time_ranges {
     my %time_points = map  { $_ => 1 } ( keys %time_region, keys %schedule );
@@ -683,8 +721,8 @@ sub make_time_ranges {
             $panels_active{ $room_idx } = $panel;
         } ## end foreach my $panel ( @{ $panels_by_start...})
 
-        my $panels_for_timeslot;
-        my $guest_map;
+        my %timeslot_info;
+        my $per_map;
         my @active_room_ids = keys %panels_active;
         foreach my $room_idx ( @active_room_ids ) {
             my $panel     = $panels_active{ $room_idx };
@@ -697,44 +735,41 @@ sub make_time_ranges {
                 next;
             } ## end if ( !defined $panel_end...)
 
-            $panels_for_timeslot //= {};
-            $panels_for_timeslot->{ $room_idx } = $panel;
+            $timeslot_info{ $room_idx } = $panel;
 
             my $region_info
                 = $panel->{ $FIELD_BY_REGION }->{ $region_start_time } //= {};
 
             ++$region_info->{ $FIELD_TABLE_ROWS };
-            my $gmap = $panel->{ $FIELD_GUEST_MAP };
-            if ( defined $gmap ) {
-                foreach my $guest ( keys %{ $gmap } ) {
-                    next unless $gmap->{ $guest };
-                    $guest_map //= $panels_for_timeslot->{ $FIELD_GUEST_MAP }
-                        //= {};    # fix visual code formatting error */
-                    $guest_map->{ $guest } = 1;
-                } ## end foreach my $guest ( keys %{...})
-            } ## end if ( defined $gmap )
+            foreach my $info ( grep { defined }
+                values %{ $panel->{ $FIELD_PANELIST_MAP } } )
+            {
+                my $panelist = $info->{ $PANELIST_NAME };
+                $per_map //= $timeslot_info{ $FIELD_PANELIST_MAP } //= {};
+                $per_map->{ $panelist } = $info;
+            } ## end foreach my $info ( grep { defined...})
 
             $region_active->{ $FIELD_ACTIVE_ROOMS }->{ $room_idx } = 1;
 
         } ## end foreach my $room_idx ( @active_room_ids)
 
-        if ( defined $panels_for_timeslot ) {
+        if ( %timeslot_info ) {
             foreach my $empty ( keys %empty_times ) {
                 $region_active->{ $FIELD_BY_ROW_SECONDS }->{ $empty } = {};
             }
             %empty_times = ();
 
             $region_active->{ $FIELD_BY_ROW_SECONDS }->{ $time }
-                = $panels_for_timeslot;
+                = \%timeslot_info;
             $last_time = $time;
 
-            if ( defined $guest_map ) {
-                my @guests = keys %{ $guest_map };
+            if ( defined $per_map ) {
+                my @panelist_info = values %{ $per_map };
                 foreach my $panel ( values %panels_active ) {
-                    add_guest_conflicts( $panel, @guests );
+                    add_panelist_busy( $panel, @panelist_info );
                 }
-            } ## end if ( defined $guest_map)
-        } ## end if ( defined $panels_for_timeslot)
+            } ## end if ( defined $per_map )
+        } ## end if ( %timeslot_info )
         elsif ( defined $last_time ) {
             $empty_times{ $time } = 1;
         }
@@ -815,7 +850,7 @@ sub out_line {
         $line =~ s{\A\s+}{}xms;
         $line =~ s{\s+\Z}{}xms;
         next if $line eq q{};
-        say { $ofh } $indent, $line;
+        say { $output_file_handle } $indent, $line;
     } ## end foreach my $line ( split m{\n+}xms...)
 } ## end sub out_line
 
@@ -842,17 +877,17 @@ sub out_class {
     return class => $res;
 } ## end sub out_class
 
-sub has_guest {
-    my ( $panels_for_timeslot, $guest, @invalid_result ) = @_;
-    return @invalid_result unless defined $guest;
-    return @invalid_result unless exists $guests{ $guest };
+sub has_panelist {
+    my ( $panels_for_timeslot, $panelist, @invalid_result ) = @_;
+    return @invalid_result unless defined $panelist;
+    return @invalid_result unless exists $panelist_info{ $panelist };
     foreach my $idx ( @all_room_ids ) {
         my $panel = $panels_for_timeslot->{ $idx };
         next unless defined $panel;
-        return 1 if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+        return 1 if exists $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
     }
     return;
-} ## end sub has_guest
+} ## end sub has_panelist
 
 sub decode_time {
     my ( $time, $field ) = @_;
@@ -970,7 +1005,7 @@ sub dump_header {
 } ## end sub dump_header
 
 sub dump_room {
-    my ( $region, $guest, $time, $idx, $panel ) = @_;
+    my ( $region, $panelist, $time, $idx, $panel ) = @_;
 
     if ( !defined $panel ) {
         out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->},
@@ -986,24 +1021,26 @@ sub dump_room {
         return;
     }
 
-    my $difficulty = $panel->{ $TABLE_DIFFICULTY };
-    my $name       = $panel->{ $TABLE_PANEL_NAME };
-    my $panelist   = $panel->{ $FIELD_PANELIST };
-    my $tokens     = $panel->{ $TABLE_TOKENS };
-    my $room       = $rooms{ $idx };
+    my $difficulty   = $panel->{ $TABLE_DIFFICULTY };
+    my $name         = $panel->{ $TABLE_PANEL_NAME };
+    my $all_panelist = $panel->{ $FIELD_ALL_PANELIST };
+    my $tokens       = $panel->{ $TABLE_TOKENS };
+    my $room         = $rooms{ $idx };
 
     if ( $panel->{ $FIELD_CAFE } ) {
-        $panelist = $name;
-        $name     = q{Café featuring};
+        $all_panelist = $name;
+        $name         = q{Café featuring};
     }
 
     my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
-    if ( $panel->{ $FIELD_GUEST_MAP }->{ $guest } ) {
-        push @subclasses, $SUBCLASS_GUEST_PANEL;
-    }
-    if ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
-        push @subclasses, $SUBCLASS_CONFLICT_PANEL;
-    }
+    if ( defined $panelist ) {
+        if ( $panel->{ $FIELD_PANELIST_MAP }->{ $panelist } ) {
+            push @subclasses, $SUBCLASS_GUEST_PANEL;
+        }
+        if ( $panel->{ $FIELD_PANELIST_BUSY_ELSEWHERE }->{ $panelist } ) {
+            push @subclasses, $SUBCLASS_BUSY_PANEL;
+        }
+    } ## end if ( defined $panelist)
 
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
     out_open $HTML_TABLE_DATA,
@@ -1057,23 +1094,23 @@ sub dump_room {
         );
     } ## end if ( defined $tokens )
 
-    if ( $panelist =~ m{\S}xms ) {
+    if ( $all_panelist =~ m{\S}xms ) {
         out_line $h->span(
             {   out_class(
                     sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
                     $SUBCLASS_PIECE_PANELIST
                 )
             },
-            $panelist
+            $all_panelist
         );
-    } ## end if ( $panelist =~ m{\S}xms)
+    } ## end if ( $all_panelist =~ ...)
 
     out_close $HTML_ANCHOR;
     out_close $HTML_TABLE_DATA;
 } ## end sub dump_room
 
 sub dump_row {
-    my ( $region, $guest, $time, $panels_for_timeslot ) = @_;
+    my ( $region, $panelist, $time, $panels_for_timeslot ) = @_;
 
     my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
     my @time_classes     = (
@@ -1081,13 +1118,12 @@ sub dump_row {
         $CLASS_GRID_COLUMN_TIME
     );
 
-    if (   defined $guest
-        && exists $guests{ $guest }
-        && $panels_for_timeslot->{ $FIELD_GUEST_MAP }->{ $guest } )
+    if ( defined $panelist
+        && $panels_for_timeslot->{ $FIELD_PANELIST_MAP }->{ $panelist } )
     {
-        push @time_row_classes, $CLASS_GRID_ROW_GUEST_BUSY;
-        push @time_classes,     $CLASS_GRID_CELL_GUEST_BUSY;
-    } ## end if ( defined $guest &&...)
+        push @time_row_classes, $CLASS_GRID_ROW_PANELIST_BUSY;
+        push @time_classes,     $CLASS_GRID_CELL_PANELIST_BUSY;
+    } ## end if ( defined $panelist...)
 
     my $time_id = q{sched_id_} . decode_time_id( $time );
     out_open $HTML_TABLE_ROW,
@@ -1124,7 +1160,7 @@ sub dump_row {
     my @room_ids = room_ids( $region );
     foreach my $idx ( @room_ids ) {
         dump_room(
-            $region, $guest, $time, $idx,
+            $region, $panelist, $time, $idx,
             $panels_for_timeslot->{ $idx }
         );
     } ## end foreach my $idx ( @room_ids)
@@ -1144,7 +1180,7 @@ sub dump_foot {
 } ## end sub dump_foot
 
 sub dump_region {
-    my ( $region, $guest ) = @_;
+    my ( $region, $panelist ) = @_;
 
     dump_header( $region );
     my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
@@ -1152,19 +1188,19 @@ sub dump_region {
     my @times = sort { $a <=> $b } keys %{ $rows };
     $region->{ $FIELD_LAST_TIME_OUTPUT } = $times[ -1 ];
     foreach my $time ( @times ) {
-        dump_row( $region, $guest, $time, $rows->{ $time } );
+        dump_row( $region, $panelist, $time, $rows->{ $time } );
     }
     dump_foot( $region );
 } ## end sub dump_region
 
 sub dump_desc_start {
-    my ( $region, $guest, $exclude_guest ) = @_;
+    my ( $region, $panelist, $exclude_guest ) = @_;
 
-    if ( exists $guests{ $guest } ) {
+    if ( defined $panelist ) {
         my $hdr_text
             = $exclude_guest
-            ? q{Schedule excluding guest panels}
-            : q{Schedule for } . $guest;
+            ? qq{Schedule excluding ${panelist} and conflicting panels}
+            : q{Schedule for } . $panelist;
 
         if ( $option_is_postcard ) {
             out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
@@ -1188,7 +1224,7 @@ sub dump_desc_start {
         else {
             out_line $h->h2( $hdr_text );
         }
-    } ## end if ( exists $guests{ $guest...})
+    } ## end if ( defined $panelist)
 
     state $my_idx = 0;
     my $alt_class = $CLASS_DESC_SECTION . ( ++$my_idx );
@@ -1196,22 +1232,22 @@ sub dump_desc_start {
 } ## end sub dump_desc_start
 
 sub dump_desc_end {
-    my ( $region, $guest, $exclude_guest ) = @_;
+    my ( $region, $panelist, $exclude_guest ) = @_;
 
     out_close $HTML_DIV;
 
-    if ( exists $guests{ $guest } ) {
+    if ( defined $panelist ) {
         if ( $option_is_postcard ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
             out_close $HTML_TABLE_BODY;
             out_close $HTML_TABLE;
         } ## end if ( $option_is_postcard)
-    } ## end if ( exists $guests{ $guest...})
+    } ## end if ( defined $panelist)
 } ## end sub dump_desc_end
 
 sub dump_desc_time_start {
-    my ( $region, $guest, $exclude_guest, $time, $busy ) = @_;
+    my ( $region, $panelist, $exclude_guest, $time, $busy ) = @_;
 
     out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
     out_open $HTML_COLGROUP;
@@ -1251,7 +1287,7 @@ sub dump_desc_time_end {
 } ## end sub dump_desc_time_end
 
 sub dump_desc_panel_body {
-    my ($region, $guest, $exclude_guest,
+    my ($region, $panelist, $exclude_guest,
         $panel,  @extra_classes
     ) = @_;
 
@@ -1264,21 +1300,21 @@ sub dump_desc_panel_body {
     my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
     my $conflict;
 
-    if ( defined $guest ) {
-        if ( $panel->{ $FIELD_GUEST_MAP }->{ $guest } ) {
+    if ( defined $panelist ) {
+        if ( $panel->{ $FIELD_PANELIST_MAP }->{ $panelist } ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
-        elsif ( $panel->{ $FIELD_GUEST_CONFLICT }->{ $guest } ) {
-            push @subclasses, $SUBCLASS_CONFLICT_PANEL;
+        elsif ( $panel->{ $FIELD_PANELIST_BUSY_ELSEWHERE }->{ $panelist } ) {
+            push @subclasses, $SUBCLASS_BUSY_PANEL;
             $conflict = 1;
         }
-    } ## end if ( defined $guest )
+    } ## end if ( defined $panelist)
 
-    my $difficulty = $panel->{ $TABLE_DIFFICULTY };
-    my $name       = $panel->{ $TABLE_PANEL_NAME };
-    my $panelist   = $panel->{ $FIELD_PANELIST };
-    my $tokens     = $panel->{ $TABLE_TOKENS };
-    my $room       = $panel->{ $FIELD_ROOM_INFO };
+    my $difficulty   = $panel->{ $TABLE_DIFFICULTY };
+    my $name         = $panel->{ $TABLE_PANEL_NAME };
+    my $all_panelist = $panel->{ $FIELD_ALL_PANELIST };
+    my $tokens       = $panel->{ $TABLE_TOKENS };
+    my $room         = $panel->{ $FIELD_ROOM_INFO };
 
     if ( $panel->{ $FIELD_CAFE } ) {
         $name = q{Cosplay Café Featuring } . $name;
@@ -1336,16 +1372,16 @@ sub dump_desc_panel_body {
             $room->{ $TABLE_HOTEL_ROOM }
         );
     } ## end else [ if ( $option_kiosk_mode)]
-    if ( $panelist =~ m{\S}xms ) {
+    if ( $all_panelist =~ m{\S}xms ) {
         out_line $h->p(
             {   out_class(
                     sprintf $CLASS_DESC_FMT_SUBCLASS,
                     $SUBCLASS_PIECE_PANELIST
                 )
             },
-            $panelist
+            $all_panelist
         );
-    } ## end if ( $panelist =~ m{\S}xms)
+    } ## end if ( $all_panelist =~ ...)
 
     my $descbody = $panel->{ $TABLE_DESCRIPTION };
     out_line $h->p(
@@ -1398,40 +1434,40 @@ sub dump_desc_panel_body {
 } ## end sub dump_desc_panel_body
 
 sub dump_desc_panel {
-    my ($region, $guest, $exclude_guest, $need_time_header_ref, $time,
+    my ($region, $panelist, $exclude_guest, $need_time_header_ref, $time,
         $panel,  $busy
     ) = @_;
 
     return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
 
-    if ( defined $guest ) {
+    if ( defined $panelist ) {
         if ( $exclude_guest ) {
-            return if $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+            return if $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
         }
         else {
-            return unless $panel->{ $FIELD_GUEST_MAP }->{ $guest };
+            return unless $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
         }
-    } ## end if ( defined $guest )
+    } ## end if ( defined $panelist)
 
     if ( $$need_time_header_ref ) {
-        dump_desc_time_start( $region, $guest, $exclude_guest, $time, $busy );
+        dump_desc_time_start(
+            $region, $panelist, $exclude_guest, $time,
+            $busy
+        );
         undef $$need_time_header_ref;
-    }
+    } ## end if ( $$need_time_header_ref)
 
     out_open $HTML_TABLE_ROW, { out_class( $CLASS_DESC_PANEL_ROW ) };
     dump_desc_panel_body(
-        $region, $guest, $exclude_guest,
+        $region, $panelist, $exclude_guest,
         $panel
     );
     out_close $HTML_TABLE_ROW;
 } ## end sub dump_desc_panel
 
 sub dump_desc_region_rows {
-    my ( $region, $guest, $exclude_guest ) = @_;
-    if ( defined $guest ) {
-        undef $guest unless exists $guests{ $guest };
-    }
-    undef $exclude_guest unless defined $guest;
+    my ( $region, $panelist, $exclude_guest ) = @_;
+    undef $exclude_guest unless defined $panelist;
 
     my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
     $region->{ $FIELD_DAY_BEING_OUTPUT } = undef;
@@ -1443,13 +1479,13 @@ DUMP_TIME:
         my $panels_for_timeslot = $rows->{ $time };
         my $busy;
         if ( $exclude_guest ) {
-            $busy = 1 if has_guest( $panels_for_timeslot, $guest );
+            $busy = 1 if has_panelist( $panels_for_timeslot, $panelist );
         }
         foreach my $idx ( @all_room_ids ) {
             my $panel = $panels_for_timeslot->{ $idx };
             next unless defined $panel;
             dump_desc_panel(
-                $region, $guest, $exclude_guest,
+                $region, $panelist, $exclude_guest,
                 \$need_time_header, $time, $panel, $busy
             );
         } ## end foreach my $idx ( @all_room_ids)
@@ -1460,28 +1496,28 @@ DUMP_TIME:
 } ## end sub dump_desc_region_rows
 
 sub dump_desc_region {
-    my ( $region, $guest ) = @_;
+    my ( $region, $panelist ) = @_;
 
-    dump_desc_start( $region, $guest );
-    dump_desc_region_rows( $region, $guest );
-    dump_desc_end( $region, $guest );
+    dump_desc_start( $region, $panelist );
+    dump_desc_region_rows( $region, $panelist );
+    dump_desc_end( $region, $panelist );
 
-    if ( exists $guests{ $guest } && !$option_just_guest ) {
-        dump_desc_start( $region, $guest, 1 );
-        dump_desc_region_rows( $region, $guest, 1 );
-        dump_desc_end( $region, $guest, 1 );
+    if ( defined $panelist && !$option_just_guest ) {
+        dump_desc_start( $region, $panelist, 1 );
+        dump_desc_region_rows( $region, $panelist, 1 );
+        dump_desc_end( $region, $panelist, 1 );
     }
 } ## end sub dump_desc_region
 
 sub dump_desc_all_regions {
-    my ( $guest, $exclude_guest ) = @_;
+    my ( $panelist, $exclude_guest ) = @_;
 
-    dump_desc_start( undef, $guest, $exclude_guest );
+    dump_desc_start( undef, $panelist, $exclude_guest );
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
-        dump_desc_region_rows( $region, $guest, $exclude_guest );
+        dump_desc_region_rows( $region, $panelist, $exclude_guest );
     }
-    dump_desc_end( undef, $guest, $exclude_guest );
+    dump_desc_end( undef, $panelist, $exclude_guest );
 } ## end sub dump_desc_all_regions
 
 sub cache_inline_style {
@@ -1500,33 +1536,61 @@ sub cache_inline_style {
     );
 } ## end sub cache_inline_style
 
-sub dump_tables {
-    my ( $guest ) = @_;
-    my $guest_file = $guests{ $guest };
-    undef $guest unless defined $guest_file;
-
-    my %time_points = map { $_ => 1 } ( keys %time_region );
-    my $ofname      = $option_output;
+sub open_dump_file {
+    my ( $dump_timestamp, $dump_person, $def_name ) = @_;
+    $def_name //= q{index};
 
     if ( $option_output eq q{-} ) {
-        $ofname = q{<STDOUT>};
-        $ofh    = \*STDOUT;
+        $output_file_handle = \*STDOUT;
+        $output_file_name   = q{<STDOUT>};
+        return;
     }
-    else {
-        if ( -d $option_output ) {
-            $ofname = File::Spec->catfile(
-                $option_output,
-                ( $guest_file || q{index} ) . q{.html}
-            );
-        } ## end if ( -d $option_output)
-        elsif ( $guest_file ) {
-            $ofname = $option_output . q{.} . $guest_file . q{.html};
-        }
-        open $ofh, q{>:encoding(utf8)}, $ofname
-            or die qq{Unable to write: ${ofname}\n};
-    } ## end else [ if ( $option_output eq...)]
 
-    say { $ofh } q{<!doctype html>};
+    my @subnames;
+    if ( defined $dump_person ) {
+        push @subnames, $dump_person;
+    }
+    if ( defined $dump_timestamp && exists $time_region{ $dump_timestamp } ) {
+        push @subnames,
+            $time_region{ $dump_timestamp }->{ $FIELD_REGION_NAME };
+    }
+    @subnames = map { santize_hdr $_ } grep { defined } @subnames;
+
+    my $ofname = $option_output;
+    if ( -d $ofname ) {
+        push @subnames, "index" unless @subnames;
+        $ofname
+            = File::Spec->catfile( $ofname, join q{.}, @subnames, q{html} );
+    }
+    elsif ( @subnames ) {
+        my ( $vol, $dir, $base ) = File::Spec->splitpath( $ofname );
+        my $suffix = q{html};
+        if ( $base =~ s{[.](html?)\z}{}xms ) {
+            $suffix = $1;
+        }
+        $base = join q{.}, $base, @subnames, $suffix;
+
+        $ofname = File::Spec->catpath( $vol, $dir, $base );
+    } ## end elsif ( @subnames )
+
+    open $output_file_handle, q{>:encoding(utf8)}, $ofname
+        or die qq{Unable to write: ${ofname}\n};
+
+    $output_file_name = $ofname;
+    return;
+} ## end sub open_dump_file
+
+sub close_dump_file {
+    if ( $option_output ne q{-} && defined $output_file_handle ) {
+        $output_file_handle->close
+            or die qq{Unable to close $output_file_name: $!\n};
+    }
+    undef $output_file_handle;
+    undef $output_file_name;
+} ## end sub close_dump_file
+
+sub dump_file_header {
+    say { $output_file_handle } q{<!doctype html>};
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
     out_line $h->meta( { charset => q{UTF-8} } );
@@ -1578,36 +1642,108 @@ sub dump_tables {
     $close_styles->();
 
     out_close $HTML_HEAD;
-    out_open $HTML_BODY;
+} ## end sub dump_file_header
+
+sub dump_file_footer {
+    out_close $HTML_HTML;
+}
+
+sub dump_table_one_region {
+    my ( $dump_timestamp, $dump_person ) = @_;
+
+    if ( $option_show_grid ) {
+        dump_region( $time_region{ $dump_timestamp }, $dump_person );
+    }
+    if ( $option_show_descriptions ) {
+        dump_desc_region( $time_region{ $dump_timestamp }, $dump_person );
+    }
+} ## end sub dump_table_one_region
+
+sub dump_table_all_regions {
+    my ( $dump_timestamp, $dump_person ) = @_;
+
+    my $need_all_desc = $option_show_descriptions;
 
     if ( $option_show_grid ) {
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
-            dump_region( $region, $guest );
-            if ( $option_show_descriptions && !$option_desc_at_end ) {
-                dump_desc_region( $region, $guest );
-            }
+            dump_region( $region, $dump_person );
+            if ( $option_show_descriptions
+                && ( defined $region || !$option_desc_at_end ) )
+            {
+                dump_desc_region( $region, $dump_person );
+                undef $need_all_desc;
+            } ## end if ( $option_show_descriptions...)
         } ## end foreach my $region_time ( sort...)
+        if ( !$option_desc_at_end ) {
+            return;
+        }
     } ## end if ( $option_show_grid)
 
-    if ( $option_show_descriptions
-        && ( $option_desc_at_end || !$option_show_grid ) )
-    {
-        dump_desc_all_regions( $guest );
-        if ( exists $guests{ $guest } && !$option_just_guest ) {
-            dump_desc_all_regions( $guest, 1 );
+    if ( $need_all_desc ) {
+        dump_desc_all_regions( $dump_person );
+        if ( defined $dump_person && !$option_just_guest ) {
+            dump_desc_all_regions( $dump_person, 1 );
         }
-    } ## end if ( $option_show_descriptions...)
+    } ## end if ( $need_all_desc )
+
+} ## end sub dump_table_all_regions
+
+sub dump_tables {
+    my ( $dump_timestamp, $dump_person ) = @_;
+    undef $dump_timestamp unless exists $time_region{ $dump_timestamp };
+
+    my %time_points = map { $_ => 1 } ( keys %time_region );
+
+    open_dump_file( $dump_timestamp, $dump_person );
+
+    dump_file_header;
+
+    out_open $HTML_BODY;
+
+    if ( defined $dump_timestamp ) {
+        dump_table_one_region( $dump_timestamp, $dump_person );
+    }
+    else {
+        dump_table_all_regions( undef, $dump_person );
+    }
 
     out_close $HTML_BODY;
-    out_close $HTML_HTML;
 
-    if ( $option_output ne q{-} ) {
-        $ofh->close
-            or die qq{Unable to close $ofname: $!\n};
-    }
-    undef $ofh;
+    dump_file_footer;
+    close_dump_file;
+
+    return;
 } ## end sub dump_tables
+
+sub dump_tables_per_guest {
+    my ( $dump_timestamp ) = @_;
+
+    if ( !$option_file_per_guest ) {
+        dump_tables( $dump_timestamp );
+        return;
+    }
+
+    foreach my $per_info ( values %panelist_info ) {
+        next unless $per_info->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST;
+        dump_tables( $dump_timestamp, $per_info->{ $PANELIST_NAME } );
+    }
+
+    return;
+} ## end sub dump_tables_per_guest
+
+sub dump_tables_per_split {
+    if ( !$option_file_per_day ) {
+        dump_tables_per_guest( undef );
+        return;
+    }
+
+    foreach my $dump_timestamp ( keys %time_region ) {
+        dump_tables_per_guest( $dump_timestamp );
+    }
+
+    return;
+} ## end sub dump_tables_per_split
 
 sub dump_kiosk_desc {
     my ( $region ) = @_;
@@ -1695,24 +1831,10 @@ sub dump_kiosk_desc {
 
 sub dump_kiosk {
     my %time_points = map { $_ => 1 } ( keys %time_region );
-    my $ofname      = $option_output;
 
-    if ( $option_output eq q{-} ) {
-        $ofname = q{<STDOUT>};
-        $ofh    = \*STDOUT;
-    }
-    else {
-        if ( -d $option_output ) {
-            $ofname = File::Spec->catfile(
-                $option_output,
-                q{kiosk.html}
-            );
-        } ## end if ( -d $option_output)
-        open $ofh, q{>:encoding(utf8)}, $ofname
-            or die qq{Unable to write: ${ofname}\n};
-    } ## end else [ if ( $option_output eq...)]
+    open_dump_file( undef, undef, q{kiosk} );
 
-    say { $ofh } q{<!doctype html>};
+    say { $output_file_handle } q{<!doctype html>};
 
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
@@ -1760,11 +1882,7 @@ sub dump_kiosk {
     out_close $HTML_BODY;
     out_close $HTML_HTML;
 
-    if ( $option_output ne q{-} ) {
-        $ofh->close
-            or die qq{Unable to close $ofname: $!\n};
-    }
-    undef $ofh;
+    close_dump_file;
 } ## end sub dump_kiosk
 
 sub main {
@@ -1772,22 +1890,23 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{day!}          => \$option_show_day_column,
-        q{descriptions!} => \$option_show_descriptions,
-        q{grid!}         => \$option_show_grid,
-        q{guests!}       => \$option_file_per_guest,
-        q{hideunused!}   => \$option_hide_unused_rooms,
-        q{inline_css!}   => \$option_embed_css,
-        q{input=s}       => \$option_input_file,
-        q{justguest!}    => \$option_just_guest,
-        q{kiosk!}        => \$option_kiosk_mode,
-        q{output=s}      => \$option_output,
-        q{perday!}       => \$option_split_per_day,
-        q{postcard!}     => \$option_is_postcard,
-        q{separate!}     => \$option_desc_at_end,
-        q{style=s@}      => \@option_css_styles,
-        q{title=s}       => \$option_title,
-        q{unified!}      => \$option_unified_grid,
+        q{day!}           => \$option_show_day_column,
+        q{descriptions!}  => \$option_show_descriptions,
+        q{grid!}          => \$option_show_grid,
+        q{file-by-day!}   => \$option_file_per_day,
+        q{file-by-guest!} => \$option_file_per_guest,
+        q{hideunused!}    => \$option_hide_unused_rooms,
+        q{inline-css!}    => \$option_embed_css,
+        q{input=s}        => \$option_input_file,
+        q{justguest!}     => \$option_just_guest,
+        q{kiosk!}         => \$option_kiosk_mode,
+        q{output=s}       => \$option_output,
+        q{split-day!}     => \$option_split_per_day,
+        q{postcard!}      => \$option_is_postcard,
+        q{separate!}      => \$option_desc_at_end,
+        q{style=s@}       => \@option_css_styles,
+        q{title=s}        => \$option_title,
+        q{unified!}       => \$option_unified_grid,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $option_embed_css //= 1 if @option_css_styles;
@@ -1810,6 +1929,7 @@ sub main {
         $option_desc_at_end       = undef;
         @option_css_styles        = ();
         $option_embed_css         = undef;
+        $option_file_per_day      = undef;
         $option_file_per_guest    = undef;
         $option_is_postcard       = undef;
         $option_just_guest        = undef;
@@ -1826,13 +1946,8 @@ sub main {
     else {
         $option_file_per_guest //= 1 if $option_just_guest;
 
-        if ( $option_file_per_guest ) {
-            foreach my $guest ( keys %guests ) {
-                dump_tables( $guest );
-            }
-        }
-        dump_tables;
-    } ## end else [ if ( $option_kiosk_mode)]
+        dump_tables_per_split;
+    }
 
     1;
 } ## end sub main
