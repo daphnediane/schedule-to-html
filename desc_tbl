@@ -222,12 +222,13 @@ my $option_desc_at_end;
 my $option_embed_css;
 my $option_file_per_day;
 my $option_file_per_guest;
+my $option_file_per_panelist;
 my $option_file_per_room;
 my @option_rooms;
 my $option_hide_unused_rooms;
 my $option_input_file;
 my $option_is_postcard;
-my $option_just_guest;
+my $option_just_panelist;
 my $option_kiosk_mode;
 my $option_output;
 my $option_show_day_column;
@@ -1705,7 +1706,7 @@ sub dump_desc_timeslice {
     dump_desc_body( $filter, $region, \%room_focus_map );
     dump_desc_footer( $filter, $region );
 
-    if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_guest ) {
+    if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_panelist ) {
         dump_desc_header( $filter, $region, 1 );
         dump_desc_body( $filter, $region, \%room_focus_map, 1 );
         dump_desc_footer( $filter, $region, 1 );
@@ -1896,7 +1897,8 @@ sub dump_table_all_regions {
 
     if ( $need_all_desc ) {
         dump_desc_all_timeslice( $filter );
-        if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_guest ) {
+        if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_panelist )
+        {
             dump_desc_all_timeslice( $filter, 1 );
         }
     } ## end if ( $need_all_desc )
@@ -2097,15 +2099,21 @@ sub split_filter_by_timestamp {
 sub split_filter_by_panelist {
     my ( @filters ) = @_;
 
-    return @filters unless $option_file_per_guest;
+    return @filters
+        unless ( $option_file_per_guest || $option_file_per_panelist );
 
     my @res;
     foreach my $filter ( @filters ) {
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
         foreach my $per_info ( values %panelist_info ) {
-            next unless $per_info->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST;
             next if $per_info->{ $PANELIST_OTHER };
+
+            if ( $per_info->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST
+                && !$option_file_per_panelist )
+            {
+                next;
+            }
 
             push @res, {
                 %new_filter,
@@ -2147,25 +2155,27 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{day!}           => \$option_show_day_column,
-        q{descriptions!}  => \$option_show_descriptions,
-        q{file-by-day!}   => \$option_file_per_day,
-        q{file-by-guest!} => \$option_file_per_guest,
-        q{file-by-room!}  => \$option_file_per_room,
-        q{grid!}          => \$option_show_grid,
-        q{hide-unused!}   => \$option_hide_unused_rooms,
-        q{inline-css!}    => \$option_embed_css,
-        q{input=s}        => \$option_input_file,
-        q{just-guest!}    => \$option_just_guest,
-        q{kiosk!}         => \$option_kiosk_mode,
-        q{output=s}       => \$option_output,
-        q{postcard!}      => \$option_is_postcard,
-        q{room=s@}        => \@option_rooms,
-        q{separate!}      => \$option_desc_at_end,
-        q{split-day!}     => \$option_split_per_day,
-        q{style=s@}       => \@option_css_styles,
-        q{title=s}        => \$option_title,
-        q{unified!}       => \$option_unified_grid,
+        q{day!}              => \$option_show_day_column,
+        q{descriptions!}     => \$option_show_descriptions,
+        q{file-by-day!}      => \$option_file_per_day,
+        q{file-by-guest!}    => \$option_file_per_guest,
+        q{file-by-panelist!} => \$option_file_per_panelist,
+        q{file-by-room!}     => \$option_file_per_room,
+        q{grid!}             => \$option_show_grid,
+        q{hide-unused!}      => \$option_hide_unused_rooms,
+        q{inline-css!}       => \$option_embed_css,
+        q{input=s}           => \$option_input_file,
+        q{just-guest!}       => \$option_just_panelist,
+        q{just-panelist!}    => \$option_just_panelist,
+        q{kiosk!}            => \$option_kiosk_mode,
+        q{output=s}          => \$option_output,
+        q{postcard!}         => \$option_is_postcard,
+        q{room=s@}           => \@option_rooms,
+        q{separate!}         => \$option_desc_at_end,
+        q{split-day!}        => \$option_split_per_day,
+        q{style=s@}          => \@option_css_styles,
+        q{title=s}           => \$option_title,
+        q{unified!}          => \$option_unified_grid,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $option_embed_css //= 1 if @option_css_styles;
@@ -2182,10 +2192,11 @@ sub main {
         $option_embed_css         = undef;
         $option_file_per_day      = undef;
         $option_file_per_guest    = undef;
+        $option_file_per_panelist = undef;
         $option_file_per_room     = undef;
         @option_rooms             = ();
         $option_is_postcard       = undef;
-        $option_just_guest        = undef;
+        $option_just_panelist     = undef;
         $option_show_day_column   = undef;
         $option_show_descriptions = 1;
         $option_show_grid         = 1;
@@ -2205,7 +2216,7 @@ sub main {
     $option_show_descriptions //= 0 if $option_show_grid;
     $option_show_grid         //= 1;
     $option_show_descriptions //= 1;
-    $option_file_per_guest //= 1 if $option_just_guest;
+    $option_file_per_guest //= 1 if $option_just_panelist;
 
     my @filters = ( $DEFAULT_FILTER );
     @filters = split_filter_by_panelist( @filters );
