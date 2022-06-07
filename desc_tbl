@@ -439,8 +439,7 @@ sub add_time {
 sub santize_hdr {
     my ( $hdr ) = @_;
     $hdr =~ s{\s+}{_}xmsg;
-    $hdr =~ s{/}{_}xmsg;
-    $hdr =~ s{[().,]}{_}xmsg;
+    $hdr =~ s{[/:().,]}{_}xmsg;
     $hdr =~ s{_+}{_}xmsg;
     $hdr =~ s{\A_}{}xmsg;
     $hdr =~ s{_\z}{}xmsg;
@@ -471,7 +470,7 @@ sub lookup_panelist {
     if ( lc $panelist eq q{other} ) {
         $panelist = $rank . q{:Other};
 
-        return $panelist_info{ $panelist } //= {
+        return $panelist_info{ lc $panelist } //= {
             $PANELIST_NAME          => $panelist,
             $PANELIST_RANK          => $rank,
             $PANELIST_INDEX         => $index,
@@ -481,7 +480,7 @@ sub lookup_panelist {
         };
     } ## end if ( lc $panelist eq q{other})
 
-    my $info = $panelist_info{ $panelist } //= {
+    my $info = $panelist_info{ lc $panelist } //= {
         $PANELIST_NAME          => $panelist,
         $PANELIST_RANK          => $rank,
         $PANELIST_INDEX         => $index,
@@ -494,7 +493,7 @@ sub lookup_panelist {
 
     if ( $group ) {
 
-        my $ginfo = $panelist_info{ $group } //= {
+        my $ginfo = $panelist_info{ lc $group } //= {
             $PANELIST_NAME     => $group,
             $PANELIST_RANK     => $rank,
             $PANELIST_INDEX    => $index,
