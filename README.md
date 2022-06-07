@@ -115,6 +115,17 @@ desc_tbl \
   --seperate --split-day
 ```
 
+Produces a schedule for each room
+```
+desc_tbl \
+  --style license-fonts.css \
+  --style landscape.css \
+  --style common.css \
+  --input input/Schedule.xlsx \
+  --output output/ \
+  --file-by-day --split-day
+```
+
 ## Licensing:
 
 For desc_tbl see LICENSE

@@ -16,11 +16,19 @@ use Text::CSV;
 use utf8;
 
 # Global variables
-Readonly our $SEC_PER_MIN  => 60;
-Readonly our $MIN_PER_HOUR => 60;
+Readonly our $SEC_PER_MIN   => 60;
+Readonly our $MIN_PER_HOUR  => 60;
+Readonly our $HOUR_PER_DAY  => 24;
+Readonly our $DAYS_PER_WEEK => 7;
 
 Readonly our $HALF_HOUR_IN_SEC => 30 * 60;
-Readonly our $CAFE             => q{Café};
+
+Readonly our $LOCALTIME_HOUR => 1;
+Readonly our $LOCALTIME_MIN  => 2;
+Readonly our $LOCALTIME_DAY  => 6;
+
+Readonly our $CAFE                => q{Café};
+Readonly our $ROOM_FIRST_HIDE_IDX => 100;
 
 # Panel fields
 Readonly our $TABLE_DESCRIPTION   => q{Description};
@@ -51,6 +59,7 @@ Readonly our $FIELD_DAY_BEING_OUTPUT        => q{*ACTIVEDAY};
 Readonly our $FIELD_END_TIME_SECONDS        => q{*END_SEC};
 Readonly our $FIELD_PANELIST_BUSY_ELSEWHERE => q{*BUSY_ELSEWHERE};
 Readonly our $FIELD_PANELIST_MAP            => q{*PANELIST_MAP};
+Readonly our $FIELD_PANELIST_LISTED         => q{*LISTED_PANELIST};
 Readonly our $FIELD_LAST_TIME_OUTPUT        => q{*LASTTIME};
 Readonly our $FIELD_NEXT_PANEL              => q{*NEXT};
 Readonly our $FIELD_ALL_PANELIST            => q{*PANELIST};
@@ -171,6 +180,7 @@ Readonly our $FMT_TIME => q{%I:%M %p};
 Readonly our $PANELIST_NAME          => q{name};
 Readonly our $PANELIST_RANK          => q{rank};
 Readonly our $PANELIST_INDEX         => q{index};
+Readonly our $PANELIST_SUBINDEX      => q{subindex};
 Readonly our $PANELIST_OTHER         => q{other};
 Readonly our $PANELIST_IS_META       => q{meta};
 Readonly our $PANELIST_IS_INDIVIDUAL => q{individual};
@@ -191,10 +201,11 @@ Readonly our $PREFIX_TO_PANELIST_RANK     => {
 
 Readonly our $GUEST_ANY      => q{All Guests};
 Readonly our $GUEST_ANY_INFO => {
-    $PANELIST_NAME    => $GUEST_ANY,
-    $PANELIST_RANK    => $PANELIST_RANK_GUEST,
-    $PANELIST_INDEX   => -1,
-    $PANELIST_IS_META => 1,
+    $PANELIST_NAME     => $GUEST_ANY,
+    $PANELIST_RANK     => $PANELIST_RANK_GUEST,
+    $PANELIST_INDEX    => -1,
+    $PANELIST_SUBINDEX => 0,
+    $PANELIST_IS_META  => 1,
 };
 
 # Grid filter
@@ -226,7 +237,9 @@ my $option_split_per_day;
 my $option_title;
 my $option_unified_grid;
 
-my %panelist_info = ();
+my %panelist_info = (
+    $GUEST_ANY => $GUEST_ANY_INFO,
+);
 
 my %schedule;
 my %rooms;
@@ -330,10 +343,13 @@ sub splitline_excel {
     my $first_col = $handle->{ $HANDLE_COLUMN_RANGE }->[ 0 ];
     my $last_col  = $handle->{ $HANDLE_COLUMN_RANGE }->[ 1 ];
     my $ws        = $handle->{ $HANDLE_SCHEDULE_SHEET };
-    my @res       = map {
-        my $cell = $ws->get_cell( $row, $_ );
-        defined $cell ? $cell->value() : undef
-    } $first_col .. $last_col;
+    my @res;
+    foreach my $col ( $first_col .. $last_col ) {
+        my $cell  = $ws->get_cell( $row, $col );
+        my $value = defined $cell ? $cell->value() : undef;
+        undef $value unless $value =~ m{\S}xms;
+        push @res, $value;
+    } ## end foreach my $col ( $first_col...)
     return \@res;
 } ## end sub splitline_excel
 
@@ -446,6 +462,11 @@ sub lookup_panelist {
 
     my ( $panelist, $group ) = split m{=}xms, $name_with_group, 2;
 
+    my $sub_index = 0;
+    if ( ref $index ) {
+        ( $index, $sub_index ) = @{ $index };
+    }
+
     if ( lc $panelist eq q{other} ) {
         $panelist = $rank . q{:Other};
 
@@ -453,6 +474,7 @@ sub lookup_panelist {
             $PANELIST_NAME          => $panelist,
             $PANELIST_RANK          => $rank,
             $PANELIST_INDEX         => $index,
+            $PANELIST_SUBINDEX      => $sub_index,
             $PANELIST_IS_INDIVIDUAL => 1,
             $PANELIST_OTHER         => 1
         };
@@ -462,6 +484,7 @@ sub lookup_panelist {
         $PANELIST_NAME          => $panelist,
         $PANELIST_RANK          => $rank,
         $PANELIST_INDEX         => $index,
+        $PANELIST_SUBINDEX      => $sub_index,
         $PANELIST_IS_INDIVIDUAL => 1
     };
     if ( $info->{ $PANELIST_RANK } > $rank ) {
@@ -474,6 +497,7 @@ sub lookup_panelist {
             $PANELIST_NAME     => $group,
             $PANELIST_RANK     => $rank,
             $PANELIST_INDEX    => $index,
+            $PANELIST_SUBINDEX => $sub_index,
             $PANELIST_IS_GROUP => 1
         };
         $info->{ $PANELIST_GROUP } = $ginfo;
@@ -487,18 +511,266 @@ sub lookup_panelist {
 } ## end sub lookup_panelist
 
 sub to_panelist {
-    my ( $per_info, $index, $names ) = @_;
+    my ( $per_info, $names ) = @_;
 
     return unless $per_info;
     return $per_info unless $per_info->{ $PANELIST_OTHER };
 
+    my $index     = $per_info->{ $PANELIST_INDEX };
+    my $sub_index = 0;
+
     return map {
-        lookup_panelist( $_, $index += 0.0001, $per_info->{ $PANELIST_RANK } )
+        lookup_panelist(
+            $_, [ $index, ++$sub_index ],
+            $per_info->{ $PANELIST_RANK }
+        )
         }
         split m{\s*,\s*}xms, $names;
 } ## end sub to_panelist
 
-sub read_csv_file {
+sub process_spreadsheet_add_panelist {
+    my ( $panel, $per_info_index, $raw_text ) = @_;
+
+    return unless defined $raw_text;
+
+    my $unlisted = $raw_text =~ m{\A[*]}xms || $raw_text =~ m{[*]\z}xms;
+
+    my @panelists = to_panelist( $per_info_index, $raw_text );
+    my $seen;
+    my $map;
+
+    foreach my $per_info ( @panelists ) {
+        my $per_name = $per_info->{ $PANELIST_NAME };
+
+        unless ( $unlisted ) {
+            $seen //= $panel->{ $FIELD_PANELIST_LISTED } //= {};
+            $seen->{ $per_name } = $per_info;
+        }
+        $map //= $panel->{ $FIELD_PANELIST_MAP } //= {};
+
+        $map->{ $per_name } = $per_info;
+
+        if ( defined $per_info->{ $PANELIST_GROUP } ) {
+            my $grp_info = $per_info->{ $PANELIST_GROUP };
+            my $grp_name = $grp_info->{ $PANELIST_NAME };
+            $map->{ $grp_name } = $grp_info;
+        }
+
+        if ( $per_info->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST ) {
+            $map->{ $GUEST_ANY } = $GUEST_ANY_INFO;
+        }
+    } ## end foreach my $per_info ( @panelists)
+
+    return;
+} ## end sub process_spreadsheet_add_panelist
+
+sub process_spreadsheet_credit_panelist {
+    my ( $panel ) = @_;
+
+    if ( defined $panel->{ $TABLE_PANELIST_HIDE } ) {
+        $panel->{ $FIELD_ALL_PANELIST } = undef;
+        return;
+    }
+
+    if ( defined $panel->{ $TABLE_PANELIST_ALT } ) {
+        $panel->{ $FIELD_ALL_PANELIST } = $panel->{ $TABLE_PANELIST_ALT };
+        return;
+    }
+
+    my $seen = $panel->{ $FIELD_PANELIST_LISTED };
+    if ( !defined $seen ) {
+        $panel->{ $FIELD_ALL_PANELIST } = undef;
+        return;
+    }
+
+    my %shown;
+PANELIST:
+    while ( my ( $per_name, $per_info ) = each %{ $seen } ) {
+        if ( $per_info->{ $PANELIST_GROUP } ) {
+            foreach my $member (
+                keys %{ $per_info->{ $PANELIST_GROUP }->{ $GROUP_MEMBERS } } )
+            {
+                if ( !exists $seen->{ $member } ) {
+                    $shown{ $per_name } = $per_info;
+                    next PANELIST;
+                }
+            } ## end foreach my $member ( keys %...)
+            $shown{ $per_info->{ $PANELIST_GROUP }->{ $PANELIST_NAME } }
+                = $per_info->{ $PANELIST_GROUP };
+            next PANELIST;
+        } ## end if ( $per_info->{ $PANELIST_GROUP...})
+
+        $shown{ $per_name } = $per_info;
+    } ## end PANELIST: while ( my ( $per_name, $per_info...))
+
+    if ( %shown ) {
+        my @panelist = map { $_->{ $PANELIST_NAME } }
+            sort {
+                   $a->{ $PANELIST_RANK } <=> $b->{ $PANELIST_RANK }
+                || $a->{ $PANELIST_INDEX } <=> $b->{ $PANELIST_INDEX }
+                || $a->{ $PANELIST_SUBINDEX } <=> $b->{ $PANELIST_SUBINDEX }
+                || $a->{ $PANELIST_NAME } cmp $b->{ $PANELIST_NAME }
+            } values %shown;
+        $panel->{ $FIELD_ALL_PANELIST } = join q{, }, @panelist;
+    } ## end if ( %shown )
+
+    return;
+} ## end sub process_spreadsheet_credit_panelist
+
+sub process_spreadsheet_time_range {
+    my ( $panel ) = @_;
+
+    my $start = str2time( $panel->{ $TABLE_START_TIME } );
+    my $end   = $start;
+    if ( defined $panel->{ $TABLE_DURATION } ) {
+        my ( $hour, $min ) = split m{:}xms, $panel->{ $TABLE_DURATION }, 2;
+        $min += $hour * $MIN_PER_HOUR;
+        $end += $min * $SEC_PER_MIN;
+    }
+    if ( defined $panel->{ $TABLE_END_TIME } ) {
+        my $given_end = str2time( $panel->{ $TABLE_END_TIME } );
+        if ( defined $end && $end != $start && $end != $given_end ) {
+            warn $panel->{ $TABLE_UNIQUE_ID },
+                q{ has a mismatch between START:},
+                decode_time( $start, q{both} ), q{ + DUR:},
+                $panel->{ $TABLE_DURATION }, q{ = },
+                decode_time( $end,       q{both} ), q{ and END:},
+                decode_time( $given_end, q{both} ), qq{\n};
+        } ## end if ( defined $end && $end...)
+        $end = $given_end if defined $given_end;
+    } ## end if ( defined $panel->{...})
+
+    return ( $start, $end );
+} ## end sub process_spreadsheet_time_range
+
+sub process_spreadsheet_workshop {
+    my ( $panel ) = @_;
+    my @subclasses;
+
+    my $difficulty = $panel->{ $TABLE_DIFFICULTY };
+    if ( defined $difficulty && $difficulty =~ m{\A[?]+\z}xms ) {
+        undef $difficulty;
+        $panel->{ $TABLE_DIFFICULTY } = undef;
+    }
+    if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
+        push @subclasses, sprintf $SUBCLASS_FMT_DIFFICULTY, $difficulty;
+    }
+
+    my $tokens = $panel->{ $TABLE_TOKENS };
+    if ( defined $tokens && $tokens eq q{0} ) {
+        undef $tokens;
+        $panel->{ $TABLE_TOKENS } = undef;
+    }
+    if ( defined $tokens ) {
+        push @subclasses, $SUBCLASS_NEED_TOKENS;
+        $tokens =~ s{\A\s*}{}xms;
+        $tokens =~ s{\s*\z}{}xms;
+        $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
+        $panel->{ $TABLE_TOKENS } = $tokens;
+    } ## end if ( defined $tokens )
+
+    # todo(dpfister) - Consider capacity heree
+    my $full = $panel->{ $TABLE_FULL };
+    if ( defined $full ) {
+        if ( $full =~ m{\Anot??}xms || $full eq q{} ) {
+            undef $full;
+            $panel->{ $TABLE_FULL } = undef;
+        }
+        else {
+            push @subclasses, $SUBCLASS_FULL;
+        }
+    } ## end if ( defined $full )
+
+    return @subclasses;
+} ## end sub process_spreadsheet_workshop
+
+sub process_spreadsheet_row {
+    my ( $header, $san_header, $panelist_by_index, $raw ) = @_;
+
+    my %panel;
+    foreach my $index ( keys @{ $raw } ) {
+        my $header_text = $header->[ $index ];
+        my $header_alt  = $san_header->[ $index ];
+
+        my $raw_text = $raw->[ $index ];
+        if ( $raw_text =~ m{\s}xms ) {
+            $raw_text =~ s{\A \s*}{}xms;
+            $raw_text =~ s{\s* \z}{}xms;
+        }
+        $raw_text              = undef if $raw_text eq q{};
+        $panel{ $header_text } = $raw_text;
+        $panel{ $header_alt }  = $raw_text;
+
+        if ( defined $panelist_by_index->[ $index ] && defined $raw_text ) {
+            process_spreadsheet_add_panelist(
+                \%panel,
+                $panelist_by_index->[ $index ], $raw_text
+            );
+        } ## end if ( defined $panelist_by_index...)
+    } ## end foreach my $index ( keys @{...})
+
+    process_spreadsheet_credit_panelist( \%panel );
+
+    return unless defined $panel{ $TABLE_START_TIME };
+    return unless $panel{ $TABLE_PANEL_NAME } =~ m{\S}xms;
+
+    my ( $start, $end ) = process_spreadsheet_time_range( \%panel );
+
+    my $idx     = $panel{ $TABLE_ROOM_INDEX };
+    my $uniq_id = $panel{ $TABLE_UNIQUE_ID };
+    my $kind    = $uniq_id // q{Unknown};
+    $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
+
+    state %ids_seen;
+
+    if ( $ids_seen{ $uniq_id } ) {
+        my $indx = ++$ids_seen{ $uniq_id };
+        $uniq_id .= q{Dup} . $indx;
+    }
+    else {
+        $ids_seen{ $uniq_id } = 1;
+    }
+
+    my $room_name  = $panel{ $TABLE_ROOM_NAME };
+    my @subclasses = sprintf $SUBCLASS_FMT_TYPE, $kind;
+
+    push @subclasses, process_spreadsheet_workshop( \%panel );
+
+    if ( $panel{ $TABLE_KIND } eq $CAFE ) {
+        $panel{ $FIELD_CAFE } = 1;
+    }
+    $panel{ $FIELD_START_TIME_SECONDS } = $start;
+    $panel{ $FIELD_END_TIME_SECONDS }   = $end;
+    $panel{ $FIELD_CSS_SUBCLASSES }     = \@subclasses;
+    $panel{ $FIELD_CSS_HREF }           = $uniq_id;
+
+    if ( $room_name =~ m{\ASPLIT}xmsi ) {
+        next if $option_unified_grid;
+        if ( $option_split_per_day ) {
+            next unless $room_name =~ m{\ASPLITDAY}xmsi;
+        }
+        add_split $start, $panel{ $TABLE_PANEL_NAME };
+        next;
+    } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
+
+    return if $idx eq q{};
+    return if $idx >= $ROOM_FIRST_HIDE_IDX;
+
+    add_time $start;
+    add_time $end;
+
+    my $room = $rooms{ $idx } //= {
+        $TABLE_ROOM_INDEX => $idx,
+        $FIELD_ROOM_NAME  => $room_name,
+        $TABLE_HOTEL_ROOM => $panel{ $TABLE_HOTEL_ROOM },
+    };
+    $panel{ $FIELD_ROOM_INFO } = $room;
+    push @{ $panels_by_start{ $start } //= [] }, \%panel;
+
+    return;
+} ## end sub process_spreadsheet_row
+
+sub read_spreadsheet_file {
     my $handle = open_file( $option_input_file );
     my $fh     = $handle->{ $HANDLE_FILE_HANDLE };
 
@@ -506,200 +778,21 @@ sub read_csv_file {
         or die qq{Missing header in: ${option_input_file}\n};
     my @san_header = map { santize_hdr( $_ ) } @{ $header };
 
-    my @is_panelist = ();
+    my @panelist_by_index = ();
 
     foreach my $index ( keys @{ $header } ) {
         my $header_text = $header->[ $index ];
         my $info        = lookup_panelist( $header_text, $index );
         next unless defined $info;
-        $is_panelist[ $index ] = $info;
+        $panelist_by_index[ $index ] = $info;
     } ## end foreach my $index ( keys @{...})
-
-    my %ids;
 
     while ( my $raw = splitline( $handle ) ) {
         last unless defined $raw;
-        my %panel;
-        my %seen_panelist;
-        foreach my $index ( keys @{ $raw } ) {
-            my $header_text = $header->[ $index ];
-            my $header_alt  = $san_header[ $index ];
-
-            my $raw_text = $raw->[ $index ];
-            if ( $raw_text =~ m{\s}xms ) {
-                $raw_text =~ s{\A \s*}{}xms;
-                $raw_text =~ s{\s* \z}{}xms;
-            }
-            $raw_text              = undef if $raw_text eq q{};
-            $panel{ $header_text } = $raw_text;
-            $panel{ $header_alt }  = $raw_text;
-
-            if ( defined $is_panelist[ $index ] && defined $raw_text ) {
-                my $hidden
-                    = $raw_text =~ m{\A[*]}xms || $raw_text =~ m{[*]\z}xms;
-                foreach my $per_info (
-                    to_panelist( $is_panelist[ $index ], $index, $raw_text ) )
-                {
-                    my $per_name = $per_info->{ $PANELIST_NAME };
-                    $seen_panelist{ $per_name } = $per_info unless $hidden;
-
-                    $panel{ $FIELD_PANELIST_MAP }->{ $per_name } = $per_info;
-
-                    if ( defined $per_info->{ $PANELIST_GROUP } ) {
-                        my $grp_info = $per_info->{ $PANELIST_GROUP };
-                        my $grp_name = $grp_info->{ $PANELIST_NAME };
-                        $panel{ $FIELD_PANELIST_MAP }->{ $grp_name }
-                            = $grp_info;
-                    } ## end if ( defined $per_info...)
-
-                    if ( $per_info->{ $PANELIST_RANK }
-                        == $PANELIST_RANK_GUEST )
-                    {
-                        $panel{ $FIELD_PANELIST_MAP }->{ $GUEST_ANY }
-                            = $GUEST_ANY_INFO;
-                    } ## end if ( $per_info->{ $PANELIST_RANK...})
-
-                } ## end foreach my $per_info ( to_panelist...)
-            } ## end if ( defined $is_panelist...)
-        } ## end foreach my $index ( keys @{...})
-
-        if ( defined $panel{ $TABLE_PANELIST_HIDE } ) {
-            $panel{ $FIELD_ALL_PANELIST } = undef;
-        }
-        elsif ( defined $panel{ $TABLE_PANELIST_ALT } ) {
-            $panel{ $FIELD_ALL_PANELIST } = $panel{ $TABLE_PANELIST_ALT };
-        }
-        else {
-            my %shown;
-        PANELIST:
-            while ( my ( $per_name, $per_info ) = each %seen_panelist ) {
-                if ( $per_info->{ $PANELIST_GROUP } ) {
-                    foreach my $member (
-                        keys %{
-                            $per_info->{ $PANELIST_GROUP }->{ $GROUP_MEMBERS }
-                        }
-                        )
-                    {
-                        if ( !exists $seen_panelist{ $member } ) {
-                            $shown{ $per_name } = $per_info;
-                            next PANELIST;
-                        }
-                    } ## end foreach my $member ( keys %...)
-                    $shown{ $per_info->{ $PANELIST_GROUP }->{ $PANELIST_NAME }
-                    } = $per_info->{ $PANELIST_GROUP };
-                    next PANELIST;
-                } ## end if ( $per_info->{ $PANELIST_GROUP...})
-
-                $shown{ $per_name } = $per_info;
-            } ## end PANELIST: while ( my ( $per_name, $per_info...))
-            if ( %shown ) {
-                my @panelist = map { $_->{ $PANELIST_NAME } }
-                    sort {
-                           $a->{ $PANELIST_RANK } <=> $b->{ $PANELIST_RANK }
-                        || $a->{ $PANELIST_INDEX } <=> $b->{ $PANELIST_INDEX }
-                        || $a->{ $PANELIST_NAME } cmp $b->{ $PANELIST_NAME }
-                    } values %shown;
-                $panel{ $FIELD_ALL_PANELIST } = join q{, }, @panelist;
-            } ## end if ( %shown )
-        } ## end else [ if ( defined $panel{ $TABLE_PANELIST_HIDE...})]
-
-        next unless defined $panel{ $TABLE_START_TIME };
-        next unless $panel{ $TABLE_PANEL_NAME } =~ m{\S}xms;
-        my $start = str2time( $panel{ $TABLE_START_TIME } );
-        my $end   = $start;
-        if ( defined $panel{ $TABLE_DURATION } ) {
-            my ( $hour, $min ) = split m{:}xms, $panel{ $TABLE_DURATION }, 2;
-            $min += $hour * $MIN_PER_HOUR;
-            $end += $min * $SEC_PER_MIN;
-        }
-        if ( defined $panel{ $TABLE_END_TIME } ) {
-            my $given_end = str2time( $panel{ $TABLE_END_TIME } );
-            if ( defined $end && $end != $start && $end != $given_end ) {
-                warn $panel{ $TABLE_UNIQUE_ID },
-                    q{ has a mismatch between START:},
-                    decode_time( $start, q{both} ), q{ + DUR:},
-                    $panel{ $TABLE_DURATION }, q{ = },
-                    decode_time( $end,       q{both} ), q{ and END:},
-                    decode_time( $given_end, q{both} ), qq{\n};
-            } ## end if ( defined $end && $end...)
-            $end = $given_end if defined $given_end;
-        } ## end if ( defined $panel{ $TABLE_END_TIME...})
-
-        my $idx  = $panel{ $TABLE_ROOM_INDEX };
-        my $id   = $panel{ $TABLE_UNIQUE_ID };
-        my $kind = $id // q{Unknown};
-        $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
-
-        if ( $ids{ $id } ) {
-            my $indx = ++$ids{ $id };
-            $id .= q{Dup} . $indx;
-        }
-        else {
-            $ids{ $id } = 1;
-        }
-
-        my $room_name  = $panel{ $TABLE_ROOM_NAME };
-        my $difficulty = $panel{ $TABLE_DIFFICULTY };
-        my $tokens     = $panel{ $TABLE_TOKENS };
-        my $full       = $panel{ $TABLE_FULL };
-        my @subclasses = sprintf $SUBCLASS_FMT_TYPE, $kind;
-        if ( defined $difficulty && $difficulty =~ m{\A[?]+\z}xms ) {
-            undef $difficulty;
-            $panel{ $TABLE_DIFFICULTY } = undef;
-        }
-        if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
-            push @subclasses, sprintf $SUBCLASS_FMT_DIFFICULTY, $difficulty;
-        }
-        if ( defined $tokens && $tokens eq q{0} ) {
-            undef $tokens;
-        }
-        if ( defined $tokens ) {
-            push @subclasses, $SUBCLASS_NEED_TOKENS;
-            $tokens =~ s{\A\s*}{}xms;
-            $tokens =~ s{\s*\z}{}xms;
-            $tokens = q{TBD} unless $tokens =~ m{\A\d+\z}xms;
-        } ## end if ( defined $tokens )
-        if ( defined $full ) {
-            if ( $full =~ m{\Anot??}xms || $full eq q{} ) {
-                undef $full;
-            }
-            else {
-                push @subclasses, $SUBCLASS_FULL;
-            }
-        } ## end if ( defined $full )
-
-        if ( $panel{ $TABLE_KIND } eq $CAFE ) {
-            $panel{ $FIELD_CAFE } = 1;
-        }
-        $panel{ $FIELD_START_TIME_SECONDS } = $start;
-        $panel{ $FIELD_END_TIME_SECONDS }   = $end;
-        $panel{ $FIELD_CSS_SUBCLASSES }     = \@subclasses;
-        $panel{ $FIELD_CSS_HREF }           = $id;
-        $panel{ $TABLE_TOKENS }             = $tokens;
-        $panel{ $TABLE_FULL }               = $full;
-
-        if ( $room_name =~ m{\ASPLIT}xmsi ) {
-            next if $option_unified_grid;
-            if ( $option_split_per_day ) {
-                next unless $room_name =~ m{\ASPLITDAY}xmsi;
-            }
-            add_split $start, $panel{ $TABLE_PANEL_NAME };
-            next;
-        } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
-
-        next if $idx eq q{};
-        next if $idx >= 100;
-
-        add_time $start;
-        add_time $end;
-
-        my $room = $rooms{ $idx } //= {
-            $TABLE_ROOM_INDEX => $idx,
-            $FIELD_ROOM_NAME  => $room_name,
-            $TABLE_HOTEL_ROOM => $panel{ $TABLE_HOTEL_ROOM },
-        };
-        $panel{ $FIELD_ROOM_INFO } = $room;
-        push @{ $panels_by_start{ $start } //= [] }, \%panel;
+        process_spreadsheet_row(
+            $header, \@san_header, \@panelist_by_index,
+            $raw
+        );
     } ## end while ( my $raw = splitline...)
 
     close_file( $handle );
@@ -709,7 +802,7 @@ sub read_csv_file {
     @start_times  = sort { $a <=> $b } keys %schedule;
 
     return;
-} ## end sub read_csv_file
+} ## end sub read_spreadsheet_file
 
 sub add_panelist_busy {
     my ( $panel, @panelist_info ) = @_;
@@ -808,14 +901,13 @@ sub make_time_ranges {
     my $process_half_hours_upto = sub {
         my ( $split_time ) = @_;
         return unless defined $last_time;
-        for (
-            my $time = $last_time + $HALF_HOUR_IN_SEC ;
-            $time < $split_time ;
-            $time += $HALF_HOUR_IN_SEC
-            )
-        {
+
+        my $time = $last_time + $HALF_HOUR_IN_SEC;
+        while ( $time < $split_time ) {
             $process_time->( $time );
-        } ## end for ( my $time = $last_time...)
+            $time += $HALF_HOUR_IN_SEC;
+        }
+
         return;
     };
 
@@ -825,7 +917,7 @@ sub make_time_ranges {
         my $rows = $region_active->{ $FIELD_BY_ROW_SECONDS };
         return unless $rows;
         my $next_rows   = $region_active->{ $FIELD_NEXT_PANEL } //= {};
-        my @times       = sort { $b <=> $a } keys %{ $rows };
+        my @times       = reverse sort { $a <=> $b } keys %{ $rows };
         my %next_panels = ();
 
         foreach my $time ( @times ) {
@@ -881,7 +973,8 @@ sub out_line {
         $line =~ s{\A\s+}{}xms;
         $line =~ s{\s+\Z}{}xms;
         next if $line eq q{};
-        say { $output_file_handle } $indent, $line;
+        say { $output_file_handle } $indent, $line
+            or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
     } ## end foreach my $line ( split m{\n+}xms...)
 
     return;
@@ -964,14 +1057,17 @@ sub decode_time {
 sub decode_time_id {
     my ( $time ) = @_;
     my @ltime = localtime $time;
-    state $base_day = ( localtime $earliest )[ 6 ];
-    my $min  = $ltime[ 1 ];
-    my $hour = $ltime[ 2 ];
-    my $day  = $ltime[ 6 ] - $base_day;
-    if ( $day < 0 ) {
-        $day += 7;
+    state $base_day = ( localtime $earliest )[ $LOCALTIME_DAY ];
+    my $min  = $ltime[ $LOCALTIME_HOUR ];
+    my $hour = $ltime[ $LOCALTIME_MIN ];
+    my $day  = $ltime[ $LOCALTIME_DAY ] - $base_day;
+    while ( $day < 0 ) {
+        $day += $DAYS_PER_WEEK;
     }
-    return ( ( $day * 24 ) + $hour ) * 60 + $min;
+    while ( $day >= $DAYS_PER_WEEK ) {
+        $day -= $DAYS_PER_WEEK;
+    }
+    return ( ( $day * $HOUR_PER_DAY ) + $hour ) * $MIN_PER_HOUR + $min;
 } ## end sub decode_time_id
 
 sub room_indices_for_region {
@@ -1209,8 +1305,9 @@ sub dump_grid_row_time {
 
     my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
     my @time_classes     = (
-        $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_TIME_SLOT,
-        $CLASS_GRID_COLUMN_TIME
+        $CLASS_GRID_CELL_HEADER,
+        $CLASS_GRID_CELL_TIME_SLOT,
+        $CLASS_GRID_COLUMN_TIME,
     );
 
     if ( exists $filter->{ $FILTER_PANELIST }
@@ -1313,7 +1410,7 @@ sub dump_desc_header {
 
         my $hdr_text
             = $show_unbusy_panels
-            ? qq{Schedule excluding ${panelist} and conflicting panels}
+            ? q{Other panels}
             : q{Schedule for } . $panelist;
 
         if ( $option_is_postcard ) {
@@ -1397,6 +1494,8 @@ sub dump_desc_time_end {
 
     out_close $HTML_TABLE_BODY;
     out_close $HTML_TABLE;
+
+    return;
 } ## end sub dump_desc_time_end
 
 sub dump_desc_panel_body {
@@ -1543,6 +1642,8 @@ sub dump_desc_panel_body {
     } ## end if ( defined $difficulty)
     out_close $HTML_DIV if $option_kiosk_mode;
     out_close $HTML_TABLE_DATA;
+
+    return;
 } ## end sub dump_desc_panel_body
 
 sub dump_desc_body {
@@ -1661,7 +1762,7 @@ sub open_dump_file {
 
     my $ofname = $option_output;
     if ( -d $ofname ) {
-        push @subnames, "index" unless @subnames;
+        push @subnames, $def_name unless @subnames;
         $ofname
             = File::Spec->catfile( $ofname, join q{.}, @subnames, q{html} );
     }
@@ -1686,14 +1787,18 @@ sub open_dump_file {
 sub close_dump_file {
     if ( $option_output ne q{-} && defined $output_file_handle ) {
         $output_file_handle->close
-            or die qq{Unable to close $output_file_name: $!\n};
+            or die qq{Unable to close ${output_file_name}: ${ERRNO}\n};
     }
     undef $output_file_handle;
     undef $output_file_name;
+
+    return;
 } ## end sub close_dump_file
 
 sub dump_file_header {
-    say { $output_file_handle } q{<!doctype html>};
+    say { $output_file_handle } q{<!doctype html>}
+        or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
+
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
     out_line $h->meta( { charset => q{UTF-8} } );
@@ -1746,10 +1851,14 @@ sub dump_file_header {
     $close_styles->();
 
     out_close $HTML_HEAD;
+
+    return;
 } ## end sub dump_file_header
 
 sub dump_file_footer {
     out_close $HTML_HTML;
+
+    return;
 }
 
 sub dump_table_one_region {
@@ -1761,6 +1870,8 @@ sub dump_table_one_region {
     if ( $option_show_descriptions ) {
         dump_desc_timeslice( $filter, $filter->{ $FILTER_SPLIT_TIMESTAMP } );
     }
+
+    return;
 } ## end sub dump_table_one_region
 
 sub dump_table_all_regions {
@@ -1899,12 +2010,15 @@ sub dump_kiosk_desc {
         out_close $HTML_TABLE;
         out_close $HTML_DIV;
     } ## end foreach my $time ( @times )
+
+    return;
 } ## end sub dump_kiosk_desc
 
 sub dump_kiosk {
     open_dump_file( $DEFAULT_FILTER, q{kiosk} );
 
-    say { $output_file_handle } q{<!doctype html>};
+    say { $output_file_handle } q{<!doctype html>}
+        or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
 
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
@@ -1953,6 +2067,8 @@ sub dump_kiosk {
     out_close $HTML_HTML;
 
     close_dump_file;
+
+    return;
 } ## end sub dump_kiosk
 
 sub split_filter_by_timestamp {
@@ -1964,14 +2080,15 @@ sub split_filter_by_timestamp {
     foreach my $filter ( @filters ) {
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        push @res, map {
-            {
+        foreach my $time ( sort { $a <=> $b } keys %time_region ) {
+            my $region = $time_region{ $time };
+            push @res, {
                 %new_filter,
-                    $FILTER_SPLIT_TIMESTAMP => $_,
-                    $FILTER_OUTPUT_NAME =>
-                    [ @subname, $_->{ $FIELD_REGION_NAME } ],
-            }
-        } values %time_region;
+                $FILTER_SPLIT_TIMESTAMP => $region,
+                $FILTER_OUTPUT_NAME =>
+                    [ @subname, $region->{ $FIELD_REGION_NAME } ],
+            };
+        } ## end foreach my $time ( sort { $a...})
     } ## end foreach my $filter ( @filters)
 
     return @res;
@@ -1986,15 +2103,17 @@ sub split_filter_by_panelist {
     foreach my $filter ( @filters ) {
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        push @res, map {
-            {
+        foreach my $per_info ( values %panelist_info ) {
+            next unless $per_info->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST;
+            next if $per_info->{ $PANELIST_OTHER };
+
+            push @res, {
                 %new_filter,
-                    $FILTER_PANELIST => $_,
-                    $FILTER_OUTPUT_NAME =>
-                    [ @subname, $_->{ $PANELIST_NAME } ]
-            }
-        } grep { $_->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST }
-            values %panelist_info;
+                $FILTER_PANELIST => $per_info,
+                $FILTER_OUTPUT_NAME =>
+                    [ @subname, $per_info->{ $PANELIST_NAME } ],
+            };
+        } ## end foreach my $per_info ( values...)
     } ## end foreach my $filter ( @filters)
 
     return @res;
@@ -2009,14 +2128,15 @@ sub split_filter_by_room {
     foreach my $filter ( @filters ) {
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        push @res, map {
-            {
+        foreach my $room_idx ( room_indices_for_region() ) {
+            my $room = $rooms{ $room_idx };
+            push @res, {
                 %new_filter,
-                    $FILTER_ROOM => $rooms{ $_ },
-                    $FILTER_OUTPUT_NAME =>
-                    [ @subname, $rooms{ $_ }->{ $FIELD_ROOM_NAME } ]
-            }
-        } room_indices_for_region();
+                $FILTER_ROOM => $room,
+                $FILTER_OUTPUT_NAME =>
+                    [ @subname, $room->{ $FIELD_ROOM_NAME } ],
+            };
+        } ## end foreach my $room_idx ( room_indices_for_region...)
     } ## end foreach my $filter ( @filters)
 
     return @res;
@@ -2072,7 +2192,7 @@ sub main {
         $option_split_per_day     = undef;
         $option_unified_grid      = 1;
     } ## end if ( $option_kiosk_mode)
-    read_csv_file( $option_input_file );
+    read_spreadsheet_file( $option_input_file );
 
     make_time_ranges;
 

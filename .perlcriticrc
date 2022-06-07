@@ -15,4 +15,4 @@ equivalent_modules = common::sense
 equivalent_modules = common::sense
 
 [ValuesAndExpressions::ProhibitMagicNumbers]
-allowed_values = -1 0 1
+allowed_values = -1 0 1 2
