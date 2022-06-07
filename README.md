@@ -58,44 +58,54 @@ Space in header names are treated as underscores.
 If opening a XLSX file, this should be the first sheet, or the sheet can be
 specified by number with an :# after the file name.
 
-The underscores below can be spaces in the spreadsheet.
+Spaces or underscopes may be used to separate words in field names.
 
 Normal Columns:
 
-* Uniq_ID - ID of panel
-* Name - Panel name
-* Room - Room name
-* Start_Time - Starting time of panel
-* Duration - HH:MM (hours and minutes)
-* End_Time - Ending time of panel (only one of Duration or End_Time is required)
-* Description - Description of the panel (UTF-16 text)
-* Note - Notes to display in description
-* Difficulty - Difficulty of the panel (1 to 5)
-* Tokens - How many tokens to attend panel
-* Seats_Sold - currently ignored. Number of seats sold.
-* Capacity - currently ignored. Max number of seats.
-* Full - IF the panel is full (TODO this is getting replaced with Seats_Sold and
-  Capacity )
-* Hide_Panelist - If not-blank, do not show any panelist
-* Alt_Panelist - Use as panelist instead of showing the selected names
-
-These columns are required for text file spreadsheets, otherwise a Rooms and
-PanelType sheet can be used to look up the information.
-
-* Kind - Panel kind
-* Room_Idx - Id of room, used for sorting
-* Real_Room - Hotel room name
+| Field Name    | Required               | Contents                                                                                                                                       | Example                          |
+| ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Uniq ID       | Yes                    | Two letter unique id, plus 3 digit panel id, UNIQUE ID must match PanelTypes, SPLIT is special, ZZ for unlisted time                           | ZZ123                            |
+| Changed       | After first draft      | Timestamp of change                                                                                                                            | 6/25/22 6:00 PM                  |
+| Name          | Yes                    | Name of the panel as will appear in the program                                                                                                | A Sample Panel                   |
+| Room          | If Scheduled           | Name of the room, must match the Rooms sheet if used                                                                                           | Programming 1                    |
+| Original Time | If moved               | If the time of the panel was changed, original time so that I can find it in program to remove old copy                                        | 6/25/22 6:00 PM                  |
+| Start Time    | If Scheduled           | Start time of panel, make blank to "unschedule" a panel instead of just deleting it                                                            | 6/25/22 6:00 PM                  |
+| Duration      | If Scheduled           | Duration of the panel                                                                                                                          | 1:00                             |
+| Description   | If Scheduled           | Description of the panel                                                                                                                       | A Panel about panels             |
+| Note          |                        | Additional notes that will appear in the program verbatium highlight                                                                           | Note: This is not really a panel |
+| Difficulty    |                        | Number representing the difficulty of the panel                                                                                                | 1                                |
+| Tokens        |                        | How many tokens to attend: this should probably be reheaded as cost, feel free to do so.                                                       | 3                                |
+| Seats Sold    | If premium workshop    | How many seats have been already sold                                                                                                          | 3                                |
+| Capacity      | If premium workshop    | How many seats are available                                                                                                                   | 23                               |
+| Full          |                        | If the panel is full. TODO support Seats_Sold and Capacity                                                                                     | Yes                              |
+| Hide Panelist |                        | Set no non-blank (such as "Yes") if panelist names are not to be shown for the description                                                     | Yes                              |
+| Alt Panelist  |                        | Replacement text for the panelist names in the description instead of computing automatically                                                  | Mystery Guest                    |
+| G:Name=Group  |                        | Guest with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted            | Yes                              |
+| G:Name        |                        | Guest with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                             | *                                |
+| G:Other       |                        | Additional guests that don't have a header, you can just add rows if you want more columns                                                     | One Shot Wonder                  |
+| S:Name=Group  |                        | Staff with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted            | Yes                              |
+| S:Name        |                        | Staff with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                             | Yes                              |
+| S:Other       |                        | Additional staff that don't have a header, you can just add rows if you want more columns                                                      | Jane Doe, John Smith             |
+| I:Name=Group  |                        | Invited panelist with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted | *                                |
+| I:Name        |                        | Invited panelist with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                  | Yes                              |
+| I:Other       |                        | Additional invited panelist that don't have a header, you can just add rows if you want more columns                                           | Jane Doe, John Smith             |
+| P:Name=Group  |                        | Fan panelist with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted     | *                                |
+| P:Name        |                        | Fan panelist with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                      | Yes                              |
+| P:Other       |                        | Additional panelist that don't have a header, you can just add rows if you want more columns                                                   | Jane Doe, John Smith             |
+| Kind          | If no PanelTypes sheet | Panel kind based on prefix, if there is a PanelTypes sheet this can be computed from Uniq ID                                                   | Workshop                         |
+| Room Idx      | If no Rooms sheet      | Id of room, used for sorting, 100+ are hidden                                                                                                  |                                  |
+| Real Room     | If no Rooms sheet      | Hotel Room name                                                                                                                                |                                  |
 
 Panelist Columns
 
 The syntax for panelist columns is _Kind_:_Name_=_Group_, _Kind_:_Name_, or _Kind_:Other
 
-The following kinds are supported
+The following kinds are currently supported
 
 * G - Guest
 * S - Staff
 * I - Invited panelist
-* F - Fan panelist
+* P - Fan panelist
 
 _Name_ is the name of the guest as shown. If the name is other, the contents of
 the cell should be a list of names separated by commas.
@@ -126,7 +136,7 @@ The special SPLIT... rooms are used to control where the grid splits
 Example of what splits are defined like in the main schedule.
 
 | Uniq ID | Name               | Room       | Start Time      |
-|---------|--------------------|------------|-----------------|
+| ------- | ------------------ | ---------- | --------------- |
 | SPLIT01 | Friday Morning     | SPLITDAY   | 6/24/2022 08:00 |
 | SPLIT02 | Friday Afternoon   | SPLITNIGHT | 6/24/2022 18:00 |
 | SPLIT03 | Saturday Morning   | SPLITDAY   | 6/25/2022 08:00 |
@@ -141,10 +151,10 @@ If the --split-day switch is used, only SPLITDAY will split the grid and
 other splits will be ignored. In that case only the first word of the
 "panel" name will be used for the split.
 
-| Room Name   | Sork Key | Hotel Room | Long Name |
-|-------------|----------|------------|-----------|
-| SPLITDAY    | 101      | SPLIT      | SPLIT     |
-| SPLITNIGHT  | 101      | SPLIT      | SPLIT     |
+| Room Name  | Sork Key | Hotel Room | Long Name |
+| ---------- | -------- | ---------- | --------- |
+| SPLITDAY   | 101      | SPLIT      | SPLIT     |
+| SPLITNIGHT | 101      | SPLIT      | SPLIT     |
 
 
 ## PanelTypes sheet
@@ -157,11 +167,11 @@ Maping between UniqID prefix and panel types.
 Examples:
 
 | Uniq ID | Name         | Room   | Start Time      | Duration | Description        | G:John Smith |
-|---------|--------------|--------|-----------------|----------|--------------------|--------------|
+| ------- | ------------ | ------ | --------------- | -------- | ------------------ | ------------ |
 | DE01    | How to panel | Panel1 | 6/24/2022 08:00 | 01:00    | Learn how to panel | Yes          |
 
 | Prefix | Panel Kind |
-|--------|------------|
+| ------ | ---------- |
 | DE     | DEMO       |
 
 
