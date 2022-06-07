@@ -17,18 +17,20 @@ desc_tbl --input input/spreadsheet.txt --output output/
 ```
   --day           Include a column for week day
   --description   Includes panel descriptions, implies --no-grid
+  --file-by-day   Have a file for each day
+  --file-by-room  Have a file for each room
+  --file-by-guest Create a file per guest with their panels highlighted
   --grid          Includes the grid, implies --no-description
-  --guests        Create a file per guest with their panels highlighted
-  --hideunused    Only include rooms that have events scheduled
+  --hide-unused   Only include rooms that have events scheduled
   --inline-css    Embed the CSS directly into the generated files instead
   --input <file>  Input filename, UTF-16 spreadsheet or xlsx file
                   May have a :# suffix to select a sheet by index
-  --justguest     I believe this just includes guest panels
+  --just-guest    Include only descriptions for guest panels
   --kiosk         Generate HTML for use in the Schedule Kiosk
   --output <file> Output filename or directory
-  --perday        Only split at SPLITDAY, not half day splits
   --postcard      Wrap description in table to force width
   --separate      Put descriptions after all grids instead of mixing them
+  --split-day     Only split at SPLITDAY, not half day splits
   --style <file>  Embed CSS into generated HTML, may be given multiple times,
                   implies --inline-css
   --title <NAME>  Sets the page titles
@@ -110,7 +112,7 @@ desc_tbl \
   --style common.css \
   --input input/Schedule.xlsx \
   --output output/ \
-  --seperate --perday
+  --seperate --split-day
 ```
 
 ## Licensing:

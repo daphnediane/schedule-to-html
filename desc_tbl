@@ -1,22 +1,26 @@
 #!/usr/bin/perl
 
 use common::sense;
-use strict;
-use utf8;
 use Carp qw{verbose};
 use Date::Parse qw{ str2time };
+use English qw( -no_match_vars );
 use File::Slurp qw{read_file};
 use File::Spec;
 use Getopt::Long qw{GetOptionsFromArray};
 use HTML::Tiny qw{};
 use POSIX qw{ strftime };
-use Spreadsheet::ParseXLSX;
 use Readonly;
+use Spreadsheet::ParseXLSX;
+use strict;
 use Text::CSV;
+use utf8;
 
 # Global variables
-Readonly our $HALF_HOUR => 30 * 60;
-Readonly our $CAFE      => q{Café};
+Readonly our $SEC_PER_MIN  => 60;
+Readonly our $MIN_PER_HOUR => 60;
+
+Readonly our $HALF_HOUR_IN_SEC => 30 * 60;
+Readonly our $CAFE             => q{Café};
 
 # Panel fields
 Readonly our $TABLE_DESCRIPTION   => q{Description};
@@ -88,29 +92,31 @@ Readonly our $CLASS_DESC_TYPE_TABLE          => q{descTypeTable};
 Readonly our $CLASS_GRID_CELL_DAY            => q{schedWeekDay};
 Readonly our $CLASS_GRID_CELL_EMPTY          => q{schedRoomEmpty};
 Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
-Readonly our $CLASS_GRID_CELL_PANELIST_BUSY  => q{schedTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_CELL_FOCUS          => q{roomFocus};
 Readonly our $CLASS_GRID_CELL_HEADER         => q{schedHeader};
+Readonly our $CLASS_GRID_CELL_PANELIST_BUSY  => q{schedTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{schedRoomName};
 Readonly our $CLASS_GRID_CELL_TIME_SLOT      => q{schedTimeSlot};
+Readonly our $CLASS_GRID_CELL_UNFOCUS        => q{roomUnfocus};
 Readonly our $CLASS_GRID_COLUMN_DAY          => q{schedColumnDay};
 Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedColumnRoom%s};
 Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedColumnsRoom};
 Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedColumnTime};
-Readonly our $CLASS_GRID_ROW_PANELIST_BUSY   => q{schedRowTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
+Readonly our $CLASS_GRID_ROW_PANELIST_BUSY   => q{schedRowTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
 Readonly our $CLASS_KIOSK_BAR                => q{top_bar};
 Readonly our $CLASS_KIOSK_COLUMN_CURRENT     => q{descColCurrent};
 Readonly our $CLASS_KIOSK_COLUMN_FUTURE      => q{descColNext};
 Readonly our $CLASS_KIOSK_COLUMN_ROOM        => q{descColRoom};
+Readonly our $CLASS_KIOSK_DESC_BODY          => q{descBody};
 Readonly our $CLASS_KIOSK_DESC_CELL_CURRENT  => q{descCurrent};
+Readonly our $CLASS_KIOSK_DESC_CELL_EMPTY    => q{descEmpty};
 Readonly our $CLASS_KIOSK_DESC_CELL_FUTURE   => q{descNext};
 Readonly our $CLASS_KIOSK_DESC_CELL_HEADER   => q{descHeader};
 Readonly our $CLASS_KIOSK_DESC_CELL_ROOM     => q{descRoom};
-Readonly our $CLASS_KIOSK_DESC_CELL_EMPTY    => q{descEmpty};
 Readonly our $CLASS_KIOSK_DESC_HEAD          => q{descHead};
-Readonly our $CLASS_KIOSK_DESC_BODY          => q{descBody};
 Readonly our $CLASS_KIOSK_DESC_ROW_HEADERS   => q{descRowHeader};
 Readonly our $CLASS_KIOSK_DESC_ROW_ROOM      => q{descRowRoom};
 Readonly our $CLASS_KIOSK_DESCRIPTIONS       => q{bottom_half};
@@ -143,7 +149,17 @@ Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
 
-# File types
+# File handles
+Readonly our $HANDLE_TYPE           => q{type};
+Readonly our $HANDLE_NAME           => q{name};
+Readonly our $HANDLE_PARSER         => q{parser};
+Readonly our $HANDLE_WORKBOOK       => q{workbook};
+Readonly our $HANDLE_SCHEDULE_SHEET => q{sched_sheet};
+Readonly our $HANDLE_COLUMN_RANGE   => q{col_range};
+Readonly our $HANDLE_NEXT_ROW       => q{row_next};
+Readonly our $HANDLE_LAST_ROW       => q{row_last};
+Readonly our $HANDLE_FILE_HANDLE    => q{fh};
+
 Readonly our $FILE_EXCEL => q{excel};
 Readonly our $FILE_TEXT  => q{text};
 
@@ -181,11 +197,22 @@ Readonly our $GUEST_ANY_INFO => {
     $PANELIST_IS_META => 1,
 };
 
+# Grid filter
+Readonly our $FILTER_SPLIT_TIMESTAMP => q{timestamp};
+Readonly our $FILTER_PANELIST        => q{panelist};
+Readonly our $FILTER_ROOM            => q{room};
+Readonly our $FILTER_OUTPUT_NAME     => q{subname};
+Readonly our $DEFAULT_FILTER         => {
+    $FILTER_OUTPUT_NAME => [],
+};
+
 my @option_css_styles;
 my $option_desc_at_end;
 my $option_embed_css;
 my $option_file_per_day;
 my $option_file_per_guest;
+my $option_file_per_room;
+my @option_rooms;
 my $option_hide_unused_rooms;
 my $option_input_file;
 my $option_is_postcard;
@@ -214,8 +241,6 @@ my $output_file_name;
 my $level = 0;
 my $h     = HTML::Tiny->new( mode => q{html} );
 
-my $parse_xlsx;
-
 sub open_xlsx_file {
     my ( $fname ) = @_;
 
@@ -232,13 +257,14 @@ sub open_xlsx_file {
     my @rows    = $ws->row_range();
 
     return {
-        type      => $FILE_EXCEL,
-        parser    => $p,
-        workbook  => $w,
-        worksheet => $ws,
-        cols      => \@columns,
-        next_row  => $rows[ 0 ],
-        last_row  => $rows[ 1 ]
+        $HANDLE_TYPE           => $FILE_EXCEL,
+        $HANDLE_NAME           => $fname,
+        $HANDLE_PARSER         => $p,
+        $HANDLE_WORKBOOK       => $w,
+        $HANDLE_SCHEDULE_SHEET => $ws,
+        $HANDLE_COLUMN_RANGE   => \@columns,
+        $HANDLE_NEXT_ROW       => $rows[ 0 ],
+        $HANDLE_LAST_ROW       => $rows[ 1 ]
     };
 } ## end sub open_xlsx_file
 
@@ -249,16 +275,16 @@ sub open_text_file {
         or die qq{Unable to read: ${fname}\n};
 
     return {
-        type => $FILE_TEXT,
-        fh   => $fh,
-        name => $fname,
+        $HANDLE_TYPE        => $FILE_TEXT,
+        $HANDLE_NAME        => $fname,
+        $HANDLE_FILE_HANDLE => $fh,
     };
 } ## end sub open_text_file
 
 sub open_file {
     my ( $fname ) = @_;
 
-    if ( $fname =~ m{\.xlsx(?: : \d+ )?\z}xmsg ) {
+    if ( $fname =~ m{[.]xlsx(?: : \d+ )?\z}xmsg ) {
         return open_xlsx_file( $fname );
     }
 
@@ -272,9 +298,9 @@ sub close_excel {
 sub close_text {
     my ( $handle ) = @_;
 
-    my $name = $handle->{ name };
-    $handle->{ fh }->close
-        or die qq{Unable to close ${name}: $!\n};
+    my $name = $handle->{ $HANDLE_NAME };
+    $handle->{ $HANDLE_FILE_HANDLE }->close
+        or die qq{Unable to close ${name}: ${ERRNO}\n};
 
     return;
 } ## end sub close_text
@@ -282,28 +308,28 @@ sub close_text {
 sub close_file {
     my ( $handle ) = @_;
 
-    if ( $handle->{ type } eq $FILE_EXCEL ) {
+    if ( $handle->{ $HANDLE_TYPE } eq $FILE_EXCEL ) {
         return close_excel( $handle );
     }
 
-    if ( $handle->{ type } eq $FILE_TEXT ) {
+    if ( $handle->{ $HANDLE_TYPE } eq $FILE_TEXT ) {
         return close_text( $handle );
     }
 
-    die q{Unable to close: }, $handle->{ type }, q{: }, $handle->{ name },
+    die q{Unable to close: }, $handle->{ $HANDLE_TYPE }, q{: },
+        $handle->{ $HANDLE_NAME },
         qq{\n};
 } ## end sub close_file
 
 sub splitline_excel {
     my ( $handle ) = @_;
-    return if $handle->{ next_row } > $handle->{ last_row };
+    return if $handle->{ $HANDLE_NEXT_ROW } > $handle->{ $HANDLE_LAST_ROW };
 
-    my @res;
-    my $row = $handle->{ next_row };
-    $handle->{ next_row } = 1 + $row;
-    my $first_col = $handle->{ cols }->[ 0 ];
-    my $last_col  = $handle->{ cols }->[ 1 ];
-    my $ws        = $handle->{ worksheet };
+    my $row = $handle->{ $HANDLE_NEXT_ROW };
+    $handle->{ $HANDLE_NEXT_ROW } = 1 + $row;
+    my $first_col = $handle->{ $HANDLE_COLUMN_RANGE }->[ 0 ];
+    my $last_col  = $handle->{ $HANDLE_COLUMN_RANGE }->[ 1 ];
+    my $ws        = $handle->{ $HANDLE_SCHEDULE_SHEET };
     my @res       = map {
         my $cell = $ws->get_cell( $row, $_ );
         defined $cell ? $cell->value() : undef
@@ -349,15 +375,16 @@ sub splitline_text {
 sub splitline {
     my ( $handle ) = @_;
 
-    if ( $handle->{ type } eq $FILE_EXCEL ) {
+    if ( $handle->{ $HANDLE_TYPE } eq $FILE_EXCEL ) {
         return splitline_excel( $handle );
     }
 
-    if ( $handle->{ type } eq $FILE_TEXT ) {
-        return splitline_text( $handle->{ fh } );
+    if ( $handle->{ $HANDLE_TYPE } eq $FILE_TEXT ) {
+        return splitline_text( $handle->{ $HANDLE_FILE_HANDLE } );
     }
 
-    die q{Unable to read: }, $handle->{ type }, q{: }, $handle->{ name },
+    die q{Unable to read: }, $handle->{ $HANDLE_TYPE }, q{: },
+        $handle->{ $HANDLE_NAME },
         qq{\n};
 } ## end sub splitline
 
@@ -419,7 +446,7 @@ sub lookup_panelist {
 
     my ( $panelist, $group ) = split m{=}xms, $name_with_group, 2;
 
-    if ( $panelist =~ m{\AOther\z}xmsi ) {
+    if ( lc $panelist eq q{other} ) {
         $panelist = $rank . q{:Other};
 
         return $panelist_info{ $panelist } //= {
@@ -429,7 +456,7 @@ sub lookup_panelist {
             $PANELIST_IS_INDIVIDUAL => 1,
             $PANELIST_OTHER         => 1
         };
-    } ## end if ( $panelist =~ m{\AOther\z}xmsi)
+    } ## end if ( lc $panelist eq q{other})
 
     my $info = $panelist_info{ $panelist } //= {
         $PANELIST_NAME          => $panelist,
@@ -473,7 +500,7 @@ sub to_panelist {
 
 sub read_csv_file {
     my $handle = open_file( $option_input_file );
-    my $fh     = $handle->{ fh };
+    my $fh     = $handle->{ $HANDLE_FILE_HANDLE };
 
     my $header = splitline( $handle )
         or die qq{Missing header in: ${option_input_file}\n};
@@ -499,7 +526,7 @@ sub read_csv_file {
             my $header_alt  = $san_header[ $index ];
 
             my $raw_text = $raw->[ $index ];
-            if ( $raw_text =~ m{\s} ) {
+            if ( $raw_text =~ m{\s}xms ) {
                 $raw_text =~ s{\A \s*}{}xms;
                 $raw_text =~ s{\s* \z}{}xms;
             }
@@ -582,8 +609,8 @@ sub read_csv_file {
         my $end   = $start;
         if ( defined $panel{ $TABLE_DURATION } ) {
             my ( $hour, $min ) = split m{:}xms, $panel{ $TABLE_DURATION }, 2;
-            $min += $hour * 60;
-            $end += $min * 60;
+            $min += $hour * $MIN_PER_HOUR;
+            $end += $min * $SEC_PER_MIN;
         }
         if ( defined $panel{ $TABLE_END_TIME } ) {
             my $given_end = str2time( $panel{ $TABLE_END_TIME } );
@@ -666,11 +693,12 @@ sub read_csv_file {
         add_time $start;
         add_time $end;
 
-        my $room = $rooms{ $idx } //= {};
+        my $room = $rooms{ $idx } //= {
+            $TABLE_ROOM_INDEX => $idx,
+            $FIELD_ROOM_NAME  => $room_name,
+            $TABLE_HOTEL_ROOM => $panel{ $TABLE_HOTEL_ROOM },
+        };
         $panel{ $FIELD_ROOM_INFO } = $room;
-        $room->{ $TABLE_ROOM_INDEX } = $idx;
-        $room->{ $FIELD_ROOM_NAME }  //= $room_name;
-        $room->{ $TABLE_HOTEL_ROOM } //= $panel{ $TABLE_HOTEL_ROOM };
         push @{ $panels_by_start{ $start } //= [] }, \%panel;
     } ## end while ( my $raw = splitline...)
 
@@ -680,6 +708,7 @@ sub read_csv_file {
     @all_room_ids = sort { $a <=> $b } keys %rooms;
     @start_times  = sort { $a <=> $b } keys %schedule;
 
+    return;
 } ## end sub read_csv_file
 
 sub add_panelist_busy {
@@ -780,9 +809,9 @@ sub make_time_ranges {
         my ( $split_time ) = @_;
         return unless defined $last_time;
         for (
-            my $time = $last_time + $HALF_HOUR ;
+            my $time = $last_time + $HALF_HOUR_IN_SEC ;
             $time < $split_time ;
-            $time += $HALF_HOUR
+            $time += $HALF_HOUR_IN_SEC
             )
         {
             $process_time->( $time );
@@ -840,6 +869,8 @@ sub make_time_ranges {
         $process_time->( $split_time );
     }
     $finish_region->();
+
+    return;
 } ## end sub make_time_ranges
 
 sub out_line {
@@ -852,19 +883,25 @@ sub out_line {
         next if $line eq q{};
         say { $output_file_handle } $indent, $line;
     } ## end foreach my $line ( split m{\n+}xms...)
+
+    return;
 } ## end sub out_line
 
 sub out_open {
     my ( @content ) = @_;
     out_line $h->open( @content );
     ++$level;
-}
+
+    return;
+} ## end sub out_open
 
 sub out_close {
     my ( @content ) = @_;
     --$level;
     out_line $h->close( @content );
-}
+
+    return;
+} ## end sub out_close
 
 sub out_class {
     my ( @fields ) = @_;
@@ -877,17 +914,32 @@ sub out_class {
     return class => $res;
 } ## end sub out_class
 
-sub has_panelist {
-    my ( $panels_for_timeslot, $panelist, @invalid_result ) = @_;
-    return @invalid_result unless defined $panelist;
-    return @invalid_result unless exists $panelist_info{ $panelist };
+sub is_panelist_hosting {
+    my ( $filter, $panel ) = @_;
+    return unless defined $panel;
+    return unless exists $filter->{ $FILTER_PANELIST };
+
+    return 1
+        if exists $panel->{ $FIELD_PANELIST_MAP }
+        ->{ $filter->{ $FILTER_PANELIST }->{ $PANELIST_NAME } };
+
+    return;
+} ## end sub is_panelist_hosting
+
+sub is_panelist_busy {
+    my ( $filter, $panels_for_timeslot ) = @_;
+    return unless exists $filter->{ $FILTER_PANELIST };
+
+    my $panelist = $filter->{ $FILTER_PANELIST }->{ $PANELIST_NAME };
+    return unless defined $panelist;
+
     foreach my $idx ( @all_room_ids ) {
         my $panel = $panels_for_timeslot->{ $idx };
         next unless defined $panel;
         return 1 if exists $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
     }
     return;
-} ## end sub has_panelist
+} ## end sub is_panelist_busy
 
 sub decode_time {
     my ( $time, $field ) = @_;
@@ -922,19 +974,46 @@ sub decode_time_id {
     return ( ( $day * 24 ) + $hour ) * 60 + $min;
 } ## end sub decode_time_id
 
-sub room_ids {
+sub room_indices_for_region {
     my ( $region ) = @_;
 
     if ( $option_hide_unused_rooms && defined $region ) {
-        my @room_ids
-            = sort { $a <=> $b } keys %{ $region->{ $FIELD_ACTIVE_ROOMS } };
-        return @room_ids if @room_ids;
+        my @room_indices = keys %{ $region->{ $FIELD_ACTIVE_ROOMS } };
+        return @room_indices if @room_indices;
     }
     return @all_room_ids;
-} ## end sub room_ids
+} ## end sub room_indices_for_region
 
-sub dump_labels {
-    my ( $kind, $region ) = @_;
+sub get_room_index_focus_map {
+    my ( $filter, $region ) = @_;
+
+    my @room_indices = room_indices_for_region( $region );
+
+    if ( exists $filter->{ $FILTER_ROOM } ) {
+        my %res = map { $_ => 0 } @room_indices;
+        $res{ $filter->{ $FILTER_ROOM }->{ $TABLE_ROOM_INDEX } } = 1;
+        return %res;
+    }
+
+    my %res = map { $_ => 1 } @room_indices;
+    if ( @option_rooms ) {
+    ROOM:
+        foreach my $id ( @room_indices ) {
+            my $name = $rooms{ $id }->{ $FIELD_ROOM_NAME };
+            foreach my $match ( @option_rooms ) {
+                if ( $name =~ m{\Q$match\E}xmsi ) {
+                    next ROOM;
+                }
+            }
+            $res{ $id } = 0;    # Mark as mismatch
+        } ## end ROOM: foreach my $id ( @room_indices)
+    } ## end if ( @option_rooms )
+
+    return %res;
+} ## end sub get_room_index_focus_map
+
+sub dump_grid_row_room_names {
+    my ( $filter, $kind, $room_focus_map ) = @_;
 
     if ( $option_show_day_column ) {
         out_line $h->th(
@@ -955,8 +1034,7 @@ sub dump_labels {
         $HEADING_TIME
     );
 
-    my @room_ids = room_ids( $region );
-    foreach my $idx ( @room_ids ) {
+    foreach my $idx ( sort { $a <=> $b } keys %{ $room_focus_map } ) {
         my $hotel = $rooms{ $idx }->{ $TABLE_HOTEL_ROOM };
         my $name  = $rooms{ $idx }->{ $FIELD_ROOM_NAME };
         if ( $hotel ne $name ) {
@@ -966,19 +1044,24 @@ sub dump_labels {
             {   out_class(
                     $CLASS_GRID_CELL_HEADER, $CLASS_GRID_COLUMN_ROOM,
                     $CLASS_GRID_CELL_ROOM_NAME,
+                    (     $room_focus_map->{ $idx }
+                        ? $CLASS_GRID_CELL_FOCUS
+                        : $CLASS_GRID_CELL_UNFOCUS
+                    ),
                     $kind eq $HTML_TABLE_HEAD
                     ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX, $idx )
-                    : ()
+                    : (),
                 )
             },
             $name
         );
-    } ## end foreach my $idx ( @room_ids)
+    } ## end foreach my $idx ( sort { $a...})
 
-} ## end sub dump_labels
+    return;
+} ## end sub dump_grid_row_room_names
 
-sub dump_header {
-    my ( $region ) = @_;
+sub dump_grid_header {
+    my ( $filter, $room_focus_map ) = @_;
 
     out_open $HTML_TABLE, { out_class( $CLASS_GRID_TABLE ) };
 
@@ -988,8 +1071,7 @@ sub dump_header {
     }
     out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
 
-    my @room_ids = room_ids( $region );
-    foreach my $idx ( @room_ids ) {
+    foreach my $idx ( sort { $a <=> $b } keys %{ $room_focus_map } ) {
         out_line $h->col(
             { out_class( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX, $idx ) } );
     }
@@ -997,15 +1079,17 @@ sub dump_header {
 
     out_open $HTML_TABLE_HEAD;
     out_open $HTML_TABLE_ROW, { out_class( $CLASS_GRID_ROW_HEADER ) };
-    dump_labels $HTML_TABLE_HEAD, $region;
+    dump_grid_row_room_names( $filter, $HTML_TABLE_HEAD, $room_focus_map );
     out_close $HTML_TABLE_ROW;
     out_close $HTML_TABLE_HEAD;
 
     out_open $HTML_TABLE_BODY;
-} ## end sub dump_header
 
-sub dump_room {
-    my ( $region, $panelist, $time, $idx, $panel ) = @_;
+    return;
+} ## end sub dump_grid_header
+
+sub dump_grid_cell_room {
+    my ( $filter, $region, $time, $idx, $panel, $focus ) = @_;
 
     if ( !defined $panel ) {
         out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->},
@@ -1033,14 +1117,22 @@ sub dump_room {
     }
 
     my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
-    if ( defined $panelist ) {
+    if ( exists $filter->{ $FILTER_PANELIST } ) {
+        my $panelist = $filter->{ $FILTER_PANELIST }->{ $PANELIST_NAME };
         if ( $panel->{ $FIELD_PANELIST_MAP }->{ $panelist } ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
         if ( $panel->{ $FIELD_PANELIST_BUSY_ELSEWHERE }->{ $panelist } ) {
             push @subclasses, $SUBCLASS_BUSY_PANEL;
         }
-    } ## end if ( defined $panelist)
+    } ## end if ( exists $filter->{...})
+
+    if ( $focus ) {
+        push @subclasses, $CLASS_GRID_CELL_FOCUS;
+    }
+    else {
+        push @subclasses, $CLASS_GRID_CELL_UNFOCUS;
+    }
 
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
     out_open $HTML_TABLE_DATA,
@@ -1107,10 +1199,13 @@ sub dump_room {
 
     out_close $HTML_ANCHOR;
     out_close $HTML_TABLE_DATA;
-} ## end sub dump_room
 
-sub dump_row {
-    my ( $region, $panelist, $time, $panels_for_timeslot ) = @_;
+    return;
+} ## end sub dump_grid_cell_room
+
+sub dump_grid_row_time {
+    my ( $filter, $region, $room_focus_map, $time, $panels_for_timeslot )
+        = @_;
 
     my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
     my @time_classes     = (
@@ -1118,12 +1213,13 @@ sub dump_row {
         $CLASS_GRID_COLUMN_TIME
     );
 
-    if ( defined $panelist
-        && $panels_for_timeslot->{ $FIELD_PANELIST_MAP }->{ $panelist } )
+    if ( exists $filter->{ $FILTER_PANELIST }
+        && $panels_for_timeslot->{ $FIELD_PANELIST_MAP }
+        ->{ $filter->{ $FILTER_PANELIST }->{ $PANELIST_NAME } } )
     {
         push @time_row_classes, $CLASS_GRID_ROW_PANELIST_BUSY;
         push @time_classes,     $CLASS_GRID_CELL_PANELIST_BUSY;
-    } ## end if ( defined $panelist...)
+    } ## end if ( exists $filter->{...})
 
     my $time_id = q{sched_id_} . decode_time_id( $time );
     out_open $HTML_TABLE_ROW,
@@ -1157,48 +1253,66 @@ sub dump_row {
         );
     } ## end else [ if ( $option_show_day_column)]
 
-    my @room_ids = room_ids( $region );
-    foreach my $idx ( @room_ids ) {
-        dump_room(
-            $region, $panelist, $time, $idx,
-            $panels_for_timeslot->{ $idx }
+    foreach my $idx ( sort { $a <=> $b } keys %{ $room_focus_map } ) {
+        dump_grid_cell_room(
+            $filter, $region, $time, $idx,
+            $panels_for_timeslot->{ $idx },
+            $room_focus_map->{ $idx }
         );
-    } ## end foreach my $idx ( @room_ids)
+    } ## end foreach my $idx ( sort { $a...})
     out_close $HTML_TABLE_ROW;
-} ## end sub dump_row
 
-sub dump_foot {
-    my ( $region ) = @_;
+    return;
+} ## end sub dump_grid_row_time
+
+sub dump_grid_footer {
+    my ( $filter, $room_focus_map ) = @_;
 
     out_close $HTML_TABLE_BODY;
     out_open $HTML_TABLE_FOOT;
     out_open $HTML_TABLE_ROW, { out_class( $CLASS_GRID_ROW_HEADER ) };
-    dump_labels $HTML_TABLE_FOOT, $region;
+    dump_grid_row_room_names( $filter, $HTML_TABLE_FOOT, $room_focus_map );
     out_close $HTML_TABLE_ROW;
     out_close $HTML_TABLE_FOOT;
     out_close $HTML_TABLE;
-} ## end sub dump_foot
 
-sub dump_region {
-    my ( $region, $panelist ) = @_;
+    return;
+} ## end sub dump_grid_footer
 
-    dump_header( $region );
+sub dump_grid_timeslice {
+    my ( $filter, $region ) = @_;
+
     my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
     $region->{ $FIELD_DAY_BEING_OUTPUT } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
     $region->{ $FIELD_LAST_TIME_OUTPUT } = $times[ -1 ];
+
+    return unless @times;
+
+    # todo(dpfister) Filter for times?
+
+    my %room_focus_map = get_room_index_focus_map( $filter, $region );
+
+    dump_grid_header( $filter, \%room_focus_map );
     foreach my $time ( @times ) {
-        dump_row( $region, $panelist, $time, $rows->{ $time } );
-    }
-    dump_foot( $region );
-} ## end sub dump_region
+        dump_grid_row_time(
+            $filter, $region, \%room_focus_map, $time,
+            $rows->{ $time }
+        );
+    } ## end foreach my $time ( @times )
+    dump_grid_footer( $filter, \%room_focus_map );
 
-sub dump_desc_start {
-    my ( $region, $panelist, $exclude_guest ) = @_;
+    return;
+} ## end sub dump_grid_timeslice
 
-    if ( defined $panelist ) {
+sub dump_desc_header {
+    my ( $filter, $region, $show_unbusy_panels ) = @_;
+
+    if ( exists $filter->{ $FILTER_PANELIST } ) {
+        my $panelist = $filter->{ $FILTER_PANELIST }->{ $PANELIST_NAME };
+
         my $hdr_text
-            = $exclude_guest
+            = $show_unbusy_panels
             ? qq{Schedule excluding ${panelist} and conflicting panels}
             : q{Schedule for } . $panelist;
 
@@ -1224,45 +1338,39 @@ sub dump_desc_start {
         else {
             out_line $h->h2( $hdr_text );
         }
-    } ## end if ( defined $panelist)
+    } ## end if ( exists $filter->{...})
 
     state $my_idx = 0;
     my $alt_class = $CLASS_DESC_SECTION . ( ++$my_idx );
     out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION, $alt_class ) };
-} ## end sub dump_desc_start
 
-sub dump_desc_end {
-    my ( $region, $panelist, $exclude_guest ) = @_;
+    return;
+} ## end sub dump_desc_header
+
+sub dump_desc_footer {
+    my ( $filter, $region, $show_unbusy_panels ) = @_;
 
     out_close $HTML_DIV;
 
-    if ( defined $panelist ) {
+    if ( exists $filter->{ $FILTER_PANELIST } ) {
         if ( $option_is_postcard ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
             out_close $HTML_TABLE_BODY;
             out_close $HTML_TABLE;
         } ## end if ( $option_is_postcard)
-    } ## end if ( defined $panelist)
-} ## end sub dump_desc_end
+    } ## end if ( exists $filter->{...})
+
+    return;
+} ## end sub dump_desc_footer
 
 sub dump_desc_time_start {
-    my ( $region, $panelist, $exclude_guest, $time, $busy ) = @_;
+    my ( $time, @hdr_suffix ) = @_;
 
     out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
     out_open $HTML_COLGROUP;
     out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
     out_close $HTML_COLGROUP;
-
-    my $tm_text = decode_time( $time, qw{ both } );
-    if ( $busy ) {
-        if ( $exclude_guest ) {
-            $tm_text .= q{ Conflict};
-        }
-        else {
-            $tm_text .= q{ Busy};
-        }
-    } ## end if ( $busy )
 
     out_line $h->thead(
         { out_class( $CLASS_DESC_TIME_HEADER ) },
@@ -1272,24 +1380,27 @@ sub dump_desc_time_start {
                         $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT
                     )
                 },
-                $tm_text
+                join q{ },
+                decode_time( $time, qw{ both } ),
+                @hdr_suffix
             )
         )
     );
+
     out_open $HTML_TABLE_BODY;
+
+    return;
 } ## end sub dump_desc_time_start
 
 sub dump_desc_time_end {
-    my ( $region, $time ) = @_;
+    my ( $time ) = @_;
 
     out_close $HTML_TABLE_BODY;
     out_close $HTML_TABLE;
 } ## end sub dump_desc_time_end
 
 sub dump_desc_panel_body {
-    my ($region, $panelist, $exclude_guest,
-        $panel,  @extra_classes
-    ) = @_;
+    my ( $filter, $region, $panel, @extra_classes ) = @_;
 
     if ( !defined $panel ) {
         out_line $h->td(
@@ -1300,7 +1411,8 @@ sub dump_desc_panel_body {
     my @subclasses = ( q{}, @{ $panel->{ $FIELD_CSS_SUBCLASSES } } );
     my $conflict;
 
-    if ( defined $panelist ) {
+    if ( exists $filter->{ $FILTER_PANELIST } ) {
+        my $panelist = $filter->{ $FILTER_PANELIST }->{ $PANELIST_NAME };
         if ( $panel->{ $FIELD_PANELIST_MAP }->{ $panelist } ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
@@ -1308,7 +1420,7 @@ sub dump_desc_panel_body {
             push @subclasses, $SUBCLASS_BUSY_PANEL;
             $conflict = 1;
         }
-    } ## end if ( defined $panelist)
+    } ## end if ( exists $filter->{...})
 
     my $difficulty   = $panel->{ $TABLE_DIFFICULTY };
     my $name         = $panel->{ $TABLE_PANEL_NAME };
@@ -1433,92 +1545,90 @@ sub dump_desc_panel_body {
     out_close $HTML_TABLE_DATA;
 } ## end sub dump_desc_panel_body
 
-sub dump_desc_panel {
-    my ($region, $panelist, $exclude_guest, $need_time_header_ref, $time,
-        $panel,  $busy
-    ) = @_;
-
-    return unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
-
-    if ( defined $panelist ) {
-        if ( $exclude_guest ) {
-            return if $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
-        }
-        else {
-            return unless $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
-        }
-    } ## end if ( defined $panelist)
-
-    if ( $$need_time_header_ref ) {
-        dump_desc_time_start(
-            $region, $panelist, $exclude_guest, $time,
-            $busy
-        );
-        undef $$need_time_header_ref;
-    } ## end if ( $$need_time_header_ref)
-
-    out_open $HTML_TABLE_ROW, { out_class( $CLASS_DESC_PANEL_ROW ) };
-    dump_desc_panel_body(
-        $region, $panelist, $exclude_guest,
-        $panel
-    );
-    out_close $HTML_TABLE_ROW;
-} ## end sub dump_desc_panel
-
-sub dump_desc_region_rows {
-    my ( $region, $panelist, $exclude_guest ) = @_;
-    undef $exclude_guest unless defined $panelist;
+sub dump_desc_body {
+    my ( $filter, $region, $room_focus_map, $show_unbusy_panels ) = @_;
+    my $filter_panelist = exists $filter->{ $FILTER_PANELIST };
 
     my $rows = $region->{ $FIELD_BY_ROW_SECONDS };
     $region->{ $FIELD_DAY_BEING_OUTPUT } = undef;
     my @times = sort { $a <=> $b } keys %{ $rows };
     $region->{ $FIELD_LAST_TIME_OUTPUT } = $times[ -1 ];
-DUMP_TIME:
+
     foreach my $time ( @times ) {
-        my $need_time_header    = 1;
+        my $time_header_seen;
         my $panels_for_timeslot = $rows->{ $time };
-        my $busy;
-        if ( $exclude_guest ) {
-            $busy = 1 if has_panelist( $panels_for_timeslot, $panelist );
-        }
+
         foreach my $idx ( @all_room_ids ) {
+            next unless $room_focus_map->{ $idx };
             my $panel = $panels_for_timeslot->{ $idx };
             next unless defined $panel;
-            dump_desc_panel(
-                $region, $panelist, $exclude_guest,
-                \$need_time_header, $time, $panel, $busy
-            );
+            next unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
+
+            if ( is_panelist_hosting( $filter, $panel ) ) {
+                next if $show_unbusy_panels;
+            }
+            elsif ( $filter_panelist ) {
+                next unless $show_unbusy_panels;
+            }
+
+            if ( !defined $time_header_seen ) {
+                $time_header_seen = 1;
+
+                dump_desc_time_start(
+                    $time,
+                    $show_unbusy_panels
+                        && is_panelist_busy( $filter, $panels_for_timeslot )
+                    ? ( qw{ Conflict } )
+                    : ()
+                );
+            } ## end if ( !defined $time_header_seen)
+
+            out_open $HTML_TABLE_ROW, { out_class( $CLASS_DESC_PANEL_ROW ) };
+            dump_desc_panel_body( $filter, $region, $panel );
+            out_close $HTML_TABLE_ROW;
         } ## end foreach my $idx ( @all_room_ids)
-        unless ( $need_time_header ) {
-            dump_desc_time_end( $region, $time );
+        if ( $time_header_seen ) {
+            dump_desc_time_end( $time );
         }
-    } ## end DUMP_TIME: foreach my $time ( @times )
-} ## end sub dump_desc_region_rows
+    } ## end foreach my $time ( @times )
 
-sub dump_desc_region {
-    my ( $region, $panelist ) = @_;
+    return;
+} ## end sub dump_desc_body
 
-    dump_desc_start( $region, $panelist );
-    dump_desc_region_rows( $region, $panelist );
-    dump_desc_end( $region, $panelist );
+sub dump_desc_timeslice {
+    my ( $filter, $region ) = @_;
 
-    if ( defined $panelist && !$option_just_guest ) {
-        dump_desc_start( $region, $panelist, 1 );
-        dump_desc_region_rows( $region, $panelist, 1 );
-        dump_desc_end( $region, $panelist, 1 );
+    my %room_focus_map = get_room_index_focus_map( $filter, $region );
+
+    dump_desc_header( $filter, $region );
+    dump_desc_body( $filter, $region, \%room_focus_map );
+    dump_desc_footer( $filter, $region );
+
+    if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_guest ) {
+        dump_desc_header( $filter, $region, 1 );
+        dump_desc_body( $filter, $region, \%room_focus_map, 1 );
+        dump_desc_footer( $filter, $region, 1 );
     }
-} ## end sub dump_desc_region
 
-sub dump_desc_all_regions {
-    my ( $panelist, $exclude_guest ) = @_;
+    return;
+} ## end sub dump_desc_timeslice
 
-    dump_desc_start( undef, $panelist, $exclude_guest );
+sub dump_desc_all_timeslice {
+    my ( $filter, $show_unbusy_panels ) = @_;
+
+    dump_desc_header( $filter, undef, $show_unbusy_panels );
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-        my $region = $time_region{ $region_time };
-        dump_desc_region_rows( $region, $panelist, $exclude_guest );
-    }
-    dump_desc_end( undef, $panelist, $exclude_guest );
-} ## end sub dump_desc_all_regions
+        my $region         = $time_region{ $region_time };
+        my %room_focus_map = get_room_index_focus_map( $filter, $region );
+        dump_desc_body(
+            $filter, $region, \%room_focus_map,
+            $show_unbusy_panels
+        );
+    } ## end foreach my $region_time ( sort...)
+    dump_desc_footer( $filter, undef, $show_unbusy_panels );
+
+    return;
+} ## end sub dump_desc_all_timeslice
 
 sub cache_inline_style {
     my ( $file ) = @_;
@@ -1537,7 +1647,7 @@ sub cache_inline_style {
 } ## end sub cache_inline_style
 
 sub open_dump_file {
-    my ( $dump_timestamp, $dump_person, $def_name ) = @_;
+    my ( $filter, $def_name ) = @_;
     $def_name //= q{index};
 
     if ( $option_output eq q{-} ) {
@@ -1546,15 +1656,8 @@ sub open_dump_file {
         return;
     }
 
-    my @subnames;
-    if ( defined $dump_person ) {
-        push @subnames, $dump_person;
-    }
-    if ( defined $dump_timestamp && exists $time_region{ $dump_timestamp } ) {
-        push @subnames,
-            $time_region{ $dump_timestamp }->{ $FIELD_REGION_NAME };
-    }
-    @subnames = map { santize_hdr $_ } grep { defined } @subnames;
+    my @subnames
+        = map { santize_hdr $_ } @{ $filter->{ $FILTER_OUTPUT_NAME } };
 
     my $ofname = $option_output;
     if ( -d $ofname ) {
@@ -1629,6 +1732,7 @@ sub dump_file_header {
                 $open_styles->();
             }
             foreach my $line ( @{ $lines } ) {
+                next if $line =~ m{[@]charset}xmsi;
                 out_line $line;
             }
         } ## end if ( $lines )
@@ -1649,31 +1753,30 @@ sub dump_file_footer {
 }
 
 sub dump_table_one_region {
-    my ( $dump_timestamp, $dump_person ) = @_;
+    my ( $filter ) = @_;
 
     if ( $option_show_grid ) {
-        dump_region( $time_region{ $dump_timestamp }, $dump_person );
+        dump_grid_timeslice( $filter, $filter->{ $FILTER_SPLIT_TIMESTAMP } );
     }
     if ( $option_show_descriptions ) {
-        dump_desc_region( $time_region{ $dump_timestamp }, $dump_person );
+        dump_desc_timeslice( $filter, $filter->{ $FILTER_SPLIT_TIMESTAMP } );
     }
 } ## end sub dump_table_one_region
 
 sub dump_table_all_regions {
-    my ( $dump_timestamp, $dump_person ) = @_;
+    my ( $filter ) = @_;
 
     my $need_all_desc = $option_show_descriptions;
 
     if ( $option_show_grid ) {
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
-            dump_region( $region, $dump_person );
-            if ( $option_show_descriptions
-                && ( defined $region || !$option_desc_at_end ) )
-            {
-                dump_desc_region( $region, $dump_person );
-                undef $need_all_desc;
-            } ## end if ( $option_show_descriptions...)
+            dump_grid_timeslice( $filter, $region );
+            next unless $option_show_descriptions;
+            next if $option_desc_at_end;
+
+            dump_desc_timeslice( $filter, $region );
+            undef $need_all_desc;
         } ## end foreach my $region_time ( sort...)
         if ( !$option_desc_at_end ) {
             return;
@@ -1681,31 +1784,29 @@ sub dump_table_all_regions {
     } ## end if ( $option_show_grid)
 
     if ( $need_all_desc ) {
-        dump_desc_all_regions( $dump_person );
-        if ( defined $dump_person && !$option_just_guest ) {
-            dump_desc_all_regions( $dump_person, 1 );
+        dump_desc_all_timeslice( $filter );
+        if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_guest ) {
+            dump_desc_all_timeslice( $filter, 1 );
         }
     } ## end if ( $need_all_desc )
 
+    return;
 } ## end sub dump_table_all_regions
 
 sub dump_tables {
-    my ( $dump_timestamp, $dump_person ) = @_;
-    undef $dump_timestamp unless exists $time_region{ $dump_timestamp };
+    my ( $filter ) = @_;
 
-    my %time_points = map { $_ => 1 } ( keys %time_region );
-
-    open_dump_file( $dump_timestamp, $dump_person );
+    open_dump_file( $filter );
 
     dump_file_header;
 
     out_open $HTML_BODY;
 
-    if ( defined $dump_timestamp ) {
-        dump_table_one_region( $dump_timestamp, $dump_person );
+    if ( exists $filter->{ $FILTER_SPLIT_TIMESTAMP } ) {
+        dump_table_one_region( $filter );
     }
     else {
-        dump_table_all_regions( undef, $dump_person );
+        dump_table_all_regions( $filter );
     }
 
     out_close $HTML_BODY;
@@ -1716,41 +1817,12 @@ sub dump_tables {
     return;
 } ## end sub dump_tables
 
-sub dump_tables_per_guest {
-    my ( $dump_timestamp ) = @_;
-
-    if ( !$option_file_per_guest ) {
-        dump_tables( $dump_timestamp );
-        return;
-    }
-
-    foreach my $per_info ( values %panelist_info ) {
-        next unless $per_info->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST;
-        dump_tables( $dump_timestamp, $per_info->{ $PANELIST_NAME } );
-    }
-
-    return;
-} ## end sub dump_tables_per_guest
-
-sub dump_tables_per_split {
-    if ( !$option_file_per_day ) {
-        dump_tables_per_guest( undef );
-        return;
-    }
-
-    foreach my $dump_timestamp ( keys %time_region ) {
-        dump_tables_per_guest( $dump_timestamp );
-    }
-
-    return;
-} ## end sub dump_tables_per_split
-
 sub dump_kiosk_desc {
     my ( $region ) = @_;
 
     my $rows     = $region->{ $FIELD_BY_ROW_SECONDS };
     my @times    = sort { $a <=> $b } keys %{ $rows };
-    my @room_ids = room_ids( $region );
+    my @room_ids = room_indices_for_region( $region );
 
     my $cur_rows  = $region->{ $FIELD_BY_ROW_SECONDS } //= {};
     my $next_rows = $region->{ $FIELD_NEXT_PANEL }     //= {};
@@ -1814,11 +1886,11 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
-                $region,               undef, undef,
+                $DEFAULT_FILTER,       $region,
                 $cur_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
-                $region,                undef, undef,
+                $DEFAULT_FILTER,        $region,
                 $next_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_FUTURE
             );
             out_close $HTML_TABLE_ROW;
@@ -1830,9 +1902,7 @@ sub dump_kiosk_desc {
 } ## end sub dump_kiosk_desc
 
 sub dump_kiosk {
-    my %time_points = map { $_ => 1 } ( keys %time_region );
-
-    open_dump_file( undef, undef, q{kiosk} );
+    open_dump_file( $DEFAULT_FILTER, q{kiosk} );
 
     say { $output_file_handle } q{<!doctype html>};
 
@@ -1870,7 +1940,7 @@ sub dump_kiosk {
     out_open $HTML_DIV, { out_class( $CLASS_KIOSK_GRID_ROWS ) };
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         my $region = $time_region{ $region_time };
-        dump_region( $region );
+        dump_grid_timeslice( $DEFAULT_FILTER, $region );
     }
     out_close $HTML_DIV;
 
@@ -1885,6 +1955,73 @@ sub dump_kiosk {
     close_dump_file;
 } ## end sub dump_kiosk
 
+sub split_filter_by_timestamp {
+    my ( @filters ) = @_;
+
+    return @filters unless $option_file_per_day;
+
+    my @res;
+    foreach my $filter ( @filters ) {
+        my %new_filter = %{ $filter };
+        my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
+        push @res, map {
+            {
+                %new_filter,
+                    $FILTER_SPLIT_TIMESTAMP => $_,
+                    $FILTER_OUTPUT_NAME =>
+                    [ @subname, $_->{ $FIELD_REGION_NAME } ],
+            }
+        } values %time_region;
+    } ## end foreach my $filter ( @filters)
+
+    return @res;
+} ## end sub split_filter_by_timestamp
+
+sub split_filter_by_panelist {
+    my ( @filters ) = @_;
+
+    return @filters unless $option_file_per_guest;
+
+    my @res;
+    foreach my $filter ( @filters ) {
+        my %new_filter = %{ $filter };
+        my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
+        push @res, map {
+            {
+                %new_filter,
+                    $FILTER_PANELIST => $_,
+                    $FILTER_OUTPUT_NAME =>
+                    [ @subname, $_->{ $PANELIST_NAME } ]
+            }
+        } grep { $_->{ $PANELIST_RANK } == $PANELIST_RANK_GUEST }
+            values %panelist_info;
+    } ## end foreach my $filter ( @filters)
+
+    return @res;
+} ## end sub split_filter_by_panelist
+
+sub split_filter_by_room {
+    my ( @filters ) = @_;
+
+    return @filters unless $option_file_per_room;
+
+    my @res;
+    foreach my $filter ( @filters ) {
+        my %new_filter = %{ $filter };
+        my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
+        push @res, map {
+            {
+                %new_filter,
+                    $FILTER_ROOM => $rooms{ $_ },
+                    $FILTER_OUTPUT_NAME =>
+                    [ @subname, $rooms{ $_ }->{ $FIELD_ROOM_NAME } ]
+            }
+        } room_indices_for_region();
+    } ## end foreach my $filter ( @filters)
+
+    return @res;
+} ## end sub split_filter_by_room
+
 sub main {
     my ( @args ) = @_;
 
@@ -1892,18 +2029,20 @@ sub main {
         \@args,
         q{day!}           => \$option_show_day_column,
         q{descriptions!}  => \$option_show_descriptions,
-        q{grid!}          => \$option_show_grid,
         q{file-by-day!}   => \$option_file_per_day,
         q{file-by-guest!} => \$option_file_per_guest,
-        q{hideunused!}    => \$option_hide_unused_rooms,
+        q{file-by-room!}  => \$option_file_per_room,
+        q{grid!}          => \$option_show_grid,
+        q{hide-unused!}   => \$option_hide_unused_rooms,
         q{inline-css!}    => \$option_embed_css,
         q{input=s}        => \$option_input_file,
-        q{justguest!}     => \$option_just_guest,
+        q{just-guest!}    => \$option_just_guest,
         q{kiosk!}         => \$option_kiosk_mode,
         q{output=s}       => \$option_output,
-        q{split-day!}     => \$option_split_per_day,
         q{postcard!}      => \$option_is_postcard,
+        q{room=s@}        => \@option_rooms,
         q{separate!}      => \$option_desc_at_end,
+        q{split-day!}     => \$option_split_per_day,
         q{style=s@}       => \@option_css_styles,
         q{title=s}        => \$option_title,
         q{unified!}       => \$option_unified_grid,
@@ -1912,29 +2051,26 @@ sub main {
     $option_embed_css //= 1 if @option_css_styles;
     push @option_css_styles, qw{ index.css } unless @option_css_styles;
 
-    $option_show_grid         //= 0 if $option_show_descriptions;
-    $option_show_descriptions //= 0 if $option_show_grid;
-    $option_show_grid         //= 1;
-    $option_show_descriptions //= 1;
-    $option_title             //= q{Cosplay America 2022 Schedule};
-
     $option_input_file //= shift @args;
     $option_output     //= shift @args;
     $option_output     //= q{-};
+    $option_title      //= q{Cosplay America 2022 Schedule};
 
     if ( $option_kiosk_mode ) {
-        $option_show_day_column   = undef;
-        $option_unified_grid      = 1;
-        $option_split_per_day     = undef;
-        $option_desc_at_end       = undef;
         @option_css_styles        = ();
+        $option_desc_at_end       = undef;
         $option_embed_css         = undef;
         $option_file_per_day      = undef;
         $option_file_per_guest    = undef;
+        $option_file_per_room     = undef;
+        @option_rooms             = ();
         $option_is_postcard       = undef;
         $option_just_guest        = undef;
-        $option_show_grid         = 1;
+        $option_show_day_column   = undef;
         $option_show_descriptions = 1;
+        $option_show_grid         = 1;
+        $option_split_per_day     = undef;
+        $option_unified_grid      = 1;
     } ## end if ( $option_kiosk_mode)
     read_csv_file( $option_input_file );
 
@@ -1942,14 +2078,25 @@ sub main {
 
     if ( $option_kiosk_mode ) {
         dump_kiosk;
-    }
-    else {
-        $option_file_per_guest //= 1 if $option_just_guest;
-
-        dump_tables_per_split;
+        return;
     }
 
-    1;
+    $option_show_grid         //= 0 if $option_show_descriptions;
+    $option_show_descriptions //= 0 if $option_show_grid;
+    $option_show_grid         //= 1;
+    $option_show_descriptions //= 1;
+    $option_file_per_guest //= 1 if $option_just_guest;
+
+    my @filters = ( $DEFAULT_FILTER );
+    @filters = split_filter_by_panelist( @filters );
+    @filters = split_filter_by_room( @filters );
+    @filters = split_filter_by_timestamp( @filters );
+
+    foreach my $filter ( @filters ) {
+        dump_tables( $filter );
+    }
+
+    return;
 } ## end sub main
 
 main( @ARGV );

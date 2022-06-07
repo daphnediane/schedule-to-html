@@ -22,6 +22,12 @@
 		"perl-toolbox.syntax.includePaths": [
 			"/usr/share/perl5",
 			"/usr/lib/x86_64-linux-gnu/perl5/5.32"
+		],
+		"perl-toolbox.lint.excludedPolicies": [
+			"RequireRcsKeywords",
+			"ProhibitPostfixControls",
+			"ProhibitUnlessBlocks",
+			"RequireVersionVar"
 		]
 	},
 	// Add the IDs of extensions you want installed when the container is created.
