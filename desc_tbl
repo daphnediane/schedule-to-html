@@ -48,6 +48,12 @@ Readonly our $TABLE_START_TIME    => q{Start_Time};
 Readonly our $TABLE_TOKENS        => q{Tokens};
 Readonly our $TABLE_UNIQUE_ID     => q{Uniq_ID};
 
+# Room fields (reading only)
+Readonly our $ROOM_TABLE_INDEX     => q{Sort_Key};
+Readonly our $ROOM_TABLE_NAME      => q{Room_Name};
+Readonly our $ROOM_TABLE_HOTEL     => q{Hotel_Room};
+Readonly our $ROOM_TABLE_LONG_NAME => q{Long_Name};
+
 # Custom fields
 Readonly our $FIELD_ACTIVE_ROOMS            => q{*ROOMS};
 Readonly our $FIELD_BY_REGION               => q{*BY_REGION};
@@ -63,9 +69,10 @@ Readonly our $FIELD_PANELIST_LISTED         => q{*LISTED_PANELIST};
 Readonly our $FIELD_LAST_TIME_OUTPUT        => q{*LASTTIME};
 Readonly our $FIELD_NEXT_PANEL              => q{*NEXT};
 Readonly our $FIELD_ALL_PANELIST            => q{*PANELIST};
-Readonly our $FIELD_REGION_NAME             => q{*NAME};
+Readonly our $FIELD_REGION_NAME             => q{*SPLIT_NAME};
 Readonly our $FIELD_ROOM_INFO               => q{*ROOM_INFO};
-Readonly our $FIELD_ROOM_NAME               => q{*NAME};
+Readonly our $FIELD_ROOM_NAME               => q{*ROOM_NAME};
+Readonly our $FIELD_ROOM_HIDDEN             => q{*HIDDEN};
 Readonly our $FIELD_START_TIME_SECONDS      => q{*START_SEC};
 Readonly our $FIELD_TABLE_ROWS              => q{*NUM_ROWS};
 
@@ -159,18 +166,17 @@ Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
 
 # File handles
-Readonly our $HANDLE_TYPE           => q{type};
-Readonly our $HANDLE_NAME           => q{name};
-Readonly our $HANDLE_PARSER         => q{parser};
-Readonly our $HANDLE_WORKBOOK       => q{workbook};
-Readonly our $HANDLE_SCHEDULE_SHEET => q{sched_sheet};
-Readonly our $HANDLE_COLUMN_RANGE   => q{col_range};
-Readonly our $HANDLE_NEXT_ROW       => q{row_next};
-Readonly our $HANDLE_LAST_ROW       => q{row_last};
-Readonly our $HANDLE_FILE_HANDLE    => q{fh};
-
-Readonly our $FILE_EXCEL => q{excel};
-Readonly our $FILE_TEXT  => q{text};
+Readonly our $HANDLE_COLUMN_RANGE => q{col_range};
+Readonly our $HANDLE_FILE_HANDLE  => q{fh};
+Readonly our $HANDLE_LAST_ROW     => q{row_last};
+Readonly our $HANDLE_NAME         => q{name};
+Readonly our $HANDLE_NEXT_ROW     => q{row_next};
+Readonly our $HANDLE_PARSER       => q{parser};
+Readonly our $HANDLE_SHEET        => q{sched_sheet};
+Readonly our $HANDLE_TYPE         => q{type};
+Readonly our $HANDLE_TYPE_EXCEL   => q{*excel};
+Readonly our $HANDLE_TYPE_TEXT    => q{*text};
+Readonly our $HANDLE_WORKBOOK     => q{workbook};
 
 # Formatting strings
 Readonly our $FMT_DAY  => q{%A};
@@ -244,6 +250,7 @@ my %panelist_info = (
 
 my %schedule;
 my %rooms;
+my %named_rooms;
 my %panels_by_start;
 my %time_region;
 my $earliest;
@@ -254,6 +261,41 @@ my $output_file_handle;
 my $output_file_name;
 my $level = 0;
 my $h     = HTML::Tiny->new( mode => q{html} );
+
+sub open_sheet {
+    my ( $handle, $sheet_name ) = @_;
+
+    return unless defined $handle;
+    return unless defined $sheet_name;
+
+    return unless exists $handle->{ $HANDLE_TYPE_EXCEL };
+
+    my $wb = $handle->{ $HANDLE_WORKBOOK };
+    return unless defined $wb;
+
+    my $sheet = $wb->worksheet( $sheet_name );
+    if ( !defined $sheet ) {
+        my $lc_name = lc $sheet_name;
+        foreach my $ws ( $wb->worksheets() ) {
+            if ( lc $ws->get_name() eq $lc_name ) {
+                $sheet = $ws;
+                last;
+            }
+        } ## end foreach my $ws ( $wb->worksheets...)
+    } ## end if ( !defined $sheet )
+    return unless defined $sheet;
+
+    my @columns = $sheet->col_range();
+    my @rows    = $sheet->row_range();
+
+    return {
+        %{ $handle },
+        $HANDLE_SHEET        => $sheet,
+        $HANDLE_COLUMN_RANGE => \@columns,
+        $HANDLE_NEXT_ROW     => $rows[ 0 ],
+        $HANDLE_LAST_ROW     => $rows[ 1 ]
+    };
+} ## end sub open_sheet
 
 sub open_xlsx_file {
     my ( $fname ) = @_;
@@ -266,20 +308,20 @@ sub open_xlsx_file {
     my $p = Spreadsheet::ParseXLSX->new;
     my $w = $p->parse( $fname )
         or die qq{Unable to read: ${fname}\n};
-    my $ws      = $w->worksheet( $sheet_num );
-    my @columns = $ws->col_range();
-    my @rows    = $ws->row_range();
 
-    return {
-        $HANDLE_TYPE           => $FILE_EXCEL,
-        $HANDLE_NAME           => $fname,
-        $HANDLE_PARSER         => $p,
-        $HANDLE_WORKBOOK       => $w,
-        $HANDLE_SCHEDULE_SHEET => $ws,
-        $HANDLE_COLUMN_RANGE   => \@columns,
-        $HANDLE_NEXT_ROW       => $rows[ 0 ],
-        $HANDLE_LAST_ROW       => $rows[ 1 ]
-    };
+    my $handle = open_sheet(
+        {   $HANDLE_TYPE       => $HANDLE_TYPE_EXCEL,
+            $HANDLE_TYPE_EXCEL => 1,
+            $HANDLE_NAME       => $fname,
+            $HANDLE_PARSER     => $p,
+            $HANDLE_WORKBOOK   => $w,
+        },
+        $sheet_num
+    );
+    die qq{Unable to find sheet: ${sheet_num} in xlsx file: ${fname}\n}
+        unless defined $handle;
+
+    return $handle;
 } ## end sub open_xlsx_file
 
 sub open_text_file {
@@ -289,7 +331,8 @@ sub open_text_file {
         or die qq{Unable to read: ${fname}\n};
 
     return {
-        $HANDLE_TYPE        => $FILE_TEXT,
+        $HANDLE_TYPE        => $HANDLE_TYPE_TEXT,
+        $HANDLE_TYPE_TEXT   => 1,
         $HANDLE_NAME        => $fname,
         $HANDLE_FILE_HANDLE => $fh,
     };
@@ -322,11 +365,11 @@ sub close_text {
 sub close_file {
     my ( $handle ) = @_;
 
-    if ( $handle->{ $HANDLE_TYPE } eq $FILE_EXCEL ) {
+    if ( $handle->{ $HANDLE_TYPE_EXCEL } ) {
         return close_excel( $handle );
     }
 
-    if ( $handle->{ $HANDLE_TYPE } eq $FILE_TEXT ) {
+    if ( $handle->{ $HANDLE_TYPE_TEXT } ) {
         return close_text( $handle );
     }
 
@@ -343,12 +386,12 @@ sub splitline_excel {
     $handle->{ $HANDLE_NEXT_ROW } = 1 + $row;
     my $first_col = $handle->{ $HANDLE_COLUMN_RANGE }->[ 0 ];
     my $last_col  = $handle->{ $HANDLE_COLUMN_RANGE }->[ 1 ];
-    my $ws        = $handle->{ $HANDLE_SCHEDULE_SHEET };
+    my $ws        = $handle->{ $HANDLE_SHEET };
     my @res;
     foreach my $col ( $first_col .. $last_col ) {
         my $cell  = $ws->get_cell( $row, $col );
         my $value = defined $cell ? $cell->value() : undef;
-        undef $value unless $value =~ m{\S}xms;
+        undef $value unless defined $value && $value =~ m{\S}xms;
         push @res, $value;
     } ## end foreach my $col ( $first_col...)
     return \@res;
@@ -392,11 +435,11 @@ sub splitline_text {
 sub splitline {
     my ( $handle ) = @_;
 
-    if ( $handle->{ $HANDLE_TYPE } eq $FILE_EXCEL ) {
+    if ( $handle->{ $HANDLE_TYPE_EXCEL } ) {
         return splitline_excel( $handle );
     }
 
-    if ( $handle->{ $HANDLE_TYPE } eq $FILE_TEXT ) {
+    if ( $handle->{ $HANDLE_TYPE_TEXT } ) {
         return splitline_text( $handle->{ $HANDLE_FILE_HANDLE } );
     }
 
@@ -527,6 +570,69 @@ sub to_panelist {
         }
         split m{\s*,\s*}xms, $names;
 } ## end sub to_panelist
+
+sub process_spreadsheet_room_sheet {
+    my ( $header, $san_header, $raw ) = @_;
+
+    my %room_data;
+
+    foreach my $index ( keys @{ $raw } ) {
+        my $header_text = $header->[ $index ];
+        my $header_alt  = $san_header->[ $index ];
+
+        my $raw_text = $raw->[ $index ];
+        if ( defined $raw_text ) {
+            if ( $raw_text =~ m{\s}xms ) {
+                $raw_text =~ s{\A \s*}{}xms;
+                $raw_text =~ s{\s* \z}{}xms;
+            }
+            undef $raw_text if $raw_text eq q{};
+        } ## end if ( defined $raw_text)
+        $room_data{ $header_text } = $raw_text;
+        $room_data{ $header_alt }  = $raw_text;
+    } ## end foreach my $index ( keys @{...})
+
+    my $idx   = $room_data{ $ROOM_TABLE_INDEX };
+    my $name  = $room_data{ $ROOM_TABLE_NAME };
+    my $hotel = $room_data{ $ROOM_TABLE_HOTEL };
+    my $long  = $room_data{ $ROOM_TABLE_LONG_NAME };
+
+    return unless defined $name;
+
+    my $hidden = !defined $idx || $idx eq q{} || $idx >= $ROOM_FIRST_HIDE_IDX;
+
+    my $room = $named_rooms{ lc $name } //= {
+        $TABLE_ROOM_INDEX => $idx,
+        $FIELD_ROOM_NAME  => $long,
+        $TABLE_HOTEL_ROOM => $hotel,
+        ( $hidden ? ( $FIELD_ROOM_HIDDEN => 1 ) : () )
+    };
+
+    return if $hidden;
+
+    $rooms{ $idx } = $room;
+
+    return;
+} ## end sub process_spreadsheet_room_sheet
+
+sub read_spreadsheet_rooms {
+    my ( $handle ) = @_;
+
+    my $sheet = open_sheet( $handle, q{Rooms} );
+    return unless defined $sheet;
+
+    my $header = splitline( $sheet );
+    return unless defined $header;
+    my @san_header = map { santize_hdr( $_ ) } @{ $header };
+
+    while ( my $raw = splitline( $sheet ) ) {
+        last unless defined $raw;
+
+        process_spreadsheet_room_sheet( $header, \@san_header, $raw );
+    }
+
+    return;
+} ## end sub read_spreadsheet_rooms
 
 sub process_spreadsheet_add_panelist {
     my ( $panel, $per_info_index, $raw_text ) = @_;
@@ -684,6 +790,46 @@ sub process_spreadsheet_workshop {
     return @subclasses;
 } ## end sub process_spreadsheet_workshop
 
+sub process_spreadsheet_find_room {
+    my ( $panel ) = @_;
+
+    my $name = $panel->{ $TABLE_ROOM_NAME };
+    return unless defined $name;
+
+    if ( $name =~ m{\ASPLIT}xmsi ) {
+        return if $option_unified_grid;
+        if ( $option_split_per_day ) {
+            return unless $name =~ m{\ASPLITDAY}xmsi;
+        }
+        add_split $panel->{ $FIELD_START_TIME_SECONDS },
+            $panel->{ $TABLE_PANEL_NAME };
+        return;
+    } ## end if ( $name =~ m{\ASPLIT}xmsi)
+
+    my $room = $named_rooms{ lc $name };
+    if ( defined $room ) {
+        $panel->{ $TABLE_ROOM_INDEX } = $room->{ $TABLE_ROOM_INDEX };
+        $panel->{ $FIELD_ROOM_INFO }  = $room;
+
+        return if $room->{ $FIELD_ROOM_HIDDEN };
+        return $room;
+    } ## end if ( defined $room )
+
+    my $idx = $panel->{ $TABLE_ROOM_INDEX };
+
+    return if !defined $idx;
+    return if $idx eq q{};
+    return if $idx >= $ROOM_FIRST_HIDE_IDX;
+
+    $room = $rooms{ $idx } //= {
+        $TABLE_ROOM_INDEX => $idx,
+        $FIELD_ROOM_NAME  => $name,
+        $TABLE_HOTEL_ROOM => $panel->{ $TABLE_HOTEL_ROOM },
+    };
+    $panel->{ $FIELD_ROOM_INFO } = $room;
+    return $room;
+} ## end sub process_spreadsheet_find_room
+
 sub process_spreadsheet_row {
     my ( $header, $san_header, $panelist_by_index, $raw ) = @_;
 
@@ -693,11 +839,13 @@ sub process_spreadsheet_row {
         my $header_alt  = $san_header->[ $index ];
 
         my $raw_text = $raw->[ $index ];
-        if ( $raw_text =~ m{\s}xms ) {
-            $raw_text =~ s{\A \s*}{}xms;
-            $raw_text =~ s{\s* \z}{}xms;
-        }
-        $raw_text              = undef if $raw_text eq q{};
+        if ( defined $raw_text ) {
+            if ( $raw_text =~ m{\s}xms ) {
+                $raw_text =~ s{\A \s*}{}xms;
+                $raw_text =~ s{\s* \z}{}xms;
+            }
+            undef $raw_text if $raw_text eq q{};
+        } ## end if ( defined $raw_text)
         $panel{ $header_text } = $raw_text;
         $panel{ $header_alt }  = $raw_text;
 
@@ -716,7 +864,6 @@ sub process_spreadsheet_row {
 
     my ( $start, $end ) = process_spreadsheet_time_range( \%panel );
 
-    my $idx     = $panel{ $TABLE_ROOM_INDEX };
     my $uniq_id = $panel{ $TABLE_UNIQUE_ID };
     my $kind    = $uniq_id // q{Unknown};
     $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
@@ -744,27 +891,12 @@ sub process_spreadsheet_row {
     $panel{ $FIELD_CSS_SUBCLASSES }     = \@subclasses;
     $panel{ $FIELD_CSS_HREF }           = $uniq_id;
 
-    if ( $room_name =~ m{\ASPLIT}xmsi ) {
-        next if $option_unified_grid;
-        if ( $option_split_per_day ) {
-            next unless $room_name =~ m{\ASPLITDAY}xmsi;
-        }
-        add_split $start, $panel{ $TABLE_PANEL_NAME };
-        next;
-    } ## end if ( $room_name =~ m{\ASPLIT}xmsi)
-
-    return if $idx eq q{};
-    return if $idx >= $ROOM_FIRST_HIDE_IDX;
+    my $room = process_spreadsheet_find_room( \%panel );
+    return unless $room;
 
     add_time $start;
     add_time $end;
 
-    my $room = $rooms{ $idx } //= {
-        $TABLE_ROOM_INDEX => $idx,
-        $FIELD_ROOM_NAME  => $room_name,
-        $TABLE_HOTEL_ROOM => $panel{ $TABLE_HOTEL_ROOM },
-    };
-    $panel{ $FIELD_ROOM_INFO } = $room;
     push @{ $panels_by_start{ $start } //= [] }, \%panel;
 
     return;
@@ -772,7 +904,8 @@ sub process_spreadsheet_row {
 
 sub read_spreadsheet_file {
     my $handle = open_file( $option_input_file );
-    my $fh     = $handle->{ $HANDLE_FILE_HANDLE };
+
+    read_spreadsheet_rooms( $handle );
 
     my $header = splitline( $handle )
         or die qq{Missing header in: ${option_input_file}\n};
@@ -834,7 +967,8 @@ sub make_time_ranges {
 
         # Add new panels
         foreach my $panel ( @{ $panels_by_start{ $time } } ) {
-            my $room_idx = $panel->{ $TABLE_ROOM_INDEX };
+            my $room     = $panel->{ $FIELD_ROOM_INFO };
+            my $room_idx = $room->{ $TABLE_ROOM_INDEX };
             my $region_info
                 = $panel->{ $FIELD_BY_REGION }->{ $region_start_time }
                 //= {};    # fix visual code formatting error */
@@ -927,7 +1061,8 @@ sub make_time_ranges {
                 $next_panels->{ $room_idx } = $next if defined $next;
             }
             foreach my $panel ( @{ $panels_by_start{ $time } } ) {
-                my $room_idx = $panel->{ $TABLE_ROOM_INDEX };
+                my $room     = $panel->{ $FIELD_ROOM_INFO };
+                my $room_idx = $room->{ $TABLE_ROOM_INDEX };
                 $next_panels{ $room_idx } = $panel;
             }
         } ## end foreach my $time ( @times )
@@ -1282,7 +1417,7 @@ sub dump_grid_cell_room {
         );
     } ## end if ( defined $tokens )
 
-    if ( $all_panelist =~ m{\S}xms ) {
+    if ( defined $all_panelist && $all_panelist =~ m{\S}xms ) {
         out_line $h->span(
             {   out_class(
                     sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
@@ -1291,7 +1426,7 @@ sub dump_grid_cell_room {
             },
             $all_panelist
         );
-    } ## end if ( $all_panelist =~ ...)
+    } ## end if ( defined $all_panelist...)
 
     out_close $HTML_ANCHOR;
     out_close $HTML_TABLE_DATA;
@@ -1338,8 +1473,8 @@ sub dump_grid_row_time {
     } ## end if ( $option_show_day_column)
     else {
         my ( $day, $tm ) = decode_time( $time );
-        if (   $region->{ $FIELD_LAST_TIME_OUTPUT } == $time
-            || $region->{ $FIELD_DAY_BEING_OUTPUT } ne $day )
+        if ( $region->{ $FIELD_LAST_TIME_OUTPUT } == $time
+            || ( $region->{ $FIELD_DAY_BEING_OUTPUT } // q{} ) ne $day )
         {
             $tm = $day . $h->br() . $tm;
             $region->{ $FIELD_DAY_BEING_OUTPUT } = $day;
@@ -1583,7 +1718,7 @@ sub dump_desc_panel_body {
             $room->{ $TABLE_HOTEL_ROOM }
         );
     } ## end else [ if ( $option_kiosk_mode)]
-    if ( $all_panelist =~ m{\S}xms ) {
+    if ( defined $all_panelist && $all_panelist =~ m{\S}xms ) {
         out_line $h->p(
             {   out_class(
                     sprintf $CLASS_DESC_FMT_SUBCLASS,
@@ -1592,7 +1727,7 @@ sub dump_desc_panel_body {
             },
             $all_panelist
         );
-    } ## end if ( $all_panelist =~ ...)
+    } ## end if ( defined $all_panelist...)
 
     my $descbody = $panel->{ $TABLE_DESCRIPTION };
     out_line $h->p(
