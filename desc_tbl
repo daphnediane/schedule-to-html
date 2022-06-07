@@ -54,6 +54,10 @@ Readonly our $ROOM_TABLE_NAME      => q{Room_Name};
 Readonly our $ROOM_TABLE_HOTEL     => q{Hotel_Room};
 Readonly our $ROOM_TABLE_LONG_NAME => q{Long_Name};
 
+# PanelTypes fields
+Readonly our $PANELTYPE_TABLE_PREFIX => q{Prefix};
+Readonly our $PANELTYPE_TABLE_KIND   => q{Panel_Kind};
+
 # Custom fields
 Readonly our $FIELD_ACTIVE_ROOMS            => q{*ROOMS};
 Readonly our $FIELD_BY_REGION               => q{*BY_REGION};
@@ -252,6 +256,7 @@ my %schedule;
 my %rooms;
 my %named_rooms;
 my %panels_by_start;
+my %panel_types;
 my %time_region;
 my $earliest;
 
@@ -634,6 +639,60 @@ sub read_spreadsheet_rooms {
     return;
 } ## end sub read_spreadsheet_rooms
 
+sub process_spreadsheet_paneltype_sheet {
+    my ( $header, $san_header, $raw ) = @_;
+
+    my %paneltype_data;
+
+    foreach my $index ( keys @{ $raw } ) {
+        my $header_text = $header->[ $index ];
+        my $header_alt  = $san_header->[ $index ];
+
+        my $raw_text = $raw->[ $index ];
+        if ( defined $raw_text ) {
+            if ( $raw_text =~ m{\s}xms ) {
+                $raw_text =~ s{\A \s*}{}xms;
+                $raw_text =~ s{\s* \z}{}xms;
+            }
+            undef $raw_text if $raw_text eq q{};
+        } ## end if ( defined $raw_text)
+        $paneltype_data{ $header_text } = $raw_text;
+        $paneltype_data{ $header_alt }  = $raw_text;
+
+    } ## end foreach my $index ( keys @{...})
+
+    my $prefix = $paneltype_data{ $PANELTYPE_TABLE_PREFIX } // q{};
+    my $kind   = $paneltype_data{ $PANELTYPE_TABLE_KIND };
+
+    return unless defined $kind;
+
+    $panel_types{ lc $prefix } //= {
+        $PANELTYPE_TABLE_PREFIX => $prefix,
+        $TABLE_KIND             => $kind,
+    };
+
+    return;
+} ## end sub process_spreadsheet_paneltype_sheet
+
+sub read_spreadsheet_panel_types {
+    my ( $handle ) = @_;
+
+    my $sheet = open_sheet( $handle, q{PanelTypes} );
+    return unless defined $sheet;
+
+    my $header = splitline( $sheet );
+    return unless defined $header;
+    my @san_header = map { santize_hdr( $_ ) } @{ $header };
+
+    while ( my $raw = splitline( $sheet ) ) {
+        last unless defined $raw;
+
+        process_spreadsheet_paneltype_sheet( $header, \@san_header, $raw );
+    }
+
+    return;
+} ## end sub read_spreadsheet_panel_types
+
 sub process_spreadsheet_add_panelist {
     my ( $panel, $per_info_index, $raw_text ) = @_;
 
@@ -816,8 +875,13 @@ sub process_spreadsheet_find_room {
     } ## end if ( defined $room )
 
     my $idx = $panel->{ $TABLE_ROOM_INDEX };
+    if ( !defined $idx ) {
+        warn qq{Uknown room ${name} for panel: },
+            $panel->{ $TABLE_UNIQUE_ID },  q{: },
+            $panel->{ $TABLE_PANEL_NAME }, qq{\n};
+        return;
+    } ## end if ( !defined $idx )
 
-    return if !defined $idx;
     return if $idx eq q{};
     return if $idx >= $ROOM_FIRST_HIDE_IDX;
 
@@ -868,6 +932,12 @@ sub process_spreadsheet_row {
     my $kind    = $uniq_id // q{Unknown};
     $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
 
+    unless ( exists $panel{ $TABLE_KIND } ) {
+        my $prefix = substr $uniq_id, 0, 2;
+        $panel{ $TABLE_KIND }
+            = $panel_types{ lc $prefix }->{ $TABLE_KIND };
+    }
+
     state %ids_seen;
 
     if ( $ids_seen{ $uniq_id } ) {
@@ -906,6 +976,7 @@ sub read_spreadsheet_file {
     my $handle = open_file( $option_input_file );
 
     read_spreadsheet_rooms( $handle );
+    read_spreadsheet_panel_types( $handle );
 
     my $header = splitline( $handle )
         or die qq{Missing header in: ${option_input_file}\n};
