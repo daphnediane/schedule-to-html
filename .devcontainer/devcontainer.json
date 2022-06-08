@@ -28,13 +28,17 @@
 			"ProhibitPostfixControls",
 			"ProhibitUnlessBlocks",
 			"RequireVersionVar"
-		]
+		],
+		"[markdown]": {
+			"editor.defaultFormatter": "yzhang.markdown-all-in-one"
+		}
 	},
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
 		"mortenhenriksen.perl-debug",
 		"d9705996.perl-toolbox",
-		"sfodje.perltidy"
+		"sfodje.perltidy",
+		"yzhang.markdown-all-in-one"
 	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
