@@ -179,33 +179,47 @@ Examples:
 
 Examples:
 
-Produces a schedule that will print nicely in landscape from edge:
+Wide landscape
 ```
 desc_tbl \
-  --style license-fonts.css \
-  --style landscape.css \
-  --style screen.css \
-  --style screen:color.css \
-  --style print.css \
-  --style print:no_color.css \
-  --input input/Schedule.xlsx \
-  --output output/ \
-  --seperate --split-day
+    --style license-fonts.css \
+    --style common.css \
+    --style screen.css \
+    --style screen:+color \
+    --style screen:color.css \
+    --style print.css \
+    --style screen:+color=BW \
+    --style print:no_color.css \
+    --style print:landscape_wide.css \
+    --input input/Test.xlsx \
+    --output output/ \
+    --split-day \
+    --separate \
+    --inline-css
 ```
 
-Produces a schedule for each room
+Guest output
 ```
 desc_tbl \
-  --style license-fonts.css \
-  --style landscape.css \
-  --style screen.css \
-  --style screen:color.css \
-  --style print.css \
-  --style print:no_color.css \
-  --input input/Schedule.xlsx \
-  --output output/ \
-  --file-by-day --split-day
+    --style license-fonts.css \
+    --style common.css \
+    --style screen.css \
+    --style screen:+color \
+    --style screen:color.css \
+    --style print.css \
+    --style screen:+color=BW \
+    --style print:no_color.css \
+    --style print:landscape.css \
+    --input input/Test.xlsx \
+    --output output/guests \
+    --file-by-panelist \
+    --split-day \
+    --separate \
+    --just-guest
 ```
+
+Room output
+
 
 ## Licensing:
 

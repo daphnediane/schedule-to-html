@@ -676,12 +676,17 @@ sub process_spreadsheet_paneltype_sheet {
     my $prefix = $paneltype_data{ $PANELTYPE_TABLE_PREFIX } // q{};
     my $kind   = $paneltype_data{ $PANELTYPE_TABLE_KIND };
 
-    return unless defined $kind;
+    return unless defined $paneltype_data{ $PANELTYPE_TABLE_KIND };
 
-    $panel_types{ lc $prefix } //= {
-        $PANELTYPE_TABLE_PREFIX => $prefix,
-        $TABLE_KIND             => $kind,
-    };
+    if ( exists $panel_types{ lc $prefix } ) {
+        return if $prefix eq q{};
+        warn q{Panel prefix: }, $prefix, q{ for }, $kind,
+            qq{ defined twice\n};
+        return;
+    } ## end if ( exists $panel_types...)
+
+    $paneltype_data{ $TABLE_KIND } = $kind;
+    $panel_types{ lc $prefix } = \%paneltype_data;
 
     return;
 } ## end sub process_spreadsheet_paneltype_sheet
@@ -2026,6 +2031,142 @@ sub close_dump_file {
     return;
 } ## end sub close_dump_file
 
+sub open_html_style {
+    my ( $state ) = @_;
+
+    return if defined $state->{ in_style };
+
+    out_open $HTML_STYLE;
+    $state->{ in_style } = 1;
+    return;
+} ## end sub open_html_style
+
+sub open_media_style {
+    my ( $state, $media ) = @_;
+
+    open_html_style $state;
+
+    if ( !defined $media ) {
+        if ( defined $state->{ in_media } ) {
+            out_css_close;
+            delete $state->{ in_media };
+        }
+        return;
+    } ## end if ( !defined $media )
+
+    if ( defined $state->{ in_media } ) {
+        return if $state->{ in_media } eq $media;
+
+        # Switching media
+        out_css_close;
+    } ## end if ( defined $state->{...})
+
+    out_css_open q{@}, q{media }, $media;
+    $state->{ in_media } = $media;
+
+    return;
+} ## end sub open_media_style
+
+sub close_media_style {
+    my ( $state ) = @_;
+
+    my $in_media = delete $state->{ in_media };
+    return unless defined $in_media;
+    out_css_close;
+
+    return;
+} ## end sub close_media_style
+
+sub close_html_style {
+    my ( $state ) = @_;
+
+    close_media_style $state;
+
+    my $in_style = delete $state->{ in_style };
+    return unless defined $in_style;
+
+    out_close $HTML_STYLE;
+
+    return;
+} ## end sub close_html_style
+
+sub dump_styles {
+    my %state;
+
+    foreach my $style ( @option_css_styles ) {
+        my $is_html = $style =~ m{.html?\z}xms;
+        my $fname   = $style;
+        my $media;
+        if ( $fname =~ s{\A (all|print|screen) :}{}xms ) {
+            $media = $1;
+        }
+        elsif ( $fname =~ m{(all|print|screen)[.]css\z}xms ) {
+            $media = $1;
+        }
+
+        if ( $is_html ) {
+            close_html_style \%state;
+
+            my $lines = cache_inline_style( $fname );
+            foreach my $line ( @{ $lines } ) {
+                out_line $line;
+            }
+        } ## end if ( $is_html )
+        elsif ( $fname =~ m{\A [+] (?:panel_)?color }xmsi ) {
+            my ( $unused, $field ) = split m{=}xms, $fname, 2;
+            $field //= q{Color};
+
+            my $line_seen;
+
+            foreach my $prefix ( sort keys %panel_types ) {
+                next unless $prefix =~ m{\S}xms;
+                my $color = $panel_types{ $prefix }->{ $field };
+                next
+                    unless $color
+                    =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [\(] .* ) \z}xms;
+
+                open_media_style \%state, $media;
+                open_media_style \%state, $media;
+
+                out_line q{/* "}, $style, q{" */} unless $line_seen;
+                $line_seen = 1;
+
+                out_line q{.descType}, uc $prefix, q{,};
+                out_css_open q{.panelType},     uc $prefix;
+                out_line q{background-color: }, $color;
+                out_css_close;
+            } ## end foreach my $prefix ( sort keys...)
+        } ## end elsif ( $fname =~ m{\A [+] (?:panel_)?color }xmsi)
+        elsif ( $option_embed_css ) {
+            my $lines = cache_inline_style( $fname );
+            my $line_seen;
+
+            foreach my $line ( @{ $lines } ) {
+                next unless $line =~ m{\S}xms;
+                next if $line =~ m{[@]charset}xmsi;
+                next if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
+                open_media_style \%state, $media;
+                out_line q{/* "}, $style, q{" */} unless $line_seen;
+                $line_seen = 1;
+                out_line $line;
+            } ## end foreach my $line ( @{ $lines...})
+        } ## end elsif ( $option_embed_css)
+        else {
+            close_html_style \%state;
+
+            out_line $h->link(
+                {   href => $fname, rel => q{stylesheet}, type => q{text/css},
+                    ( defined $media ? ( media => $media ) : () )
+                }
+            );
+        } ## end else [ if ( $is_html ) ]
+    } ## end foreach my $style ( @option_css_styles)
+    close_media_style \%state;
+    close_html_style \%state;
+
+    return;
+} ## end sub dump_styles
+
 sub dump_file_header {
     say { $output_file_handle } q{<!doctype html>}
         or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
@@ -2043,71 +2184,7 @@ sub dump_file_header {
         }
     );
 
-    my $is_in_styles;
-    my $open_styles = sub {
-        return if $is_in_styles;
-        out_open $HTML_STYLE;
-        $is_in_styles = 1;
-    };
-    my $close_styles = sub {
-        return unless $is_in_styles;
-        out_close $HTML_STYLE;
-        undef $is_in_styles;
-    };
-    foreach my $style ( @option_css_styles ) {
-        my $is_html = $style =~ m{.html?\z}xms;
-        my $fname   = $style;
-        my $lines;
-        my $media;
-        if ( $fname =~ s{\A (all|print|screen) :}{}xms ) {
-            $media = $1;
-        }
-        elsif ( $fname =~ m{(all|print|screen)\.css\z}xms ) {
-            $media = $1;
-        }
-        if ( $option_embed_css || $is_html ) {
-            $lines = cache_inline_style( $fname );
-        }
-        if ( $lines ) {
-            if ( $is_html ) {
-                $close_styles->();
-            }
-            else {
-                $open_styles->();
-            }
-
-            my $media_printed;
-
-            out_line q{/* "}, $style, q{" */};
-
-            foreach my $line ( @{ $lines } ) {
-                next unless $line =~ m{\S}xms;
-                next if $line =~ m{[@]charset}xmsi;
-                next if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
-                if ( $line =~ m{\b [@]media \b }xms && defined $media ) {
-                    say q{Saw media: }, $line;
-                    undef $media;
-                }
-                if ( defined $media && !$media_printed ) {
-                    out_css_open q{@}, q{media }, $media;
-                    $media_printed = 1;
-                }
-                out_line $line;
-            } ## end foreach my $line ( @{ $lines...})
-            if ( $media_printed ) {
-                out_css_close;
-            }
-        } ## end if ( $lines )
-        elsif ( !$is_html ) {
-            $close_styles->();
-            out_line $h->link(
-                {   href => $fname, rel => q{stylesheet}, type => q{text/css},
-                    ( defined $media ? ( media => $media ) : () )
-                }
-            );
-        } ## end elsif ( !$is_html )
-    } ## end foreach my $style ( @option_css_styles)
-    $close_styles->();
+    dump_styles;
 
     out_close $HTML_HEAD;
 

@@ -75,6 +75,8 @@ html {
 
 .panel {
     color: #000;
+    border-style: solid;
+    border-width: thin;
     border-color: #00bcdd
 }
 

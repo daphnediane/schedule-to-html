@@ -1,22 +1,20 @@
-@media print {
-	@page {
-		size: portrait;
-	}
+@page {
+	size: portrait;
+}
 
-	html {
-		column-span: all;
-	}
+html {
+	column-span: all;
+}
 
-	.schedule {
-		page-break-before: always;
-		page-break-after: auto;
-		column-span: none;
-		break-before: all;
-		font-size: 7.5pt;
-	}
+.schedule {
+	page-break-before: always;
+	page-break-after: auto;
+	column-span: none;
+	break-before: all;
+	font-size: 7.5pt;
+}
 
-	.descriptions {
-		column-count: auto;
-		column-width: 25em;
-	}
+.descriptions {
+	column-count: auto;
+	column-width: 25em;
 }

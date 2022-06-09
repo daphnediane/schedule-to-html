@@ -33,19 +33,27 @@ html {
 }
 
 .schedule td {
-    border-color: #000
+    border-width: thin;
+    border-style: solid;
+    border-color: #000;
 }
 
 .schedule td.schedHeader {
+    border-width: thin;
+    border-style: solid;
     border-color: #ccc
 }
 
 .schedule th.schedHeader {
+    border-width: thin;
+    border-style: solid;
     border-color: #ccc
 }
 
 .schedule th {
-    border-color: #000
+    border-width: thin;
+    border-style: solid;
+    border-color: #000;
 }
 
 /* Overrides */

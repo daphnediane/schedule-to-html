@@ -1,0 +1,212 @@
+html {
+    font-family: 'Avenir LT W01_55 Roman1475520', Avenir, nunito-sans, Arial, Helvetica, sans-serif;
+}
+
+.desc a {
+    text-decoration: none;
+    color: inherit
+}
+
+.desc {
+    font-weight: 400;
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+    break-inside: avoid-column;
+    padding: .5em;
+    margin-bottom: 1em;
+    break-before: auto;
+    break-after: auto
+}
+
+.descID {
+    display: none
+}
+
+.descName {
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+    margin-block-start: 0;
+    margin-block-end: 0
+}
+
+.descNote i {
+    font-family: 'Avenir LT W01_55 Obliqu1475526', Avenir, nunito-sans, Arial, Helvetica, sans-serif;
+    font-style: oblique
+}
+
+.descPanelist {
+    margin-block-start: 0;
+    margin-block-end: 0
+}
+
+.descPanelRow {
+    list-style-type: none;
+    padding-left: 0
+}
+
+.descriptions {
+    margin-top: .5em;
+    margin-bottom: .5em;
+    column-span: none;
+}
+
+.descRoomName {
+    margin-block-start: 0;
+    margin-block-end: 0
+}
+
+.descTimeSlot {
+    position: -webkit-sticky;
+    top: 0;
+    z-index: 998;
+    vertical-align: top;
+    text-align: left;
+    padding-top: .5em;
+    padding-bottom: .5em;
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+}
+
+.descTimeSlotRowHeader {
+    break-before: auto;
+    break-after: avoid-column
+}
+
+.descTimeSlotTable {
+    margin-top: 0;
+    margin-bottom: .5em;
+    border-collapse: separate;
+    border-spacing: .5em;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.descTokens {
+    margin-block-start: 0;
+    margin-block-end: 0
+}
+
+.descTypeHeader {
+    position: sticky;
+    position: -webkit-sticky;
+    top: 0;
+    z-index: 998;
+    vertical-align: top;
+    text-align: left;
+    padding-top: .5em;
+    padding-bottom: .5em;
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+}
+
+.descTypeTable {
+    margin-top: 0;
+    margin-bottom: .5em;
+    border-collapse: separate;
+    border-spacing: .5em;
+    table-layout: fixed;
+    width: 100%
+}
+
+.panel a {
+    text-decoration: none;
+    color: inherit
+}
+
+.panel {
+    vertical-align: top;
+    break-inside: avoid;
+    z-index: -1;
+    position: relative;
+    height: 3em
+}
+
+.panelID {
+    display: none
+}
+
+.panelName {
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+    vertical-align: top;
+}
+
+.panelPanelist {
+    display: block
+}
+
+.panelTokens {
+    font-weight: bolder;
+    text-decoration: underline;
+    display: none
+}
+
+.schedColumnDay {
+    width: 8%
+}
+
+.schedColumnsRoom {
+    width: 11.5%
+}
+
+.schedColumnTime {
+    min-width: 4.5em;
+    width: 8%
+}
+
+.schedHeader {
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+    position: sticky;
+    position: -webkit-sticky;
+    top: 0;
+    left: 0;
+    z-index: 998;
+}
+
+.schedRoomEmpty {
+    height: 3em
+}
+
+.schedRowHeaders .schedColumnTime {
+    z-index: 999
+}
+
+.schedule tfoot {
+    display: none
+}
+
+.schedule {
+    border-collapse: collapse;
+    margin-top: 1em;
+    table-layout: fixed;
+}
+
+tr.descPanelRow {
+    padding-top: .5em;
+    padding-bottom: .5em
+}
+
+/* Overrides */
+
+.panelFullLabel {
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+}
+
+.descFullLabel {
+    font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
+    font-weight: 700;
+}
+
+.panelConflictGuest {
+    opacity: .3
+}
+
+.panelroomUnfocus {
+    opacity: .3
+}
+
+.roomUnfocus {
+    opacity: .3
+}

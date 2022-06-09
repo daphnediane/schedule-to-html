@@ -1,25 +1,23 @@
-@media print {
-	@page {
-		size: landscape;
-	}
+@page {
+	size: landscape;
+}
 
-	html {
-		column-count: 2;
-		column-span: none;
-	}
+html {
+	column-count: 2;
+	column-span: none;
+}
 
-	.schedule {
-		column-span: none;
-		break-before: column;
-		font-size: 7px;
-	}
+.schedule {
+	column-span: none;
+	break-before: column;
+	font-size: 7px;
+}
 
-	.schedHeader {
-		height: 3em;
-	}
+.schedHeader {
+	height: 3em;
+}
 
-	.descriptions {
-		font-size: 7.3pt;
-		column-count: 2;
-	}
+.descriptions {
+	font-size: 7.3pt;
+	column-count: 2;
 }
