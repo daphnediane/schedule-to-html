@@ -1,0 +1,83 @@
+html {
+    background: #fff;
+    color: #000;
+}
+
+.desc {
+    background-color: #fff;
+    color: #000;
+}
+
+.descName {
+    color: #000;
+}
+
+.descTimeSlotRowHeader th {
+    background-color: #fff;
+    color: #000;
+}
+
+.panel {
+    background-color: #fff;
+    color: #000;
+
+}
+
+.schedHeader {
+    background-color: #000;
+    color: #fff;
+}
+
+.schedRoomEmpty {
+    background-color: #ccc
+}
+
+.schedule td {
+    border-color: #000
+}
+
+.schedule td.schedHeader {
+    border-color: #ccc
+}
+
+.schedule th.schedHeader {
+    border-color: #ccc
+}
+
+.schedule th {
+    border-color: #000
+}
+
+/* Overrides */
+
+.panelFull {
+    color: rgba(0, 0, 0, .5)
+}
+
+.panelFullLabel {
+    color: #000
+}
+
+/*
+.panelTokens {
+    color: #642cb8;
+}
+*/
+
+.schedTimeSlotGuestBusy {
+    background-color: #fff;
+    color: #000
+}
+
+.panelSelectedGuest {
+    background-color: #000;
+    color: #fff
+}
+
+.descFull {
+    color: rgba(0, 0, 0, .5)
+}
+
+.descFullLabel {
+    color: #000
+}

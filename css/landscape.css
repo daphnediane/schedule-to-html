@@ -1,19 +1,23 @@
-@media only print {
-	@page { 
+@media print {
+	@page {
 		size: landscape;
 	}
+
 	html {
 		column-count: 2;
 		column-span: none;
 	}
+
 	.schedule {
 		column-span: none;
 		break-before: column;
 		font-size: 7px;
 	}
+
 	.schedHeader {
 		height: 3em;
 	}
+
 	.descriptions {
 		font-size: 7.3pt;
 		column-count: 2;

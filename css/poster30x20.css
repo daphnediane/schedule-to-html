@@ -1,22 +1,29 @@
-@media only print {
-	@page { 
+@media print {
+	@page {
 		size: 30in 20in;
 	}
+
 	html {
 		column-span: all;
 	}
+
 	.schedule {
 		font-size: 6pt;
 		page-break-after: always;
-/*		display: none;*/
+		/*		display: none;*/
 	}
+
 	.descriptions {
 		page-break-before: always;
 		font-size: 11.7pt;
 		column-count: 6;
 	}
+
 	.descTimeSlot {
 		column-span: all;
 	}
-	.descTypeTable { display: none; }
+
+	.descTypeTable {
+		display: none;
+	}
 }

@@ -1,11 +1,13 @@
-@media only print {
-	@page { 
+@media print {
+	@page {
 		size: 20in 30in;
 	}
+
 	html {
 		column-span: all;
 		max-height: 100vh;
 	}
+
 	.schedule {
 		page-break-before: auto;
 		page-break-after: auto;
@@ -13,23 +15,31 @@
 		break-before: auto;
 		font-size: 9pt;
 	}
+
 	.schedHeader {
 		font-size: 12pt;
 	}
-    .schedTimeSlot,.schedWeekDay {
+
+	.schedTimeSlot,
+	.schedWeekDay {
 		background-color: #aaaaaa;
-    }
-    .schedule th.schedHeader,.schedule td.schedHeader {
-        border: thin solid black;
-    }
-    .schedTimeSlotGuestBusy {
+	}
+
+	.schedule th.schedHeader,
+	.schedule td.schedHeader {
+		border: thin solid black;
+	}
+
+	.schedTimeSlotGuestBusy {
 		border: thick solid white;
 		background-color: black;
 		color: white;
-    }
+	}
+
 	.schedRoomEmpty {
 		background-color: #dddddd;
 	}
+
 	.descriptions {
 		display: none;
 	}

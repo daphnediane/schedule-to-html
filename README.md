@@ -184,7 +184,10 @@ Produces a schedule that will print nicely in landscape from edge:
 desc_tbl \
   --style license-fonts.css \
   --style landscape.css \
-  --style common.css \
+  --style screen.css \
+  --style screen:color.css \
+  --style print.css \
+  --style print:no_color.css \
   --input input/Schedule.xlsx \
   --output output/ \
   --seperate --split-day
@@ -195,7 +198,10 @@ Produces a schedule for each room
 desc_tbl \
   --style license-fonts.css \
   --style landscape.css \
-  --style common.css \
+  --style screen.css \
+  --style screen:color.css \
+  --style print.css \
+  --style print:no_color.css \
   --input input/Schedule.xlsx \
   --output output/ \
   --file-by-day --split-day

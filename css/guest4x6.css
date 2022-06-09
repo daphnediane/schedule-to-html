@@ -1,39 +1,49 @@
-@media only print {
-	@page { 
-        size: 6in 4in;
+@media print {
+	@page {
+		size: 6in 4in;
 	}
+
 	html {
 		column-span: all;
 	}
+
 	.schedule {
 		page-break-before: always;
 		page-break-after: auto;
 		column-span: none;
 		break-before: all;
-        font-size: 10.5pt;
-        margin-block-start: 2in;
-    }
-    .schedTimeSlot,.schedWeekDay {
+		font-size: 10.5pt;
+		margin-block-start: 2in;
+	}
+
+	.schedTimeSlot,
+	.schedWeekDay {
 		background-color: #aaaaaa;
-    }
-    .schedule th.schedHeader,.schedule td.schedHeader {
-        border: thin solid black;
-    }
-    .schedTimeSlotGuestBusy {
+	}
+
+	.schedule th.schedHeader,
+	.schedule td.schedHeader {
+		border: thin solid black;
+	}
+
+	.schedTimeSlotGuestBusy {
 		border: thick solid white;
 		background-color: black;
 		color: white;
-    }
-    .descTypeHeader {
-		font-weight: bold;
-        font-size: x-large;	
-        background-color: white;
 	}
+
+	.descTypeHeader {
+		font-weight: bold;
+		font-size: x-large;
+		background-color: white;
+	}
+
 	.descriptions {
 		column-count: auto;
 		column-width: 25em;
-        margin-top: 0em;
+		margin-top: 0em;
 	}
+
 	.schedRoomEmpty {
 		background-color: #dddddd;
 	}

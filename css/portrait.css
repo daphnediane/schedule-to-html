@@ -1,10 +1,12 @@
-@media only print {
-	@page { 
+@media print {
+	@page {
 		size: portrait;
 	}
+
 	html {
 		column-span: all;
 	}
+
 	.schedule {
 		page-break-before: always;
 		page-break-after: auto;
@@ -12,6 +14,7 @@
 		break-before: all;
 		font-size: 7.5pt;
 	}
+
 	.descriptions {
 		column-count: auto;
 		column-width: 25em;

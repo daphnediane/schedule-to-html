@@ -1198,6 +1198,23 @@ sub out_line {
     return;
 } ## end sub out_line
 
+sub out_css_open {
+    my ( @content ) = @_;
+    out_line @content, q[ {];
+    ++$level;
+
+    return;
+} ## end sub out_css_open
+
+sub out_css_close {
+    my ( @content ) = @_;
+    unshift @content, q{ } if @content;
+    --$level;
+    out_line q[}], @content;
+
+    return;
+} ## end sub out_css_close
+
 sub out_open {
     my ( @content ) = @_;
     out_line $h->open( @content );
@@ -1454,6 +1471,8 @@ sub dump_grid_cell_room {
         )
         };
 
+    out_open $HTML_ANCHOR, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
+
     out_line $h->div(
         {   out_class(
                 sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $SUBCLASS_PIECE_ID
@@ -1461,7 +1480,6 @@ sub dump_grid_cell_room {
         },
         $panel->{ $TABLE_UNIQUE_ID }
     );
-    out_open $HTML_ANCHOR, { href => q{#} . $panel->{ $FIELD_CSS_HREF } };
 
     if ( $panel->{ $TABLE_FULL } ) {
         out_line $h->div(
@@ -2038,9 +2056,17 @@ sub dump_file_header {
     };
     foreach my $style ( @option_css_styles ) {
         my $is_html = $style =~ m{.html?\z}xms;
+        my $fname   = $style;
         my $lines;
+        my $media;
+        if ( $fname =~ s{\A (all|print|screen) :}{}xms ) {
+            $media = $1;
+        }
+        elsif ( $fname =~ m{(all|print|screen)\.css\z}xms ) {
+            $media = $1;
+        }
         if ( $option_embed_css || $is_html ) {
-            $lines = cache_inline_style( $style );
+            $lines = cache_inline_style( $fname );
         }
         if ( $lines ) {
             if ( $is_html ) {
@@ -2049,15 +2075,35 @@ sub dump_file_header {
             else {
                 $open_styles->();
             }
+
+            my $media_printed;
+
+            out_line q{/* "}, $style, q{" */};
+
             foreach my $line ( @{ $lines } ) {
+                next unless $line =~ m{\S}xms;
                 next if $line =~ m{[@]charset}xmsi;
+                next if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
+                if ( $line =~ m{\b [@]media \b }xms && defined $media ) {
+                    say q{Saw media: }, $line;
+                    undef $media;
+                }
+                if ( defined $media && !$media_printed ) {
+                    out_css_open q{@}, q{media }, $media;
+                    $media_printed = 1;
+                }
                 out_line $line;
+            } ## end foreach my $line ( @{ $lines...})
+            if ( $media_printed ) {
+                out_css_close;
             }
         } ## end if ( $lines )
         elsif ( !$is_html ) {
             $close_styles->();
             out_line $h->link(
-                { href => $style, rel => q{stylesheet}, type => q{text/css} }
+                {   href => $fname, rel => q{stylesheet}, type => q{text/css},
+                    ( defined $media ? ( media => $media ) : () )
+                }
             );
         } ## end elsif ( !$is_html )
     } ## end foreach my $style ( @option_css_styles)

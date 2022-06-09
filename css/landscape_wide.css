@@ -1,0 +1,42 @@
+@media print {
+    @page {
+        size: landscape;
+    }
+
+    html {
+        column-span: all;
+    }
+
+    .schedule {
+        page-break-before: always;
+        page-break-after: always;
+        column-span: none;
+        break-before: all;
+        font-size: 7px;
+    }
+
+    .schedHeader {
+        height: 3em;
+    }
+
+    .descriptions {
+        page-break-before: always;
+        break-before: page;
+        column-count: 4;
+        font-size: 7.3pt;
+    }
+
+    .desc {
+        -webkit-column-break-inside: avoid;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .descNote {
+        break-before: avoid;
+    }
+
+    .descDifficulty {
+        break-before: avoid;
+    }
+}
