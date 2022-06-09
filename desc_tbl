@@ -226,6 +226,18 @@ Readonly our $FILTER_OUTPUT_NAME     => q{subname};
 Readonly our $DEFAULT_FILTER         => {
     $FILTER_OUTPUT_NAME => [],
 };
+Readonly our $FILTER_ROOM_DESC_HIDE => q{hidden};
+Readonly our $FILTER_ROOM_CLASSES   => q{class};
+
+Readonly our $FILTER_SET_UNFOCUS => {
+    $FILTER_ROOM_DESC_HIDE => 1,
+    $FILTER_ROOM_CLASSES   => [ $CLASS_GRID_CELL_UNFOCUS ]
+};
+
+Readonly our $FILTER_SET_FOCUS =>
+    { $FILTER_ROOM_CLASSES => [ $CLASS_GRID_CELL_FOCUS ] };
+
+Readonly our $FILTER_SET_DEFAULT => {};
 
 my @option_css_styles;
 my $option_desc_at_end;
@@ -1292,26 +1304,29 @@ sub get_room_index_focus_map {
     my @room_indices = room_indices_for_region( $region );
 
     if ( exists $filter->{ $FILTER_ROOM } ) {
-        my %res = map { $_ => 0 } @room_indices;
-        $res{ $filter->{ $FILTER_ROOM }->{ $TABLE_ROOM_INDEX } } = 1;
+        my %res = map { $_ => $FILTER_SET_UNFOCUS } @room_indices;
+        $res{ $filter->{ $FILTER_ROOM }->{ $TABLE_ROOM_INDEX } }
+            = $FILTER_SET_FOCUS;
         return %res;
-    }
+    } ## end if ( exists $filter->{...})
 
-    my %res = map { $_ => 1 } @room_indices;
     if ( @option_rooms ) {
+        my %res;
+        my $def_class = [];
     ROOM:
         foreach my $id ( @room_indices ) {
             my $name = $rooms{ $id }->{ $FIELD_ROOM_NAME };
             foreach my $match ( @option_rooms ) {
                 if ( $name =~ m{\Q$match\E}xmsi ) {
-                    next ROOM;
+                    $res{ $id } = $FILTER_SET_FOCUS;
                 }
             }
-            $res{ $id } = 0;    # Mark as mismatch
+            $res{ $id } = $FILTER_SET_UNFOCUS;
         } ## end ROOM: foreach my $id ( @room_indices)
+        return %res;
     } ## end if ( @option_rooms )
 
-    return %res;
+    return map { $_ => $FILTER_SET_DEFAULT } @room_indices;
 } ## end sub get_room_index_focus_map
 
 sub dump_grid_row_room_names {
@@ -1346,10 +1361,7 @@ sub dump_grid_row_room_names {
             {   out_class(
                     $CLASS_GRID_CELL_HEADER, $CLASS_GRID_COLUMN_ROOM,
                     $CLASS_GRID_CELL_ROOM_NAME,
-                    (     $room_focus_map->{ $idx }
-                        ? $CLASS_GRID_CELL_FOCUS
-                        : $CLASS_GRID_CELL_UNFOCUS
-                    ),
+                    @{ $room_focus_map->{ $idx }->{ $FILTER_ROOM_CLASSES } },
                     $kind eq $HTML_TABLE_HEAD
                     ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX, $idx )
                     : (),
@@ -1429,12 +1441,7 @@ sub dump_grid_cell_room {
         }
     } ## end if ( exists $filter->{...})
 
-    if ( $focus ) {
-        push @subclasses, $CLASS_GRID_CELL_FOCUS;
-    }
-    else {
-        push @subclasses, $CLASS_GRID_CELL_UNFOCUS;
-    }
+    push @subclasses, @{ $focus->{ $FILTER_ROOM_CLASSES } };
 
     out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->};
     out_open $HTML_TABLE_DATA,
@@ -1866,7 +1873,7 @@ sub dump_desc_body {
         my $panels_for_timeslot = $rows->{ $time };
 
         foreach my $idx ( @all_room_ids ) {
-            next unless $room_focus_map->{ $idx };
+            next if $room_focus_map->{ $idx }->{ $FILTER_ROOM_DESC_HIDE };
             my $panel = $panels_for_timeslot->{ $idx };
             next unless defined $panel;
             next unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
