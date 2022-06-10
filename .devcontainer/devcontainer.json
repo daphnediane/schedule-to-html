@@ -1,5 +1,5 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.234.0/containers/perl
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.238.0/containers/perl
 {
 	"name": "Perl (Community)",
 	"build": {
@@ -15,31 +15,38 @@
 		"--security-opt",
 		"seccomp=unconfined"
 	],
-	// Set *default* container specific settings.json values on container create.
-	"settings": {
-		"perl-toolbox.syntax.path": "/usr/bin",
-		"perl-toolbox.lint.perlcriticProfile": "${workspaceRoot}/.perlcriticrc",
-		"perl-toolbox.syntax.includePaths": [
-			"/usr/share/perl5",
-			"/usr/lib/x86_64-linux-gnu/perl5/5.32"
-		],
-		"perl-toolbox.lint.excludedPolicies": [
-			"RequireRcsKeywords",
-			"ProhibitPostfixControls",
-			"ProhibitUnlessBlocks",
-			"RequireVersionVar"
-		],
-		"[markdown]": {
-			"editor.defaultFormatter": "yzhang.markdown-all-in-one"
+	// Configure tool-specific properties.
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			// Set *default* container specific settings.json values on container create.
+			"settings": {
+				"perl-toolbox.syntax.path": "/usr/bin",
+				"perl-toolbox.lint.perlcriticProfile": "${workspaceRoot}/.perlcriticrc",
+				"perl-toolbox.syntax.includePaths": [
+					"/usr/share/perl5",
+					"/usr/lib/x86_64-linux-gnu/perl5/5.32"
+				],
+				"perl-toolbox.lint.excludedPolicies": [
+					"RequireRcsKeywords",
+					"ProhibitPostfixControls",
+					"ProhibitUnlessBlocks",
+					"RequireVersionVar"
+				],
+				"[markdown]": {
+					"editor.defaultFormatter": "yzhang.markdown-all-in-one"
+				}
+			},
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"mortenhenriksen.perl-debug",
+				"d9705996.perl-toolbox",
+				"sfodje.perltidy",
+				"yzhang.markdown-all-in-one",
+				"GitHub.vscode-pull-request-github"
+			]
 		}
 	},
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"mortenhenriksen.perl-debug",
-		"d9705996.perl-toolbox",
-		"sfodje.perltidy",
-		"yzhang.markdown-all-in-one"
-	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Use 'postCreateCommand' to run commands after the container is created.
