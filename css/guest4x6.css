@@ -18,7 +18,7 @@
 
 	.schedTimeSlot,
 	.schedWeekDay {
-		background-color: #aaaaaa;
+		background-color: #aaa;
 	}
 
 	.schedule th.schedHeader,
@@ -45,6 +45,6 @@
 	}
 
 	.schedRoomEmpty {
-		background-color: #dddddd;
+		background-color: #ddd;
 	}
 }

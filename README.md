@@ -189,7 +189,7 @@ desc_tbl \
     --style screen:color.css \
     --style print.css \
     --style screen:+color=BW \
-    --style print:no_color.css \
+    --style print:bw.css \
     --style print:landscape_wide.css \
     --input input/Test.xlsx \
     --output output/ \
@@ -208,7 +208,7 @@ desc_tbl \
     --style screen:color.css \
     --style print.css \
     --style screen:+color=BW \
-    --style print:no_color.css \
+    --style print:bw.css \
     --style print:landscape.css \
     --input input/Test.xlsx \
     --output output/guests \
