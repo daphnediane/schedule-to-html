@@ -1,4 +1,10 @@
-/* "common.css" */
+.descriptions {
+    font-family: 'Avenir LT W01_55 Roman1475520', Avenir, nunito-sans, Arial, Helvetica, sans-serif;
+    margin-top: .5em;
+    margin-bottom: .5em;
+    column-span: none;
+}
+
 .desc a {
     text-decoration: none;
     color: inherit
@@ -39,12 +45,6 @@
 .descPanelRow {
     list-style-type: none;
     padding-left: 0
-}
-
-.descriptions {
-    margin-top: .5em;
-    margin-bottom: .5em;
-    column-span: none;
 }
 
 .descRoomName {
@@ -116,6 +116,34 @@ tr.descPanelRow {
     font-weight: 700;
 }
 
+/* "screen.css" */
+.descriptions {
+    column-count: auto;
+    column-width: 25em;
+}
+
+.descTimeSlotTable {
+    break-inside: avoid-column
+}
+
+.descTokens {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+    display: none
+}
+
+.descTypeHeader {
+    font-size: x-large
+}
+
+/* Overrides */
+
+.descConflictGuest {
+    opacity: .3;
+}
+
 /* "color.css" */
 .descriptions {
     color: #000;
@@ -134,46 +162,7 @@ tr.descPanelRow {
     color: #000
 }
 
-.panel {
-    color: #000;
-    border-style: solid;
-    border-width: thin;
-    border-color: #00bcdd
-}
-
-.schedHeader {
-    background-color: #00bcdd;
-    color: #18191c;
-}
-
-.schedRowTimeSlot {
-    border-top: medium groove rgba(183, 235, 248, .5);
-    border-bottom: medium groove rgba(183, 235, 248, .5)
-}
-
 /* Overrides */
-.panelFull {
-    color: rgba(0, 0, 0, .5)
-}
-
-.panelFullLabel {
-    color: #d9292c
-}
-
-.panelTokens {
-    color: #642cb8;
-}
-
-.schedTimeSlotGuestBusy {
-    background-color: #000;
-    color: #fff
-}
-
-.panelSelectedGuest {
-    background-color: #000;
-    color: #fff
-}
-
 .descFull {
     color: rgba(0, 0, 0, .5)
 }
@@ -183,87 +172,66 @@ tr.descPanelRow {
 }
 
 /* "+color" */
-.descTypeAU,
-.panelTypeAU {
+.descTypeAU {
     background-color: #FCD9F6
 }
 
-.descTypeBR,
-.panelTypeBR {
+.descTypeBR {
     background-color: #CCCCCC
 }
 
-.descTypeCC,
-.panelTypeCC {
+.descTypeCC {
     background-color: #FCD9F6
 }
 
-.descTypeCD,
-.panelTypeCD {
+.descTypeCD {
     background-color: #FFFFFF
 }
 
-.descTypeFD,
-.panelTypeFD {
+.descTypeFD {
     background-color: #DCDEF9
 }
 
-.descTypeFP,
-.panelTypeFP {
+.descTypeFP {
     background-color: #BCF8FA
 }
 
-.descTypeFW,
-.panelTypeFW {
+.descTypeFW {
     background-color: #DCDEF9
 }
 
-.descTypeGD,
-.panelTypeGD {
+.descTypeGD {
     background-color: #DCDEF9
 }
 
-.descTypeGM,
-.panelTypeGM {
+.descTypeGM {
     background-color: #FCD9F6
 }
 
-.descTypeGP,
-.panelTypeGP {
+.descTypeGP {
     background-color: #E2F9D7
 }
 
-.descTypeGW,
-.panelTypeGW {
+.descTypeGW {
     background-color: #FDEEB5
 }
 
-.descTypeME,
-.panelTypeME {
+.descTypeME {
     background-color: #90E5F9
 }
 
-.descTypePL,
-.panelTypePL {
+.descTypePL {
     background-color: #BCF8FA
 }
 
-.descTypePS,
-.panelTypePS {
+.descTypePS {
     background-color: #D2F9C8
 }
 
-.descTypeSP,
-.panelTypeSP {
+.descTypeSP {
     background-color: #CCCCCC
 }
 
-.descTypeZZ,
-.panelTypeZZ {
+.descTypeZZ {
     background-color: #CCCCCC
-}
-
-.descriptions {
-    column-count: auto;
-    column-width: 25em;
 }
