@@ -36,3 +36,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     libspreadsheet-parseexcel-perl \
     libxml-twig-perl
 RUN mv /usr/local/bin/perl /usr/local/bin/perl-alt
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends \
+    lighttpd
+

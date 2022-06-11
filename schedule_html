@@ -4,8 +4,8 @@
     --style license-fonts.css \
     --style common.css \
     --style screen.css \
-    --style screen:+color \
     --style screen:color.css \
+    --style screen:+color \
     --style print.css \
     --style screen:+color=BW \
     --style print:bw.css \

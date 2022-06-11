@@ -19,6 +19,8 @@ report
 
 # Do not include our font license keys
 css/license-fonts.css
+# Allow a test document in the .css directory
+css/index.html
 
 !.clang-format
 !.devcontainer
