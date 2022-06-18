@@ -59,24 +59,25 @@ Readonly our $PANELTYPE_TABLE_PREFIX => q{Prefix};
 Readonly our $PANELTYPE_TABLE_KIND   => q{Panel_Kind};
 
 # Custom fields
+Readonly our $FIELD_ACTIVE_PANEL            => q{*PANEL};
 Readonly our $FIELD_ACTIVE_ROOMS            => q{*ROOMS};
-Readonly our $FIELD_BY_REGION               => q{*BY_REGION};
+Readonly our $FIELD_ALL_PANELIST            => q{*PANELIST};
+Readonly our $FIELD_BREAK                   => q{*BREAK};
 Readonly our $FIELD_BY_ROW_SECONDS          => q{*BY_SECONDS};
 Readonly our $FIELD_CAFE                    => q{*CAFE};
 Readonly our $FIELD_CSS_HREF                => q{*HREF};
 Readonly our $FIELD_CSS_SUBCLASSES          => q{*CLASSES};
 Readonly our $FIELD_DAY_BEING_OUTPUT        => q{*ACTIVEDAY};
 Readonly our $FIELD_END_TIME_SECONDS        => q{*END_SEC};
-Readonly our $FIELD_PANELIST_BUSY_ELSEWHERE => q{*BUSY_ELSEWHERE};
-Readonly our $FIELD_PANELIST_MAP            => q{*PANELIST_MAP};
-Readonly our $FIELD_PANELIST_LISTED         => q{*LISTED_PANELIST};
 Readonly our $FIELD_LAST_TIME_OUTPUT        => q{*LASTTIME};
 Readonly our $FIELD_NEXT_PANEL              => q{*NEXT};
-Readonly our $FIELD_ALL_PANELIST            => q{*PANELIST};
+Readonly our $FIELD_PANELIST_BUSY_ELSEWHERE => q{*BUSY_ELSEWHERE};
+Readonly our $FIELD_PANELIST_LISTED         => q{*LISTED_PANELIST};
+Readonly our $FIELD_PANELIST_MAP            => q{*PANELIST_MAP};
 Readonly our $FIELD_REGION_NAME             => q{*SPLIT_NAME};
+Readonly our $FIELD_ROOM_HIDDEN             => q{*HIDDEN};
 Readonly our $FIELD_ROOM_INFO               => q{*ROOM_INFO};
 Readonly our $FIELD_ROOM_NAME               => q{*ROOM_NAME};
-Readonly our $FIELD_ROOM_HIDDEN             => q{*HIDDEN};
 Readonly our $FIELD_START_TIME_SECONDS      => q{*START_SEC};
 Readonly our $FIELD_TABLE_ROWS              => q{*NUM_ROWS};
 
@@ -240,19 +241,20 @@ Readonly our $FILTER_SET_FOCUS =>
 Readonly our $FILTER_SET_DEFAULT => {};
 
 my @option_css_styles;
+my @option_rooms;
 my $option_desc_at_end;
 my $option_embed_css;
 my $option_file_per_day;
 my $option_file_per_guest;
 my $option_file_per_panelist;
 my $option_file_per_room;
-my @option_rooms;
 my $option_hide_unused_rooms;
 my $option_input_file;
 my $option_is_postcard;
 my $option_just_panelist;
 my $option_kiosk_mode;
 my $option_output;
+my $option_show_break;
 my $option_show_day_column;
 my $option_show_descriptions;
 my $option_show_grid;
@@ -616,18 +618,13 @@ sub process_spreadsheet_room_sheet {
 
     return unless defined $name;
 
-    my $hidden = !defined $idx || $idx eq q{} || $idx >= $ROOM_FIRST_HIDE_IDX;
-
     my $room = $named_rooms{ lc $name } //= {
         $TABLE_ROOM_INDEX => $idx,
         $FIELD_ROOM_NAME  => $long,
-        $TABLE_HOTEL_ROOM => $hotel,
-        ( $hidden ? ( $FIELD_ROOM_HIDDEN => 1 ) : () )
+        $TABLE_HOTEL_ROOM => $hotel
     };
 
-    return if $hidden;
-
-    $rooms{ $idx } = $room;
+    $rooms{ $idx } = $room if $idx =~ m{\A \d+ \z}xms;
 
     return;
 } ## end sub process_spreadsheet_room_sheet
@@ -887,7 +884,6 @@ sub process_spreadsheet_find_room {
         $panel->{ $TABLE_ROOM_INDEX } = $room->{ $TABLE_ROOM_INDEX };
         $panel->{ $FIELD_ROOM_INFO }  = $room;
 
-        return if $room->{ $FIELD_ROOM_HIDDEN };
         return $room;
     } ## end if ( defined $room )
 
@@ -900,7 +896,6 @@ sub process_spreadsheet_find_room {
     } ## end if ( !defined $idx )
 
     return if $idx eq q{};
-    return if $idx >= $ROOM_FIRST_HIDE_IDX;
 
     $room = $rooms{ $idx } //= {
         $TABLE_ROOM_INDEX => $idx,
@@ -948,11 +943,11 @@ sub process_spreadsheet_row {
     my $uniq_id = $panel{ $TABLE_UNIQUE_ID };
     my $kind    = $uniq_id // q{Unknown};
     $kind =~ s{\d+[[:alpha:]]?\z}{}xms;
+    my $short_kind_id = lc substr $kind, 0, 2;
 
     unless ( exists $panel{ $TABLE_KIND } ) {
-        my $prefix = substr $uniq_id, 0, 2;
         $panel{ $TABLE_KIND }
-            = $panel_types{ lc $prefix }->{ $TABLE_KIND };
+            = $panel_types{ $short_kind_id }->{ $TABLE_KIND };
     }
 
     state %ids_seen;
@@ -965,8 +960,12 @@ sub process_spreadsheet_row {
         $ids_seen{ $uniq_id } = 1;
     }
 
+    if ( $short_kind_id eq q{br} ) {
+        $panel{ $FIELD_BREAK } = 1;
+    }
+
     my $room_name  = $panel{ $TABLE_ROOM_NAME };
-    my @subclasses = sprintf $SUBCLASS_FMT_TYPE, $kind;
+    my @subclasses = sprintf $SUBCLASS_FMT_TYPE, uc $short_kind_id;
 
     push @subclasses, process_spreadsheet_workshop( \%panel );
 
@@ -1049,42 +1048,74 @@ sub make_time_ranges {
     my %panels_active;
     my $last_time;
     my %empty_times;
+    my $current_break;
 
     my $process_time = sub {
         my ( $time ) = @_;
 
         # Add new panels
         foreach my $panel ( @{ $panels_by_start{ $time } } ) {
-            my $room     = $panel->{ $FIELD_ROOM_INFO };
-            my $room_idx = $room->{ $TABLE_ROOM_INDEX };
-            my $region_info
-                = $panel->{ $FIELD_BY_REGION }->{ $region_start_time }
-                //= {};    # fix visual code formatting error */
-            $region_info->{ $FIELD_TABLE_ROWS } //= 0;
-            $region_info->{ $FIELD_START_TIME_SECONDS } = $time;
-            $panels_active{ $room_idx } = $panel;
+            my $room_idx = $panel->{ $TABLE_ROOM_INDEX };
+
+            if ( $room_idx >= $ROOM_FIRST_HIDE_IDX ) {
+                if ($panel->{ $FIELD_BREAK }
+                    && ( !defined $current_break
+                        || $panel->{ $FIELD_END_TIME_SECONDS }
+                        > $current_break->{ $FIELD_END_TIME_SECONDS } )
+                    )
+                {
+                    $current_break = $panel;
+                } ## end if ( $panel->{ $FIELD_BREAK...})
+                next;
+            } ## end if ( $room_idx >= $ROOM_FIRST_HIDE_IDX)
+
+            my $panel_state = {
+                $FIELD_ACTIVE_PANEL       => $panel,
+                $FIELD_TABLE_ROWS         => 0,
+                $FIELD_START_TIME_SECONDS => $time,
+                $FIELD_END_TIME_SECONDS =>
+                    $panel->{ $FIELD_END_TIME_SECONDS },
+                $TABLE_ROOM_INDEX => $room_idx,
+            };
+            $panels_active{ $room_idx } = $panel_state;
         } ## end foreach my $panel ( @{ $panels_by_start...})
+
+        if ( defined $current_break
+            && $current_break->{ $FIELD_END_TIME_SECONDS } <= $time )
+        {
+            undef $current_break;
+        }
+        foreach my $room_idx ( @all_room_ids ) {
+            next if $room_idx >= $ROOM_FIRST_HIDE_IDX;
+
+            my $panel_end
+                = $panels_active{ $room_idx }->{ $FIELD_END_TIME_SECONDS };
+            next if defined $panel_end && $panel_end > $time;
+            if ( !defined $current_break ) {
+                delete $panels_active{ $room_idx };
+                next;
+            }
+
+            my $panel_state = {
+                $FIELD_ACTIVE_PANEL       => $current_break,
+                $FIELD_TABLE_ROWS         => 0,
+                $FIELD_START_TIME_SECONDS => $time,
+                $FIELD_END_TIME_SECONDS =>
+                    $current_break->{ $FIELD_END_TIME_SECONDS },
+                $TABLE_ROOM_INDEX => $room_idx,
+                $FIELD_BREAK      => 1,
+            };
+            $panels_active{ $room_idx } = $panel_state;
+        } ## end foreach my $room_idx ( @all_room_ids)
 
         my %timeslot_info;
         my $per_map;
         my @active_room_ids = keys %panels_active;
-        foreach my $room_idx ( @active_room_ids ) {
-            my $panel     = $panels_active{ $room_idx };
-            my $panel_end = $panel->{ $FIELD_END_TIME_SECONDS };
+        while ( my ( $room_idx, $panel_state ) = each %panels_active ) {
+            my $panel = $panel_state->{ $FIELD_ACTIVE_PANEL };
+            $timeslot_info{ $room_idx } = $panel_state;
 
-            if ( !defined $panel_end || $panel_end <= $time ) {
-
-                # Remove expired panels
-                delete $panels_active{ $room_idx };
-                next;
-            } ## end if ( !defined $panel_end...)
-
-            $timeslot_info{ $room_idx } = $panel;
-
-            my $region_info
-                = $panel->{ $FIELD_BY_REGION }->{ $region_start_time } //= {};
-
-            ++$region_info->{ $FIELD_TABLE_ROWS };
+            ++$panel_state->{ $FIELD_TABLE_ROWS };
             foreach my $info ( grep { defined }
                 values %{ $panel->{ $FIELD_PANELIST_MAP } } )
             {
@@ -1093,9 +1124,10 @@ sub make_time_ranges {
                 $per_map->{ $panelist } = $info;
             } ## end foreach my $info ( grep { defined...})
 
-            $region_active->{ $FIELD_ACTIVE_ROOMS }->{ $room_idx } = 1;
+            $region_active->{ $FIELD_ACTIVE_ROOMS }->{ $room_idx } = 1
+                unless $panel_state->{ $FIELD_BREAK };
 
-        } ## end foreach my $room_idx ( @active_room_ids)
+        } ## end while ( my ( $room_idx, $panel_state...))
 
         if ( %timeslot_info ) {
             foreach my $empty ( keys %empty_times ) {
@@ -1143,16 +1175,21 @@ sub make_time_ranges {
         my %next_panels = ();
 
         foreach my $time ( @times ) {
-            my $next_panels = $next_rows->{ $time } //= {};
+            my $next_panels    = $next_rows->{ $time } //= {};
+            my $current_panels = $rows->{ $time };
             foreach my $room_idx ( @all_room_ids ) {
                 my $next = $next_panels{ $room_idx };
                 $next_panels->{ $room_idx } = $next if defined $next;
             }
-            foreach my $panel ( @{ $panels_by_start{ $time } } ) {
-                my $room     = $panel->{ $FIELD_ROOM_INFO };
-                my $room_idx = $room->{ $TABLE_ROOM_INDEX };
-                $next_panels{ $room_idx } = $panel;
-            }
+            while ( my ( $room_idx, $panel_state )
+                = each %{ $current_panels } )
+            {
+                next
+                    unless $panel_state->{ $FIELD_START_TIME_SECONDS }
+                    == $time;
+                $next_panels{ $room_idx }
+                    = $panel_state->{ $FIELD_ACTIVE_PANEL };
+            } ## end while ( my ( $room_idx, $panel_state...))
         } ## end foreach my $time ( @times )
     };
 
@@ -1166,12 +1203,16 @@ sub make_time_ranges {
         }
 
         $finish_region->();
-        foreach my $panel ( values %panels_active ) {
-            my $region_info = $panel->{ $FIELD_BY_REGION }->{ $split_time }
-                //= {};    # fix visual code formatting error */
-            $region_info->{ $FIELD_TABLE_ROWS }         = 0;
-            $region_info->{ $FIELD_START_TIME_SECONDS } = $split_time;
-        } ## end foreach my $panel ( values ...)
+        my %new_active = %panels_active;
+        while ( my ( $room_idx, $panel_state ) = each %panels_active ) {
+            $new_active{ $room_idx } = {
+                $FIELD_ACTIVE_PANEL => $panel_state->{ $FIELD_ACTIVE_PANEL },
+                $FIELD_TABLE_ROWS   => 0,
+                $FIELD_START_TIME_SECONDS => $split_time,
+                $TABLE_ROOM_INDEX         => $room_idx,
+            };
+        } ## end while ( my ( $room_idx, $panel_state...))
+        %panels_active     = %new_active;
         $region_active     = $next_range;
         $region_start_time = $split_time;
         undef $last_time;
@@ -1267,7 +1308,7 @@ sub is_panelist_busy {
     return unless defined $panelist;
 
     foreach my $idx ( @all_room_ids ) {
-        my $panel = $panels_for_timeslot->{ $idx };
+        my $panel = $panels_for_timeslot->{ $idx }->{ $FIELD_ACTIVE_PANEL };
         next unless defined $panel;
         return 1 if exists $panel->{ $FIELD_PANELIST_MAP }->{ $panelist };
     }
@@ -1313,11 +1354,12 @@ sub decode_time_id {
 sub room_indices_for_region {
     my ( $region ) = @_;
 
+    my @rooms = @all_room_ids;
+
     if ( $option_hide_unused_rooms && defined $region ) {
-        my @room_indices = keys %{ $region->{ $FIELD_ACTIVE_ROOMS } };
-        return @room_indices if @room_indices;
+        @rooms = keys %{ $region->{ $FIELD_ACTIVE_ROOMS } };
     }
-    return @all_room_ids;
+    return grep { $_ < $ROOM_FIRST_HIDE_IDX } @rooms;
 } ## end sub room_indices_for_region
 
 sub get_room_index_focus_map {
@@ -1425,7 +1467,8 @@ sub dump_grid_header {
 } ## end sub dump_grid_header
 
 sub dump_grid_cell_room {
-    my ( $filter, $region, $time, $idx, $panel, $focus ) = @_;
+    my ( $filter, $region, $time, $idx, $panel_state, $focus ) = @_;
+    my $panel = $panel_state->{ $FIELD_ACTIVE_PANEL };
 
     if ( !defined $panel ) {
         out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{-->},
@@ -1433,9 +1476,7 @@ sub dump_grid_cell_room {
         return;
     }
 
-    my $region_info = $panel->{ $FIELD_BY_REGION }
-        ->{ $region->{ $FIELD_START_TIME_SECONDS } } // {};
-    if ( $region_info->{ $FIELD_START_TIME_SECONDS } ne $time ) {
+    if ( $panel_state->{ $FIELD_START_TIME_SECONDS } ne $time ) {
         out_line q{<!--}, $rooms{ $idx }->{ $FIELD_ROOM_NAME }, q{ },
             $panel->{ $TABLE_UNIQUE_ID }, q{ continued-->};
         return;
@@ -1469,7 +1510,7 @@ sub dump_grid_cell_room {
     out_open $HTML_TABLE_DATA,
         {
         id      => ( sprintf $ANCHOR_FMT_GRID, $panel->{ $FIELD_CSS_HREF } ),
-        rowspan => ( $region_info->{ $FIELD_TABLE_ROWS } // 1 ),
+        rowspan => ( $panel_state->{ $FIELD_TABLE_ROWS } // 1 ),
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
             map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } @subclasses
@@ -1575,15 +1616,17 @@ sub dump_grid_row_time {
     } ## end if ( $option_show_day_column)
     else {
         my ( $day, $tm ) = decode_time( $time );
+        my @before_time;
+
         if ( $region->{ $FIELD_LAST_TIME_OUTPUT } == $time
             || ( $region->{ $FIELD_DAY_BEING_OUTPUT } // q{} ) ne $day )
         {
-            $tm = $day . $h->br() . $tm;
+            push @before_time, $day, $h->br();
             $region->{ $FIELD_DAY_BEING_OUTPUT } = $day;
         } ## end if ( $region->{ $FIELD_LAST_TIME_OUTPUT...})
         out_line $h->th(
             { out_class( @time_classes ) },
-            $tm
+            join q{}, @before_time, $tm
         );
     } ## end else [ if ( $option_show_day_column)]
 
@@ -1912,8 +1955,16 @@ sub dump_desc_body {
         my $panels_for_timeslot = $rows->{ $time };
 
         foreach my $idx ( @all_room_ids ) {
+            if ( $idx >= $ROOM_FIRST_HIDE_IDX ) {
+                next unless $option_show_break;
+            }
+
             next if $room_focus_map->{ $idx }->{ $FILTER_ROOM_DESC_HIDE };
-            my $panel = $panels_for_timeslot->{ $idx };
+            my $panel
+                = $panels_for_timeslot->{ $idx }->{ $FIELD_ACTIVE_PANEL };
+
+            next if $panel->{ $TABLE_ROOM_INDEX } >= $ROOM_FIRST_HIDE_IDX;
+
             next unless defined $panel;
             next unless $panel->{ $FIELD_START_TIME_SECONDS } == $time;
 
@@ -2184,6 +2235,8 @@ sub dump_styles {
 } ## end sub dump_styles
 
 sub dump_file_header {
+    my ( $filter ) = @_;
+
     say { $output_file_handle } q{<!doctype html>}
         or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
 
@@ -2192,7 +2245,14 @@ sub dump_file_header {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( $option_title );
+
+    my @subnames = @{ $filter->{ $FILTER_OUTPUT_NAME } };
+    my $title    = $option_title;
+    if ( @subnames ) {
+        $title .= q{: } . join q{, }, @subnames;
+    }
+
+    out_line $h->title( $title );
     out_line $h->link(
         {   href =>
                 q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
@@ -2262,7 +2322,7 @@ sub dump_tables {
 
     open_dump_file( $filter );
 
-    dump_file_header;
+    dump_file_header( $filter );
 
     out_open $HTML_BODY;
 
@@ -2284,12 +2344,10 @@ sub dump_tables {
 sub dump_kiosk_desc {
     my ( $region ) = @_;
 
-    my $rows     = $region->{ $FIELD_BY_ROW_SECONDS };
-    my @times    = sort { $a <=> $b } keys %{ $rows };
-    my @room_ids = room_indices_for_region( $region );
-
     my $cur_rows  = $region->{ $FIELD_BY_ROW_SECONDS } //= {};
     my $next_rows = $region->{ $FIELD_NEXT_PANEL }     //= {};
+    my @times    = sort { $a <=> $b } keys %{ $cur_rows };
+    my @room_ids = room_indices_for_region( $region );
     foreach my $time ( @times ) {
         my $time_id = q{desc_id_} . decode_time_id( $time );
         out_open $HTML_DIV,
@@ -2350,12 +2408,14 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
-                $DEFAULT_FILTER,       $region,
-                $cur_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_CURRENT
+                $DEFAULT_FILTER, $region,
+                $cur_panels->{ $idx }->{ $FIELD_ACTIVE_PANEL },
+                $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
-                $DEFAULT_FILTER,        $region,
-                $next_panels->{ $idx }, $CLASS_KIOSK_DESC_CELL_FUTURE
+                $DEFAULT_FILTER, $region,
+                $next_panels->{ $idx }->{ $FIELD_ACTIVE_PANEL },
+                $CLASS_KIOSK_DESC_CELL_FUTURE
             );
             out_close $HTML_TABLE_ROW;
         } ## end foreach my $idx ( @room_ids)
@@ -2384,6 +2444,7 @@ sub dump_kiosk {
             type => q{text/css}
         }
     );
+    dump_styles;
     out_line $h->script(
         { type => q{text/javascript}, src => q{js/kiosk.js} } );
 
@@ -2506,6 +2567,7 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
+        q{break-desc!}       => \$option_show_break,
         q{day!}              => \$option_show_day_column,
         q{descriptions!}     => \$option_show_descriptions,
         q{file-by-day!}      => \$option_file_per_day,
@@ -2538,7 +2600,7 @@ sub main {
     $option_title      //= q{Cosplay America 2022 Schedule};
 
     if ( $option_kiosk_mode ) {
-        @option_css_styles        = ();
+        @option_css_styles        = ( qw{+color} );
         $option_desc_at_end       = undef;
         $option_embed_css         = undef;
         $option_file_per_day      = undef;
