@@ -89,3 +89,8 @@ html {
 .descFullLabel {
     color: #000
 }
+
+.descTypeBR,
+.panelTypeBR {
+    background-color: #999;
+}

@@ -159,6 +159,7 @@ tr.descPanelRow {
 }
 
 .descTimeSlotRowHeader th {
+    background-color: #40c8ed;
     color: #000
 }
 

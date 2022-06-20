@@ -1,3 +1,4 @@
+severity = 1
 exclude = RequireRcsKeywords ProhibitPostfixControls ProhibitUnlessBlocks ProhibitEscapedMetacharacters RequireVersionVar
 verbose = %f:%l:%c: %m [%p], near '%r'.  (Severity: %s)\n
 

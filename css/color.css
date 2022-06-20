@@ -1,5 +1,5 @@
 html {
-    background-color: #00bcdd;
+    background-color: #40c8ed;
     color: #000;
 }
 
@@ -13,7 +13,7 @@ html {
 }
 
 .descTimeSlotRowHeader th {
-    background-color: #00bcdd;
+    background-color: #40c8ed;
     color: #000
 }
 
@@ -21,11 +21,11 @@ html {
     color: #000;
     border-style: solid;
     border-width: thin;
-    border-color: #00bcdd
+    border-color: #40c8ed
 }
 
 .schedHeader {
-    background-color: #00bcdd;
+    background-color: #40c8ed;
     color: #18191c;
 }
 
