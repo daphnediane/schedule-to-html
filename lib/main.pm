@@ -35,7 +35,7 @@ Readonly our $PANELTYPE_TABLE_PREFIX => q{Prefix};
 Readonly our $PANELTYPE_TABLE_KIND   => q{Panel_Kind};
 
 # TODO(timeslot class) -- Still used for timeslot
-Readonly our $FIELD_PANELIST_MAP => q{*PANELIST_MAP};
+Readonly our $FIELD_PRESENTER_MAP => q{*PRESENTER_MAP};
 
 # HTML Elements
 Readonly our $HTML_ANCHOR     => q{a};
@@ -68,7 +68,7 @@ Readonly our $CLASS_GRID_CELL_EMPTY          => q{schedRoomEmpty};
 Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
 Readonly our $CLASS_GRID_CELL_FOCUS          => q{roomFocus};
 Readonly our $CLASS_GRID_CELL_HEADER         => q{schedHeader};
-Readonly our $CLASS_GRID_CELL_PANELIST_BUSY  => q{schedTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_CELL_PRESENTER_BUSY => q{schedTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{schedRoomName};
 Readonly our $CLASS_GRID_CELL_TIME_SLOT      => q{schedTimeSlot};
 Readonly our $CLASS_GRID_CELL_UNFOCUS        => q{roomUnfocus};
@@ -77,7 +77,7 @@ Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedColumnRoom%s};
 Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedColumnsRoom};
 Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedColumnTime};
 Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
-Readonly our $CLASS_GRID_ROW_PANELIST_BUSY   => q{schedRowTimeSlotGuestBusy};
+Readonly our $CLASS_GRID_ROW_PRESENTER_BUSY  => q{schedRowTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
 Readonly our $CLASS_KIOSK_BAR                => q{top_bar};
@@ -114,7 +114,7 @@ Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
 Readonly our $SUBCLASS_PIECE_ID          => q{ID};
 Readonly our $SUBCLASS_PIECE_NAME        => q{Name};
 Readonly our $SUBCLASS_PIECE_NOTE        => q{Note};
-Readonly our $SUBCLASS_PIECE_PANELIST    => q{Panelist};
+Readonly our $SUBCLASS_PIECE_PRESENTER   => q{Panelist};
 Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START       => q{Start};
 Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
@@ -123,29 +123,9 @@ Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
 
-# Panelist headers
-Readonly our $PRESENTER_RANK_GUEST         => 0;
-Readonly our $PRESENTER_RANK_STAFF         => 1;
-Readonly our $PRESENTER_RANK_INVITED_GUEST => 2;
-Readonly our $PRESENTER_RANK_FAN_PANELIST  => 3;
-Readonly our $PREFIX_TO_PANELIST_RANK      => {
-    g => $PRESENTER_RANK_GUEST,
-    s => $PRESENTER_RANK_STAFF,
-    i => $PRESENTER_RANK_INVITED_GUEST,
-    p => $PRESENTER_RANK_FAN_PANELIST,
-};
-
-Readonly our $GUEST_ANY      => q{All Guests};
-Readonly our $GUEST_ANY_INFO => Presenter->new(
-    name        => $GUEST_ANY,
-    rank        => $PRESENTER_RANK_GUEST,
-    index_array => [ -1 ],
-    is_meta     => 1,
-);
-
 # Grid filter
 Readonly our $FILTER_SPLIT_TIMESTAMP => q{timestamp};
-Readonly our $FILTER_PANELIST        => q{panelist};
+Readonly our $FILTER_PRESENTER       => q{presenter};
 Readonly our $FILTER_ROOM            => q{room};
 Readonly our $FILTER_OUTPUT_NAME     => q{subname};
 Readonly our $DEFAULT_FILTER         => { $FILTER_OUTPUT_NAME => [], };
@@ -168,12 +148,12 @@ my $option_desc_at_end;
 my $option_embed_css;
 my $option_file_per_day;
 my $option_file_per_guest;
-my $option_file_per_panelist;
+my $option_file_per_presenter;
 my $option_file_per_room;
 my $option_hide_unused_rooms;
 my $option_input_file;
 my $option_is_postcard;
-my $option_just_panelist;
+my $option_just_presenter;
 my $option_kiosk_mode;
 my $option_output;
 my $option_show_day_column;
@@ -182,8 +162,6 @@ my $option_show_grid;
 my $option_split_per_day;
 my $option_title;
 my $option_unified_grid;
-
-my %panelist_info = ( $GUEST_ANY => $GUEST_ANY_INFO, );
 
 my @all_rooms;
 my %room_by_idx;
@@ -243,54 +221,6 @@ sub canonical_header {
     return $hdr;
 } ## end sub canonical_header
 
-sub lookup_panelist {
-    my ( $name_with_group, $index, $rank ) = @_;
-    $name_with_group //= q{};
-
-    if ( $name_with_group =~ m{\A\w:}xms ) {
-        my ( $rank_name, $remain ) = split m{:}xms, $name_with_group, 2;
-        $rank            = $PREFIX_TO_PANELIST_RANK->{ lc $rank_name };
-        $name_with_group = $remain;
-    }
-    return if $name_with_group eq q{};
-    return if $name_with_group eq q{*};
-    return unless defined $rank;
-
-    my ( $panelist, $group ) = split m{=}xms, $name_with_group, 2;
-
-    $index = [ $index ] unless ref $index;
-
-    if ( lc $panelist eq q{other} ) {
-        $panelist = $rank . q{:Other};
-
-        return $panelist_info{ lc $panelist } //= Presenter->new(
-            name        => $panelist,
-            rank        => $rank,
-            index_array => $index,
-            is_other    => 1,
-        );
-    } ## end if ( lc $panelist eq q{other})
-
-    my $info = $panelist_info{ lc $panelist } //= Presenter->new(
-        name        => $panelist,
-        rank        => $rank,
-        index_array => $index,
-    );
-    $info->improve_presenter_rank( $rank );
-
-    if ( $group ) {
-        my $ginfo = $panelist_info{ lc $group } //= Presenter->new(
-            name        => $group,
-            rank        => $rank,
-            index_array => $index,
-        );
-        $ginfo->add_members( $info );
-        $ginfo->improve_presenter_rank( $rank );
-    } ## end if ( $group )
-
-    return $info;
-} ## end sub lookup_panelist
-
 sub to_panelist {
     my ( $per_info, $names ) = @_;
 
@@ -301,7 +231,7 @@ sub to_panelist {
     my $sub_index = 0;
 
     return map {
-        lookup_panelist(
+        Presenter->lookup(
             $_,
             [ @indices, ++$sub_index ],
             $per_info->get_presenter_rank()
@@ -454,8 +384,7 @@ sub process_spreadsheet_add_panelist {
     my @panelists = to_panelist( $per_info_index, $raw_text );
 
     foreach my $per_info ( @panelists ) {
-        my $per_name = $per_info->get_presenter_name();
-        my $pid      = ${ $per_info };
+        my $pid = ${ $per_info };
 
         my $seen = $presenter_seen->{ $pid } //= [ 0, $per_info ];
         $seen->[ 0 ] = 1 unless $unlisted;
@@ -465,9 +394,9 @@ sub process_spreadsheet_add_panelist {
             $presenter_seen->{ $gid } //= [ 0, $grp_info ];
         }
 
-        if ( $per_info->get_presenter_rank() == $PRESENTER_RANK_GUEST ) {
-            my $gid = ${ $GUEST_ANY_INFO };
-            $presenter_seen->{ $gid } //= [ 0, $GUEST_ANY_INFO ];
+        if ( $per_info->get_presenter_rank() <= $Presenter::RANK_GUEST ) {
+            my $gid = ${ Presenter->any_guest() };
+            $presenter_seen->{ $gid } //= [ 0, Presenter->any_guest() ];
         }
     } ## end foreach my $per_info ( @panelists)
 
@@ -509,9 +438,9 @@ PANELIST:
     } ## end PANELIST: foreach my $seen_per_info (...)
 
     if ( %shown ) {
-        my @panelist = map { $_->get_presenter_name() }
+        my @presenters = map { $_->get_presenter_name() }
             sort values %shown;
-        return join q{, }, @panelist;
+        return join q{, }, @presenters;
     }
 
     return;
@@ -707,7 +636,7 @@ sub read_spreadsheet_file {
 
     foreach my $index ( keys @{ $header } ) {
         my $header_text = $header->[ $index ];
-        my $info        = lookup_panelist( $header_text, $index );
+        my $info        = Presenter->lookup( $header_text, $index );
         next unless defined $info;
         $panelist_by_index[ $index ] = $info;
     } ## end foreach my $index ( keys @{...})
@@ -816,10 +745,10 @@ sub make_time_ranges {
             $timeslot_info{ $room_idx } = $panel_state;
 
             $panel_state->increment_rows();
-            foreach my $info ( $panel->get_panelists_hosting() ) {
-                my $panelist = $info->get_presenter_name();
-                $per_map //= $timeslot_info{ $FIELD_PANELIST_MAP } //= {};
-                $per_map->{ $panelist } = $info;
+            foreach my $presenter ( $panel->get_panelists_hosting() ) {
+                my $pid = ${ $presenter };
+                $per_map //= $timeslot_info{ $FIELD_PRESENTER_MAP } //= [];
+                $per_map->[ $pid ] = $presenter;
             }
 
             $region_active->add_active_room( $panel_state->get_room() )
@@ -979,24 +908,28 @@ sub out_class {
 sub is_panelist_hosting {
     my ( $filter, $panel ) = @_;
     return unless defined $panel;
-    return unless exists $filter->{ $FILTER_PANELIST };
+    return unless exists $filter->{ $FILTER_PRESENTER };
 
-    return $panel->is_panelist_hosting( $filter->{ $FILTER_PANELIST } );
+    return $panel->is_panelist_hosting( $filter->{ $FILTER_PRESENTER } );
 } ## end sub is_panelist_hosting
 
 sub is_panelist_busy {
     my ( $filter, $panels_for_timeslot ) = @_;
-    return unless exists $filter->{ $FILTER_PANELIST };
+    return unless exists $filter->{ $FILTER_PRESENTER };
 
-    my $panelist = $filter->{ $FILTER_PANELIST };
-    return unless defined $panelist;
+    my $presenter = $filter->{ $FILTER_PRESENTER };
+    return unless defined $presenter;
 
     while ( my ( $room_idx, $panel_state ) = each %{ $panels_for_timeslot } )
     {
         next unless defined $panel_state;
+
+        ## todo Remove this hack once FIELD_PRESENTER_MAP redone
+        next unless ref $panel_state eq q{ActivePanel};
+
         my $panel = $panel_state->get_active_panel();
         next unless defined $panel;
-        return 1 if $panel->is_panelist_hosting_or_elsewhere( $panelist );
+        return 1 if $panel->is_panelist_hosting_or_elsewhere( $presenter );
     } ## end while ( my ( $room_idx, $panel_state...))
     return;
 } ## end sub is_panelist_busy
@@ -1157,12 +1090,12 @@ sub dump_grid_cell_room {
     }
 
     my @subclasses = ( q{}, @{ $panel->get_css_subclasses() } );
-    if ( exists $filter->{ $FILTER_PANELIST } ) {
-        my $panelist = $filter->{ $FILTER_PANELIST };
-        if ( $panel->is_panelist_hosting( $panelist ) ) {
+    if ( exists $filter->{ $FILTER_PRESENTER } ) {
+        my $presenter = $filter->{ $FILTER_PRESENTER };
+        if ( $panel->is_panelist_hosting( $presenter ) ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
-        elsif ( $panel->is_panelist_elsewhere( $panelist ) ) {
+        elsif ( $panel->is_panelist_elsewhere( $presenter ) ) {
             push @subclasses, $SUBCLASS_BUSY_PANEL;
         }
     } ## end if ( exists $filter->{...})
@@ -1230,7 +1163,7 @@ sub dump_grid_cell_room {
         out_line $h->span(
             {   out_class(
                     sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_PANELIST
+                    $SUBCLASS_PIECE_PRESENTER
                 )
             },
             $listed_panelist
@@ -1253,12 +1186,14 @@ sub dump_grid_row_time {
         $CLASS_GRID_COLUMN_TIME,
     );
 
-    if ( exists $filter->{ $FILTER_PANELIST }
-        && $panels_for_timeslot->{ $FIELD_PANELIST_MAP }
-        ->{ $filter->{ $FILTER_PANELIST }->get_presenter_name() } )
-    {
-        push @time_row_classes, $CLASS_GRID_ROW_PANELIST_BUSY;
-        push @time_classes,     $CLASS_GRID_CELL_PANELIST_BUSY;
+    if ( exists $filter->{ $FILTER_PRESENTER } ) {
+        my $presenter = $filter->{ $FILTER_PRESENTER };
+        my $pid       = ${ $presenter };
+        if (defined $panels_for_timeslot->{ $FIELD_PRESENTER_MAP }->[ $pid ] )
+        {
+            push @time_row_classes, $CLASS_GRID_ROW_PRESENTER_BUSY;
+            push @time_classes,     $CLASS_GRID_CELL_PRESENTER_BUSY;
+        }
     } ## end if ( exists $filter->{...})
 
     my $time_id = q{sched_id_} . decode_time_id( $time );
@@ -1352,13 +1287,13 @@ sub dump_grid_timeslice {
 sub dump_desc_header {
     my ( $filter, $region, $show_unbusy_panels ) = @_;
 
-    if ( exists $filter->{ $FILTER_PANELIST } ) {
-        my $panelist = $filter->{ $FILTER_PANELIST }->get_presenter_name();
+    if ( exists $filter->{ $FILTER_PRESENTER } ) {
+        my $presenter = $filter->{ $FILTER_PRESENTER };
 
         my $hdr_text
             = $show_unbusy_panels
             ? q{Other panels}
-            : q{Schedule for } . $panelist;
+            : q{Schedule for } . $presenter->get_presenter_name();
 
         if ( $option_is_postcard ) {
             out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
@@ -1396,7 +1331,7 @@ sub dump_desc_footer {
 
     out_close $HTML_DIV;
 
-    if ( exists $filter->{ $FILTER_PANELIST } ) {
+    if ( exists $filter->{ $FILTER_PRESENTER } ) {
         if ( $option_is_postcard ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
@@ -1457,12 +1392,12 @@ sub dump_desc_panel_body {
     my @subclasses = ( q{}, @{ $panel->get_css_subclasses() } );
     my $conflict;
 
-    if ( exists $filter->{ $FILTER_PANELIST } ) {
-        my $panelist = $filter->{ $FILTER_PANELIST };
-        if ( $panel->is_panelist_hosting( $panelist ) ) {
+    if ( exists $filter->{ $FILTER_PRESENTER } ) {
+        my $presenter = $filter->{ $FILTER_PRESENTER };
+        if ( $panel->is_panelist_hosting( $presenter ) ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
-        elsif ( $panel->is_panelist_elsewhere( $panelist ) ) {
+        elsif ( $panel->is_panelist_elsewhere( $presenter ) ) {
             push @subclasses, $SUBCLASS_BUSY_PANEL;
             $conflict = 1;
         }
@@ -1549,7 +1484,7 @@ sub dump_desc_panel_body {
         out_line $h->p(
             {   out_class(
                     sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_PANELIST
+                    $SUBCLASS_PIECE_PRESENTER
                 )
             },
             $listed_panelist
@@ -1616,7 +1551,7 @@ sub dump_desc_panel_body {
 
 sub dump_desc_body {
     my ( $filter, $region, $room_focus_map, $show_unbusy_panels ) = @_;
-    my $filter_panelist = exists $filter->{ $FILTER_PANELIST };
+    my $filter_panelist = exists $filter->{ $FILTER_PRESENTER };
 
     $region->set_day_being_output( q{} );
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
@@ -1626,9 +1561,12 @@ sub dump_desc_body {
         my $time_header_seen;
         my $panels_for_timeslot = $region->get_active_at_time( $time );
 
-        foreach my $panel_state ( sort { $a->compare_room_index( $b ) }
-            values %{ $panels_for_timeslot } )
-        {
+        my @panel_states = values %{ $panels_for_timeslot };
+        ## todo Remove this hack once FIELD_PRESENTER_MAP redone
+        @panel_states = grep { ref $_ eq q{ActivePanel} } @panel_states;
+        @panel_states = sort { $a->compare_room_index( $b ) } @panel_states;
+
+        foreach my $panel_state ( @panel_states ) {
             my $idx = $panel_state->get_num_room_index();
             next if $room_focus_map->{ $idx }->{ $FILTER_ROOM_DESC_HIDE };
 
@@ -1664,7 +1602,7 @@ sub dump_desc_body {
                 { out_class( $CLASS_DESC_PANEL_ROW ) };
             dump_desc_panel_body( $filter, $region, $panel );
             out_close $HTML_TABLE_ROW;
-        } ## end foreach my $panel_state ( sort...)
+        } ## end foreach my $panel_state ( @panel_states)
         if ( $time_header_seen ) {
             dump_desc_time_end( $time );
         }
@@ -1682,7 +1620,7 @@ sub dump_desc_timeslice {
     dump_desc_body( $filter, $region, \%room_focus_map );
     dump_desc_footer( $filter, $region );
 
-    if ( exists $filter->{ $FILTER_PANELIST } && !$option_just_panelist ) {
+    if ( exists $filter->{ $FILTER_PRESENTER } && !$option_just_presenter ) {
         dump_desc_header( $filter, $region, 1 );
         dump_desc_body( $filter, $region, \%room_focus_map, 1 );
         dump_desc_footer( $filter, $region, 1 );
@@ -1997,8 +1935,8 @@ sub dump_table_all_regions {
 
     if ( $need_all_desc ) {
         dump_desc_all_timeslice( $filter );
-        if ( exists $filter->{ $FILTER_PANELIST }
-            && !$option_just_panelist )
+        if ( exists $filter->{ $FILTER_PRESENTER }
+            && !$option_just_presenter )
         {
             dump_desc_all_timeslice( $filter, 1 );
         }
@@ -2207,17 +2145,17 @@ sub split_filter_by_panelist {
     my ( @filters ) = @_;
 
     return @filters
-        unless ( $option_file_per_guest || $option_file_per_panelist );
+        unless ( $option_file_per_guest || $option_file_per_presenter );
 
     my @res;
     foreach my $filter ( @filters ) {
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        foreach my $per_info ( values %panelist_info ) {
-            next if $per_info->is_other();
+        foreach my $per_info ( Presenter->get_known() ) {
+            next if $per_info->get_is_other();
 
-            if ( $per_info->get_presenter_rank() == $PRESENTER_RANK_GUEST
-                && !$option_file_per_panelist )
+            if ( $per_info->get_presenter_rank() == $Presenter::RANK_GUEST
+                && !$option_file_per_presenter )
             {
                 next;
             }
@@ -2225,11 +2163,11 @@ sub split_filter_by_panelist {
             push @res,
                 {
                 %new_filter,
-                $FILTER_PANELIST => $per_info,
+                $FILTER_PRESENTER => $per_info,
                 $FILTER_OUTPUT_NAME =>
                     [ @subname, $per_info->get_presenter_name() ],
                 };
-        } ## end foreach my $per_info ( values...)
+        } ## end foreach my $per_info ( Presenter...)
     } ## end foreach my $filter ( @filters)
 
     return @res;
@@ -2267,14 +2205,14 @@ sub main {
         q{descriptions!}     => \$option_show_descriptions,
         q{file-by-day!}      => \$option_file_per_day,
         q{file-by-guest!}    => \$option_file_per_guest,
-        q{file-by-panelist!} => \$option_file_per_panelist,
+        q{file-by-panelist!} => \$option_file_per_presenter,
         q{file-by-room!}     => \$option_file_per_room,
         q{grid!}             => \$option_show_grid,
         q{hide-unused!}      => \$option_hide_unused_rooms,
         q{inline-css!}       => \$option_embed_css,
         q{input=s}           => \$option_input_file,
-        q{just-guest!}       => \$option_just_panelist,
-        q{just-panelist!}    => \$option_just_panelist,
+        q{just-guest!}       => \$option_just_presenter,
+        q{just-panelist!}    => \$option_just_presenter,
         q{kiosk!}            => \$option_kiosk_mode,
         q{output=s}          => \$option_output,
         q{postcard!}         => \$option_is_postcard,
@@ -2295,21 +2233,21 @@ sub main {
     $option_title      //= q{Cosplay America 2022 Schedule};
 
     if ( $option_kiosk_mode ) {
-        @option_css_styles        = ( qw{+color} );
-        $option_desc_at_end       = undef;
-        $option_embed_css         = undef;
-        $option_file_per_day      = undef;
-        $option_file_per_guest    = undef;
-        $option_file_per_panelist = undef;
-        $option_file_per_room     = undef;
-        @option_rooms             = ();
-        $option_is_postcard       = undef;
-        $option_just_panelist     = undef;
-        $option_show_day_column   = undef;
-        $option_show_descriptions = 1;
-        $option_show_grid         = 1;
-        $option_split_per_day     = undef;
-        $option_unified_grid      = 1;
+        @option_css_styles         = ( qw{+color} );
+        $option_desc_at_end        = undef;
+        $option_embed_css          = undef;
+        $option_file_per_day       = undef;
+        $option_file_per_guest     = undef;
+        $option_file_per_presenter = undef;
+        $option_file_per_room      = undef;
+        @option_rooms              = ();
+        $option_is_postcard        = undef;
+        $option_just_presenter     = undef;
+        $option_show_day_column    = undef;
+        $option_show_descriptions  = 1;
+        $option_show_grid          = 1;
+        $option_split_per_day      = undef;
+        $option_unified_grid       = 1;
     } ## end if ( $option_kiosk_mode)
     read_spreadsheet_file( $option_input_file );
 
@@ -2324,7 +2262,7 @@ sub main {
     $option_show_descriptions //= 0 if $option_show_grid;
     $option_show_grid         //= 1;
     $option_show_descriptions //= 1;
-    $option_file_per_guest //= 1 if $option_just_panelist;
+    $option_file_per_guest //= 1 if $option_just_presenter;
 
     my @filters = ( $DEFAULT_FILTER );
     @filters = split_filter_by_panelist( @filters );

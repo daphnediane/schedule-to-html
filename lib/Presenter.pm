@@ -13,6 +13,24 @@ use overload
     q{<=>} => q{compare},
     q{cmp} => q{compare};
 
+Readonly our $RANK_GUEST         => 0;
+Readonly our $RANK_STAFF         => 1;
+Readonly our $RANK_INVITED_GUEST => 2;
+Readonly our $RANK_FAN_PANELIST  => 3;
+Readonly our $RANK_UNKNOWN       => 999;
+
+# Presenter headers
+Readonly our $PREFIX_TO_RANK => {
+    g => $RANK_GUEST,
+    s => $RANK_STAFF,
+    i => $RANK_INVITED_GUEST,
+    p => $RANK_FAN_PANELIST,
+};
+
+Readonly our $ANY_GUEST => q{All Guests};
+
+my @presenters;
+
 ## no critic (ProhibitUnusedVariables)
 
 my @name
@@ -33,6 +51,8 @@ my @indices
     :Arg(index_array)
     :Get(Name => q{get_index_array_}, Restricted => 1);
 
+# Others is not really a panelist, just a key that indicates that heading
+# contains a list of panelist.
 my @is_other
     :Field
     :Type(scalar)
@@ -172,5 +192,127 @@ sub compare {
     return $self->get_presenter_name() cmp $other->get_presenter_name()
         || ${ $self } <=> ${ $other };
 } ## end sub compare
+
+sub get_map_ {
+    my ( $class, $rank, $other, $meta ) = @_;
+    $class = ref $class || $class;
+
+    my $index = 0;
+    $index += 1         if $meta;
+    $index += 2 + $rank if $other;
+
+    state %maps;
+    return $maps{ $class }->[ $index ] //= {};
+
+} ## end sub get_map_
+
+sub check_cache_ :MergeArgs {
+    my ( $class, $args ) = @_;
+
+    my $name = $args->{ name };
+    my $rank = $args->{ rank };
+
+    return unless defined $name;
+    return unless defined $rank;
+
+    my $res = $class->get_map_(
+        $rank,
+        $args->{ is_other },
+        $args->{ is_meta }
+    )->{ lc $name };
+    return unless defined $res;
+
+    $res->improve_presenter_rank( $rank );
+    return $res;
+} ## end sub check_cache_
+
+sub new {
+    my ( $class, @args ) = @_;
+
+    my $res = $class->check_cache_( @args );
+    return $res if defined $res;
+
+    return $class->Object::InsideOut::new( @args );
+} ## end sub new
+
+sub init_ :Init {
+    my ( $self, $args ) = @_;
+    push @presenters, $self unless $self->get_is_other();
+    $self->get_map_(
+        $self->get_presenter_rank(),
+        $self->get_is_other(),
+        $self->get_is_meta()
+    )->{ lc $self->get_presenter_name() } = $self;
+    return;
+} ## end sub init_
+
+sub lookup {
+    my ( $class, $name_with_group, $index, $rank ) = @_;
+
+    return unless defined $name_with_group;
+    return if $name_with_group eq q{};
+
+    if ( $name_with_group =~ s{\A (?<rank> \w ) : }{}xms ) {
+        $rank = $PREFIX_TO_RANK->{ lc $+{ rank } };
+    }
+
+    return if $name_with_group eq q{};
+    return unless defined $rank;
+
+    my ( $name, $group ) = split m{=}xms, $name_with_group, 2;
+
+    $index //= [];
+    $index = [ $index ] unless ref $index;
+
+    if ( lc $name eq q{other} ) {
+        $name = $rank . q{:Other};
+
+        return $class->new(
+            name        => $name,
+            rank        => $rank,
+            index_array => $index,
+            is_other    => 1,
+        );
+    } ## end if ( lc $name eq q{other})
+
+    my $info = Presenter->new(
+        name        => $name,
+        rank        => $rank,
+        index_array => $index,
+    );
+
+    if ( $group ) {
+        my $ginfo = Presenter->new(
+            name        => $group,
+            rank        => $rank,
+            index_array => $index,
+        );
+        $ginfo->add_members( $info );
+    } ## end if ( $group )
+
+    return;
+} ## end sub lookup
+
+sub any_guest {
+    my ( $class ) = @_;
+
+    state $any_info;
+    return $any_info if defined $any_info;
+
+    $any_info = $class->new(
+        name        => $ANY_GUEST,
+        rank        => $Presenter::RANK_GUEST,
+        index_array => [ -1 ],
+        is_meta     => 1,
+    );
+    return $any_info;
+} ## end sub any_guest
+
+sub get_known() {
+    my ( $class ) = @_;
+
+    $class->any_guest();
+    return @presenters;
+} ## end sub get_known
 
 1;
