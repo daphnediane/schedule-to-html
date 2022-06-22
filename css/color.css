@@ -54,7 +54,7 @@ html {
 }
 
 .panelSelectedGuest {
-    background-color: #000;
+    background-color: #000 !important;
     color: #fff
 }
 

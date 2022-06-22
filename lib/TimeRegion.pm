@@ -10,6 +10,7 @@ use Carp qw{croak};
 use Readonly;
 use utf8;
 use RoomInfo;
+use TimeSlot;
 
 ## no critic (ProhibitUnusedVariables)
 
@@ -23,6 +24,16 @@ my @active_room
     :Field
     :Default({})
     :Std(Name => q{active_rooms_}, Restricted => 1 );
+
+my @presenters_at_time
+    :Field
+    :Default({})
+    :Std(Name=> q{presenter_at_time_}, Restricted => 1 );
+
+my @time_slots
+    :Field
+    :Default({})
+    :Get(Name => q{time_slots_}, Restricted => 1);
 
 my @active_at_time
     :Field
@@ -66,35 +77,17 @@ sub is_room_active {
 
 sub get_unsorted_times {
     my ( $self ) = @_;
-    my $map = $self->get_active_at_time_();
+    my $map = $self->time_slots_();
     return unless defined $map;
     return keys %{ $map };
 } ## end sub get_unsorted_times
 
-sub get_active_at_time {
+sub get_time_slot {
     my ( $self, $time ) = @_;
-    return $self->get_active_at_time_()->{ $time } //= {};
-}
-
-sub set_active_at_time {
-    my ( $self, $time, $active_map ) = @_;
-    my $map = $self->get_active_at_time_();
-    croak q{Dup time} if exists $map->{ $time };
-    $map->{ $time } = $active_map;
-    return;
-} ## end sub set_active_at_time
-
-sub get_upcoming_at_time {
-    my ( $self, $time ) = @_;
-    return $self->get_upcoming_at_time_()->{ $time } //= {};
-}
-
-sub set_upcoming_at_time {
-    my ( $self, $time, $upcoming_map ) = @_;
-    my $map = $self->get_upcoming_at_time_();
-    croak q{Dup time} if exists $map->{ $time };
-    $map->{ $time } = $upcoming_map;
-    return;
-} ## end sub set_upcoming_at_time
+    return $self->time_slots_()->{ $time } //= TimeSlot->new(
+        start_time => $time,
+        end_time   => $time,
+    );
+} ## end sub get_time_slot
 
 1;

@@ -11,13 +11,11 @@ use Readonly;
 use utf8;
 
 use RoomInfo;
+use PresenterSet;
 
 Readonly our $CAFE => q{Café};
 
-Readonly our $HOSTING   => 1;
-Readonly our $ELSEWHERE => -1;
-
-sub norm_text_ :Private {
+sub norm_text_ {
     my ( @values ) = @_;
     @values = grep { defined } @values;
     return unless @values;
@@ -28,17 +26,17 @@ sub norm_text_ :Private {
     return $value;
 } ## end sub norm_text_
 
-sub pre_init_text_ :Private {
+sub pre_init_text_ {
     my ( $class, $param, $spec, $obj, $value ) = @_;
     return norm_text_( $value );
 }
 
-sub pre_set_text_ :Private {
+sub pre_set_text_ {
     my ( $class, $field, @args ) = @_;
     return norm_text_( @args );
 }
 
-sub norm_tokens_ :Private {
+sub norm_tokens_ {
     my ( @values ) = @_;
     my $value = lc norm_text_( @values );
     return unless defined $value;
@@ -51,17 +49,17 @@ sub norm_tokens_ :Private {
     return q{TBD};
 } ## end sub norm_tokens_
 
-sub pre_init_tokens_ :Private {
+sub pre_init_tokens_ {
     my ( $class, $param, $spec, $obj, $value ) = @_;
     return norm_tokens_( $value );
 }
 
-sub pre_set_tokens_ :Private {
+sub pre_set_tokens_ {
     my ( $class, $field, @args ) = @_;
     return norm_tokens_( @args );
 }
 
-sub pre_is_full_ :Private {
+sub pre_is_full_ {
     my ( $class, $param, $spec, $obj, $value ) = @_;
     return unless defined $value;
     return if $value =~ m{\Anot??}xms;
@@ -107,13 +105,6 @@ my @note
     :Set(Name => q{set_note}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_note);
 
-my @panelist_listed
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{listed_panelist}, Pre => \&PanelInfo::pre_init_text_)
-    :Set(Name => q{set_listed_panelist}, Pre => \&PanelInfo::pre_set_text_)
-    :Get(get_listed_panelist);
-
 my @difficulty
     :Field
     :Type(scalar)
@@ -136,19 +127,33 @@ my @tokens
 my @full
     :Field
     :Type(scalar)
-    :Arg(Name => q{is_full}, Pre => \&PanelInfo::pre_is_full_);
+    :Arg(Name => q{is_full}, Pre => \&PanelInfo::pre_is_full_)
+    :Get(Name => q{get_is_full_}, Private => 1);
 
 my @css_subclasses
     :Field
     :Type(ARRAY_ref(scalar))
     :Std(css_subclasses);
 
-my @panelist_state
+my @presenter_set
     :Field
-    :Default({})
-    :Std(Name => q{panelist_state_}, Restricted => 1);
+    :Type(PresenterSet)
+    :Arg(presenter_set)
+    :Get(get_presenter_set)
+    :Set(Name => q{set_presenter_set_}, Private => 1)
+    :Default(PresenterSet->new())
+    :Handles(PresenterSet::);
 
 ## use critic
+
+sub init_ :Init {
+    my ( $self, $args ) = @_;
+    my $current_set = $self->get_presenter_set();
+    if ( !defined $current_set ) {
+        $self->set_presenter_set_( PresenterSet->new() );
+    }
+    return;
+} ## end sub init_
 
 sub get_uniq_id_prefix {
     my ( $self ) = @_;
@@ -199,70 +204,11 @@ sub get_is_break {
 
 sub get_is_full {
     my ( $self ) = @_;
-    my $is_full = $full[ ${ $self } ];
-    return 1 if $is_full;
+    return 1 if $self->get_is_full_();
 
     #TODO(pfister): Check capacity
 
     return;
 } ## end sub get_is_full
-
-sub is_panelist_elsewhere {
-    my ( $self, $panelist ) = @_;
-    return unless defined $panelist;
-    croak q{Not presenter} unless $panelist->isa( q{Presenter} );
-    my $map = $self->get_panelist_state_();
-    my $pid = ${ $panelist };
-    return unless exists $map->{ $pid };
-    return 1 if $map->{ $pid }->[ 0 ] == $ELSEWHERE;
-    return;
-} ## end sub is_panelist_elsewhere
-
-sub is_panelist_hosting {
-    my ( $self, $panelist ) = @_;
-    return unless defined $panelist;
-    croak q{Not presenter} unless $panelist->isa( q{Presenter} );
-    my $map = $self->get_panelist_state_();
-    my $pid = ${ $panelist };
-    return unless exists $map->{ $pid };
-    return 1 if $map->{ $pid }->[ 0 ] == $HOSTING;
-    return;
-} ## end sub is_panelist_hosting
-
-sub is_panelist_hosting_or_elsewhere {
-    my ( $self, $panelist ) = @_;
-    return unless defined $panelist;
-    croak q{Not presenter} unless $panelist->isa( q{Presenter} );
-    my $map = $self->get_panelist_state_();
-    my $pid = ${ $panelist };
-    return 1 if exists $map->{ $pid };
-    return;
-} ## end sub is_panelist_hosting_or_elsewhere
-
-sub set_panelist_elsewhere {
-    my ( $self, $panelist ) = @_;
-    return unless defined $panelist;
-    croak q{Not presenter} unless $panelist->isa( q{Presenter} );
-    my $map = $self->get_panelist_state_();
-    my $pid = ${ $panelist };
-    $map->{ $pid } //= [ $ELSEWHERE => $panelist ];    # Hosting is priority
-    return;
-} ## end sub set_panelist_elsewhere
-
-sub set_panelist_hosting {
-    my ( $self, $panelist ) = @_;
-    return unless defined $panelist;
-    croak q{Not presenter} unless $panelist->isa( q{Presenter} );
-    my $map = $self->get_panelist_state_();
-    my $pid = ${ $panelist };
-    $map->{ $pid } == [ $HOSTING => $panelist ];
-    return;
-} ## end sub set_panelist_hosting
-
-sub get_panelists_hosting {
-    my ( $self ) = @_;
-    my $map = $self->get_panelist_state_();
-    return map { $_->[ 1 ] } grep { $_->[ 0 ] == $HOSTING } values %{ $map };
-}
 
 1;

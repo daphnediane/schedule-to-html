@@ -30,6 +30,7 @@ Readonly our $PREFIX_TO_RANK => {
 Readonly our $ANY_GUEST => q{All Guests};
 
 my @presenters;
+my @pid_map;
 
 ## no critic (ProhibitUnusedVariables)
 
@@ -51,8 +52,8 @@ my @indices
     :Arg(index_array)
     :Get(Name => q{get_index_array_}, Restricted => 1);
 
-# Others is not really a panelist, just a key that indicates that heading
-# contains a list of panelist.
+# Others is not really a presenter, just a key that indicates that heading
+# contains a list of presenters.
 my @is_other
     :Field
     :Type(scalar)
@@ -64,6 +65,11 @@ my @is_meta
     :Type(scalar)
     :Arg(is_meta)
     :Get(get_is_meta);
+
+my @always_show
+    :Field
+    :Type(scalar)
+    :Std(is_always_shown);
 
 my @groups
     :Field
@@ -85,7 +91,7 @@ sub improve_presenter_rank {
     return;
 } ## end sub improve_presenter_rank
 
-sub decode_array_ :Private {
+sub decode_array_ {
     my ( @values ) = @_;
     return map { ref $_ ? ( decode_array_( @{ $_ } ) ) : ( $_ ) } @values;
 }
@@ -235,9 +241,24 @@ sub new {
     return $class->Object::InsideOut::new( @args );
 } ## end sub new
 
+sub get_pid {
+    my ( $self ) = @_;
+    return ${ $self };
+}
+
+sub find_by_pid {
+    my ( $class, $pid ) = @_;
+
+    my $value = $pid_map[ $pid ];
+    return $value if defined $value;
+    return;
+} ## end sub find_by_pid
+
 sub init_ :Init {
     my ( $self, $args ) = @_;
     push @presenters, $self unless $self->get_is_other();
+    my $pid = ${ $self };
+    $pid_map[ $pid ] = $self;
     $self->get_map_(
         $self->get_presenter_rank(),
         $self->get_is_other(),
@@ -282,15 +303,17 @@ sub lookup {
     );
 
     if ( $group ) {
-        my $ginfo = Presenter->new(
+        my $always_shown = $group =~ s{\A =}{}xms;
+        my $ginfo        = Presenter->new(
             name        => $group,
             rank        => $rank,
             index_array => $index,
         );
+        $ginfo->set_is_always_shown( 1 ) if $always_shown;
         $ginfo->add_members( $info );
     } ## end if ( $group )
 
-    return;
+    return $info;
 } ## end sub lookup
 
 sub any_guest {
@@ -308,7 +331,7 @@ sub any_guest {
     return $any_info;
 } ## end sub any_guest
 
-sub get_known() {
+sub get_known {
     my ( $class ) = @_;
 
     $class->any_guest();
