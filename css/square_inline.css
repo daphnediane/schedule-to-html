@@ -78,7 +78,7 @@
     width: 100%;
 }
 
-.descTokens {
+.descCost {
     margin-block-start: 0;
     margin-block-end: 0
 }
@@ -126,7 +126,7 @@ tr.descPanelRow {
     break-inside: avoid-column
 }
 
-.descTokens {
+.descCost {
     float: right;
     margin-inline-start: 1em;
     font-weight: bolder;

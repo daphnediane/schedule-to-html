@@ -19,6 +19,6 @@ html {
 
 .descriptions {
     -webkit-column-break-before: always;
-    font-size: 7pt;
+    font-size: 6.7pt;
     column-count: 2;
 }

@@ -119,6 +119,8 @@ PRESENTER:
         # -- Group is listed as always shown
     GROUP:
         foreach my $group ( $presenter->get_groups() ) {
+            my $gid = $group->get_pid();
+            next if $shown{ $gid };
             if ( $group->get_is_always_shown() ) {
                 $shown{ $group->get_pid() } = $group;
                 next PRESENTER;
@@ -126,14 +128,35 @@ PRESENTER:
             foreach my $member ( $group->get_members() ) {
                 next GROUP unless exists $p_set->{ $member->get_pid() };
             }
-            $shown{ $group->get_pid() } = $group;
+            $shown{ $gid } = $group;
             next PRESENTER;
         } ## end GROUP: foreach my $group ( $presenter...)
 
         $shown{ $pid } = $presenter;
     } ## end PRESENTER: while ( my ( $pid, $state...))
 
-    my @presenters = map { $_->get_presenter_name() } sort values %shown;
+    my @presenters;
+    foreach my $presenter ( sort values %shown ) {
+        my $name = $presenter->get_presenter_name();
+        if ( $presenter->get_is_always_shown() && $presenter->is_group() ) {
+            my $count = 0;
+            my @hosting;
+            my $not_all;
+            foreach my $member ( $presenter->get_members() ) {
+                if ( exists $p_set->{ $member->get_pid() } ) {
+                    push @hosting, $member;
+                }
+                else {
+                    $not_all = 1;
+                }
+            } ## end foreach my $member ( $presenter...)
+            if ( $not_all && 1 == scalar @hosting ) {
+                $name .= q{ (} . $hosting[ 0 ]->get_presenter_name() . q{)};
+            }
+        } ## end if ( $presenter->get_is_always_shown...)
+        push @presenters, $name;
+    } ## end foreach my $presenter ( sort...)
+
     $credits = join q{, }, @presenters if @presenters;
 
     $self->set_credits_( $credits );

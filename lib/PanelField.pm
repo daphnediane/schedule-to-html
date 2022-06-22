@@ -22,7 +22,7 @@ Readonly our $ROOM_HOTEL_ROOM => q{Hotel_Room};
 Readonly our $ROOM_INDEX      => q{Room_Idx};
 Readonly our $ROOM_NAME       => q{Room};
 Readonly our $START_TIME      => q{Start_Time};
-Readonly our $TOKENS          => q{Tokens};
+Readonly our $COST            => q{Cost};
 Readonly our $UNIQUE_ID       => q{Uniq_ID};
 
 1;

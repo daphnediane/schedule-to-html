@@ -36,27 +36,30 @@ sub pre_set_text_ {
     return norm_text_( @args );
 }
 
-sub norm_tokens_ {
+sub norm_cost_ {
     my ( @values ) = @_;
     my $value = lc norm_text_( @values );
     return unless defined $value;
-    return        if $value == 0;
+    return if $value eq q{};
+    return if $value =~ m{ \A (?: [\$]? 0+ )? (?: [.] 0+ ) \z}xms;
+    return $value if $value =~ m{ \A [\$] \d+ (?: [.] \d+)? \z}xms;
+    return $value if $value =~ m{ \A part}xms;
     return $value if $value =~ m{ \A \d+ \z }xms;
     return        if $value eq q{na};
     return        if $value eq q{n/a};
     return        if $value eq q{free};
     return        if $value eq q{nothing};
     return q{TBD};
-} ## end sub norm_tokens_
+} ## end sub norm_cost_
 
-sub pre_init_tokens_ {
+sub pre_init_cost_ {
     my ( $class, $param, $spec, $obj, $value ) = @_;
-    return norm_tokens_( $value );
+    return norm_cost_( $value );
 }
 
-sub pre_set_tokens_ {
+sub pre_set_cost_ {
     my ( $class, $field, @args ) = @_;
-    return norm_tokens_( @args );
+    return norm_cost_( @args );
 }
 
 sub pre_is_full_ {
@@ -117,11 +120,11 @@ my @panel_kind
     :Set(Name => q{set_panel_kind}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_panel_kind);
 
-my @tokens
+my @cost
     :Field
     :Type(scalar)
-    :Arg(Name => q{cost}, Pre => \&PanelInfo::pre_init_tokens_)
-    :Set(Name => q{set_cost}, Pre => \&PanelInfo::pre_set_tokens_)
+    :Arg(Name => q{cost}, Pre => \&PanelInfo::pre_init_cost_)
+    :Set(Name => q{set_cost}, Pre => \&PanelInfo::pre_set_cost_)
     :Get(get_cost);
 
 my @full

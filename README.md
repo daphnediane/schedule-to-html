@@ -74,7 +74,7 @@ Normal Columns:
 | Description   | If Scheduled           | Description of the panel                                                                                                                       | A Panel about panels             |
 | Note          |                        | Additional notes that will appear in the program verbatium highlight                                                                           | Note: This is not really a panel |
 | Difficulty    |                        | Number representing the difficulty of the panel                                                                                                | 1                                |
-| Tokens        |                        | How many tokens to attend: this should probably be reheaded as cost, feel free to do so.                                                       | 3                                |
+| Cost          |                        | How much costs to attend                                                                                                                       | $35                              |
 | Seats Sold    | If premium workshop    | How many seats have been already sold                                                                                                          | 3                                |
 | Capacity      | If premium workshop    | How many seats are available                                                                                                                   | 23                               |
 | Full          |                        | If the panel is full. TODO support Seats_Sold and Capacity                                                                                     | Yes                              |
@@ -111,7 +111,9 @@ _Name_ is the name of the guest as shown. If the name is other, the contents of
 the cell should be a list of names separated by commas.
 
 _Group_ is the group that guest belongs to, if all members of a group are
-attending they will be listed as a group instead of individually.
+attending they will be listed as a group instead of individually. If double
+equals are used the group name will always be listed, and if only one member
+they will be displayed in parenthesis.
 
 For each of these columns, if the contents are not blank, the panelist is
 attending, use asterisk "*" to have some one present but not listed.

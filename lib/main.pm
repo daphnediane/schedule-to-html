@@ -104,10 +104,9 @@ Readonly our $SUBCLASS_FMT_DIFFICULTY    => q{Difficulty%s};
 Readonly our $SUBCLASS_FMT_TYPE          => q{Type%s};
 Readonly our $SUBCLASS_FULL              => q{Full};
 Readonly our $SUBCLASS_GUEST_PANEL       => q{SelectedGuest};
-Readonly our $SUBCLASS_NEED_TOKENS       => q{NeedTokens};
+Readonly our $SUBCLASS_NEED_COST         => q{NeedCost};
 Readonly our $SUBCLASS_PIECE_DESCRIPTION => q{Description};
 Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
-Readonly our $SUBCLASS_PIECE_FMT_TOKENS  => q{Tokens%s};
 Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
 Readonly our $SUBCLASS_PIECE_ID          => q{ID};
 Readonly our $SUBCLASS_PIECE_NAME        => q{Name};
@@ -115,7 +114,7 @@ Readonly our $SUBCLASS_PIECE_NOTE        => q{Note};
 Readonly our $SUBCLASS_PIECE_PRESENTER   => q{Panelist};
 Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START       => q{Start};
-Readonly our $SUBCLASS_PIECE_TOKENS      => q{Tokens};
+Readonly our $SUBCLASS_PIECE_COST        => q{Cost};
 
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
@@ -156,6 +155,7 @@ my $option_kiosk_mode;
 my $option_output;
 my $option_show_day_column;
 my $option_show_descriptions;
+my $option_show_difficulty = 1;
 my $option_show_grid;
 my $option_split_per_day;
 my $option_title;
@@ -420,7 +420,7 @@ sub process_spreadsheet_workshop {
     }
 
     if ( defined $panel->get_cost() ) {
-        push @subclasses, $SUBCLASS_NEED_TOKENS;
+        push @subclasses, $SUBCLASS_NEED_COST;
     }
 
     if ( $panel->get_is_full() ) {
@@ -516,7 +516,7 @@ sub process_spreadsheet_row {
 
     my $panel = PanelInfo->new(
         uniq_id       => $panel_data{ $PanelField::UNIQUE_ID },
-        cost          => $panel_data{ $PanelField::TOKENS },
+        cost          => $panel_data{ $PanelField::COST },
         description   => $panel_data{ $PanelField::DESCRIPTION },
         difficulty    => $panel_data{ $PanelField::DIFFICULTY },
         duration      => $panel_data{ $PanelField::DURATION },
@@ -1053,20 +1053,18 @@ sub dump_grid_cell_room {
         $name
     );
 
-    my $tokens = $panel->get_cost();
-    if ( defined $tokens ) {
+    my $cost = $panel->get_cost();
+    if ( defined $cost && $cost !~ m{ \A part }xms ) {
         out_line $h->div(
             {   out_class(
                     map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } (
-                        $SUBCLASS_PIECE_TOKENS,
-                        sprintf $SUBCLASS_PIECE_FMT_TOKENS,
-                        $tokens
+                        $SUBCLASS_PIECE_COST,
                     )
                 )
             },
-            q{Tokens: } . $tokens
+            $cost
         );
-    } ## end if ( defined $tokens )
+    } ## end if ( defined $cost && ...)
 
     if ( defined $credited_presenter ) {
         out_line $h->span(
@@ -1352,20 +1350,18 @@ sub dump_desc_panel_body {
         );
     } ## end else [ if ( $option_show_grid)]
 
-    my $tokens = $panel->get_cost();
-    if ( defined $tokens ) {
+    my $cost = $panel->get_cost();
+    if ( defined $cost && $cost !~ m{ \A part }xms ) {
         out_line $h->div(
             {   out_class(
                     map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } (
-                        $SUBCLASS_PIECE_TOKENS,
-                        sprintf $SUBCLASS_PIECE_FMT_TOKENS,
-                        $tokens
+                        $SUBCLASS_PIECE_COST,
                     )
                 )
             },
-            q{Required tokens: } . $tokens
+            $cost
         );
-    } ## end if ( defined $tokens )
+    } ## end if ( defined $cost && ...)
     if ( $option_kiosk_mode ) {
         out_line $h->p(
             {   out_class(
@@ -1383,7 +1379,7 @@ sub dump_desc_panel_body {
                     $SUBCLASS_PIECE_ROOM
                 )
             },
-            $room->get_hotel_room()
+            $room->get_long_room_name()
         );
     } ## end else [ if ( $option_kiosk_mode)]
     if ( defined $credited_presenter ) {
@@ -1411,8 +1407,8 @@ sub dump_desc_panel_body {
         push @note, $h->b( q{Conflicts with one of your panels.} );
     }
     if ( defined $panel->get_cost() ) {
-        push @note, q{This panel is a}, $h->b( q{premium workshop} ),
-            q{ and requires a separate purchase.};
+        push @note, $h->b( q{Premium workshop:} ),
+            q{ Requires a separate purchase.};
     }
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
@@ -1428,6 +1424,16 @@ sub dump_desc_panel_body {
             q{This workshop is full.}
             );
     } ## end if ( $panel->get_is_full...)
+    if ( defined $panel->get_difficulty() && $option_show_difficulty ) {
+        push @note, $h->span(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_DIFFICULTY
+                )
+            },
+            q{Difficulty level: } . $panel->get_difficulty()
+        );
+    } ## end if ( defined $panel->get_difficulty...)
     if ( @note ) {
         out_line $h->p(
             {   out_class(
@@ -1439,16 +1445,6 @@ sub dump_desc_panel_body {
             @note
         );
     } ## end if ( @note )
-    if ( defined $panel->get_difficulty() ) {
-        out_line $h->p(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_DIFFICULTY
-                )
-            },
-            q{Difficulty level: } . $panel->get_difficulty()
-        );
-    } ## end if ( defined $panel->get_difficulty...)
     out_close $HTML_DIV if $option_kiosk_mode;
     out_close $HTML_TABLE_DATA;
 
@@ -2123,6 +2119,7 @@ sub main {
         q{room=s@}           => \@option_rooms,
         q{separate!}         => \$option_desc_at_end,
         q{split-day!}        => \$option_split_per_day,
+        q{show-difficulty}   => \$option_show_difficulty,
         q{style=s@}          => \@option_css_styles,
         q{title=s}           => \$option_title,
         q{unified!}          => \$option_unified_grid,
@@ -2177,7 +2174,7 @@ sub main {
         dump_tables( $filter );
     }
 
-    return;
+    exit 0;
 } ## end sub main
 
 main( @ARGV );
