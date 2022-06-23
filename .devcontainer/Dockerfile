@@ -25,20 +25,16 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     libfile-slurp-perl \
     libfile-spec-native-perl \
     libhtml-tiny-perl \
+    libobject-insideout-perl \
     libperl-critic-perl \
     libreadonly-perl \
+    libregexp-assemble-perl \
+    libspreadsheet-parseexcel-perl \
+    libspreadsheet-parsexlsx-perl \
     libtext-csv-perl \
     libtimedate-perl \
+    libxml-twig-perl \
+    lighttpd \
     perltidy
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-    libspreadsheet-parsexlsx-perl \
-    libspreadsheet-parseexcel-perl \
-    libxml-twig-perl
-RUN mv /usr/local/bin/perl /usr/local/bin/perl-alt
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-    lighttpd
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-    libobject-insideout-perl
+RUN mv /usr/local/bin/perl /usr/local/bin/perl-old \
+    && ln -n -s -f /usr/bin/perl /usr/local/bin/perl

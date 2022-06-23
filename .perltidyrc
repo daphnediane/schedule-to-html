@@ -13,4 +13,6 @@
 --nooutdent-long-comments
 --closing-side-comments
 --nowant-right-space="A"
+--weld-nested-containers
+--opening-brace-always-on-right
 --want-break-before="A % + - * / x != == >= <= =~ !~ < > | & = **= += *= &= <<= &&= -= /= |= >>= ||= //= .= %= ^= x="

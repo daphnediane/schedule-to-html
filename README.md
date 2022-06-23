@@ -14,28 +14,39 @@ And place spreadsheet in the input directory.
 desc_tbl --input input/spreadsheet.txt --output output/
 
 ## Options:
-```
-  --day           Include a column for week day
-  --description   Includes panel descriptions, implies --no-grid
-  --file-by-day   Have a file for each day
-  --file-by-room  Have a file for each room
-  --file-by-guest Create a file per guest with their panels highlighted
-  --grid          Includes the grid, implies --no-description
-  --hide-unused   Only include rooms that have events scheduled
-  --inline-css    Embed the CSS directly into the generated files instead
-  --input <file>  Input filename, UTF-16 spreadsheet or xlsx file
-                  May have a :# suffix to select a sheet by index
-  --just-guest    Include only descriptions for guest panels
-  --kiosk         Generate HTML for use in the Schedule Kiosk
-  --output <file> Output filename or directory
-  --postcard      Wrap description in table to force width
-  --separate      Put descriptions after all grids instead of mixing them
-  --split-day     Only split at SPLITDAY, not half day splits
-  --style <file>  Embed CSS into generated HTML, may be given multiple times,
-                  implies --inline-css
-  --title <NAME>  Sets the page titles
-  --unified       Do not split table by SPLIT time segments or days
-```
+
+| Option              | Meaning                                                   |
+| ------------------- | --------------------------------------------------------- |
+| --embed-css         | Embed any CSS files in the generated HTML, default        |
+| --file-by-day       | Generate a file for each day                              |
+| --file-by-guest     | Generate a file for each guest                            |
+| --file-by-presenter | Generate a file for each presenter including guest        |
+| --file-by-room      | Generate a file for each room                             |
+| --hide-day          | Does not include a column for week day, default           |
+| --hide-description  | Does not include description, implies --show-grid         |
+| --hide-grid         | Does not includes the grid, implies --show-description    |
+| --hide-unused-rooms | Only include rooms that have events scheduled             |
+| --input <file>      | Source data for schedule, UTF-16 spreadsheet or xlsx file |
+| --inpuz <file>      | May have a :# suffix to select a sheet by index           |
+| --just-presenter    | Only include descriptions for current presenter panels    |
+| --just-premium      | Only include descriptions for premium panels              |
+| --mode-kiosk        | Generate files for use in a realtime kiosk                |
+| --mode-postcard     | Output for use in schedule postcards                      |
+| --no-embed-css      | Link to CSS files in the generated HTML                   |
+| --output <name>     | Output filename or directory if any --file-by-... used    |
+| --room <room>       | Focus on matching room, may be given more than once       |
+| --separate          | Put descriptions after all grids instead of mixing them   |
+| --show-day          | Include a column for week day                             |
+| --show-description  | Includes panel descriptions, implies --hide-grid          |
+| --show-grid         | Includes the grid, implies --hide-description             |
+| --show-unused-rooms | Show all rooms                                            |
+| --split             | Split the grids by SPLIT time segements of days, default  |
+| --split-day         | Only split once per day                                   |
+| --style <file>      | CSS file to include, may be given multiple times          |
+| --title <name>      | Sets the page titles                                      |
+| --unified           | Do not split table by SPLIT time segments or days         |
+
+If no option is specified for either grids or descriptions both are included.
 
 ## CSS files
 
@@ -214,7 +225,7 @@ desc_tbl \
     --style print:landscape.css \
     --input input/Test.xlsx \
     --output output/guests \
-    --file-by-panelist \
+    --file-by-presenter \
     --split-day \
     --separate \
     --just-guest

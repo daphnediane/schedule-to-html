@@ -52,8 +52,7 @@ sub get_line {
             my $full = $piece;
             while ( $full
                 !~ m{ \A " (?: [^"]++ | (?: "" )++ )* " (?:\n\r?+|\r\n?+)?+ \z }xms
-                )
-            {
+            ) {
                 unless ( @raw ) {
                     chomp $full_line;
                     die
@@ -78,12 +77,10 @@ sub init_ :Init {
     my ( $self ) = @_;
     my $fname = $self->get_filename();
 
-    $self->set_line_cache_(
-        read_file(
-            $fname,
-            { binmode => q{:raw:encoding(utf16):crlf}, array_ref => 1 }
-        )
-    );
+    $self->set_line_cache_( read_file(
+        $fname,
+        { binmode => q{:raw:encoding(utf16):crlf}, array_ref => 1 }
+    ) );
 
     $self->set_is_open_( 1 );
 

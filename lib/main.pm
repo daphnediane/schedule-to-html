@@ -150,6 +150,7 @@ my $option_file_per_room;
 my $option_hide_unused_rooms;
 my $option_input_file;
 my $option_is_postcard;
+my $option_just_premium;
 my $option_just_presenter;
 my $option_kiosk_mode;
 my $option_output;
@@ -157,9 +158,9 @@ my $option_show_day_column;
 my $option_show_descriptions;
 my $option_show_difficulty = 1;
 my $option_show_grid;
+my $option_split_grids;
 my $option_split_per_day;
 my $option_title;
-my $option_unified_grid;
 
 my @all_rooms;
 my %room_by_idx;
@@ -185,6 +186,7 @@ sub register_time_split {
 sub check_if_new_region {
     my ( $time, $prev_region ) = @_;
     if ( defined $prev_region ) {
+        return unless $option_split_grids;
         return unless exists $time_split{ $time };
         if ( $option_split_per_day ) {
             my $prev_time = $prev_region->get_start_seconds();
@@ -194,6 +196,9 @@ sub check_if_new_region {
             $time_split{ $time } = $new_day;
         } ## end if ( $option_split_per_day)
     } ## end if ( defined $prev_region)
+    elsif ( !$option_split_grids ) {
+        $time_split{ $time } //= q{Schedule};
+    }
     elsif ( $option_split_per_day ) {
         $time_split{ $time } = decode_time( $time, qw{ day } );
     }
@@ -634,8 +639,7 @@ sub make_time_ranges {
                     && ( !defined $current_break
                         || $panel->get_end_seconds()
                         > $current_break->get_end_seconds() )
-                    )
-                {
+                ) {
                     $current_break = $panel;
                 } ## end if ( $panel->get_is_break...)
                 next;
@@ -653,8 +657,7 @@ sub make_time_ranges {
         } ## end foreach my $panel ( @{ $panels_by_start...})
 
         if ( defined $current_break
-            && $current_break->get_end_seconds() <= $time )
-        {
+            && $current_break->get_end_seconds() <= $time ) {
             undef $current_break;
         }
         foreach my $room ( @all_rooms ) {
@@ -736,13 +739,12 @@ sub make_time_ranges {
             my $time_slot = $region_active->get_time_slot( $time );
 
             # Save current next panels
-            $time_slot->set_upcoming( { %next_panels } );
+            $time_slot->init_upcoming( { %next_panels } );
 
             # Update next panels
             my $current_panels = $time_slot->get_current();
             while ( my ( $room_idx, $panel_state )
-                = each %{ $current_panels } )
-            {
+                = each %{ $current_panels } ) {
                 next
                     unless $panel_state->get_start_seconds() == $time;
                 $next_panels{ $room_idx } = $panel_state;
@@ -914,7 +916,7 @@ sub dump_grid_row_room_names {
     foreach my $idx ( sort { $a <=> $b } keys %{ $room_focus_map } ) {
         my $hotel = $room_by_idx{ $idx }->get_hotel_room();
         my $name  = $room_by_idx{ $idx }->get_long_room_name();
-        if ( $hotel ne $name ) {
+        if ( $hotel ne $name && !$option_kiosk_mode ) {
             $name = $name . $h->br() . $h->i( $hotel );
         }
         out_line $h->th(
@@ -1124,11 +1126,10 @@ sub dump_grid_row_time {
         my @before_time;
 
         if (   $region->get_last_output_time() == $time
-            || $region->get_day_being_output() ne $day )
-        {
+            || $region->get_day_being_output() ne $day ) {
             push @before_time, $day, $h->br();
             $region->set_day_being_output( $day );
-        } ## end if ( $region->get_last_output_time...)
+        }
         out_line $h->th(
             { out_class( @time_classes ) },
             join q{}, @before_time, $tm
@@ -1207,12 +1208,10 @@ sub dump_desc_header {
 
             out_line $h->thead(
                 { out_class( $CLASS_DESC_TYPE_HEADER ) },
-                $h->tr(
-                    $h->th(
-                        { out_class( $CLASS_DESC_TYPE_COLUMN ) },
-                        $hdr_text
-                    )
-                )
+                $h->tr( $h->th(
+                    { out_class( $CLASS_DESC_TYPE_COLUMN ) },
+                    $hdr_text
+                ) )
             );
             out_open $HTML_TABLE_BODY;
             out_open $HTML_TABLE_ROW;
@@ -1257,17 +1256,12 @@ sub dump_desc_time_start {
 
     out_line $h->thead(
         { out_class( $CLASS_DESC_TIME_HEADER ) },
-        $h->tr(
-            $h->th(
-                {   out_class(
-                        $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT
-                    )
-                },
-                join q{ },
-                decode_time( $time, qw{ both } ),
-                @hdr_suffix
-            )
-        )
+        $h->tr( $h->th(
+            { out_class( $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT ) },
+            join q{ },
+            decode_time( $time, qw{ both } ),
+            @hdr_suffix
+        ) )
     );
 
     out_open $HTML_TABLE_BODY;
@@ -1284,14 +1278,92 @@ sub dump_desc_time_end {
     return;
 } ## end sub dump_desc_time_end
 
-sub dump_desc_panel_body {
-    my ( $filter, $region, $time_slot, $panel, @extra_classes ) = @_;
+sub dump_desc_panel_note {
+    my ( $panel, $conflict ) = @_;
 
-    if ( !defined $panel ) {
+    my @note;
+    if ( $conflict ) {
+        push @note, $h->b( q{Conflicts with one of your panels.} );
+    }
+    if ( defined $panel->get_cost() && $panel->get_cost() =~ m{model}xms ) {
+        push @note, $h->b( q{Premium workshop:} ),
+            q{ Requires a separate purchase.};
+    }
+    if ( defined $panel->get_note() ) {
+        push @note, $h->i( $panel->get_note() );
+    }
+    if ( $panel->get_is_full() ) {
+        push @note,
+            $h->span(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_FULL
+                )
+            },
+            q{This workshop is full.}
+            );
+    } ## end if ( $panel->get_is_full...)
+    if ( defined $panel->get_difficulty() && $option_show_difficulty ) {
+        push @note, $h->span(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_DIFFICULTY
+                )
+            },
+            q{Difficulty level: } . $panel->get_difficulty()
+        );
+    } ## end if ( defined $panel->get_difficulty...)
+    if ( @note ) {
+        out_line $h->p(
+            {   out_class(
+                    sprintf $CLASS_DESC_FMT_SUBCLASS,
+                    $SUBCLASS_PIECE_NOTE
+                )
+            },
+            join q{ },
+            @note
+        );
+    } ## end if ( @note )
+    return;
+} ## end sub dump_desc_panel_note
+
+sub should_panel_desc_be_dumped {
+    my ( $filter, $room_focus_map, $panel_state, $show_unbusy_panels, $time )
+        = @_;
+
+    my $idx = $panel_state->get_num_room_index();
+    return if $room_focus_map->{ $idx }->{ $FILTER_ROOM_DESC_HIDE };
+
+    my $panel = $panel_state->get_active_panel();
+
+    return unless $panel->get_start_seconds() == $time;
+
+    return if ( $panel->get_room_is_hidden() );
+
+    my $filter_panelist = $filter->{ $FILTER_PRESENTER };
+    if ( defined $filter_panelist ) {
+        if ($panel->is_presenter_hosting( $filter_panelist )
+            ? !$show_unbusy_panels
+            : $show_unbusy_panels
+        ) {
+            return;
+        } ## end if ( $panel->is_presenter_hosting...)
+    } ## end if ( defined $filter_panelist)
+
+    return if ( $option_just_premium && !defined $panel->get_post() );
+    return 1;
+} ## end sub should_panel_desc_be_dumped
+
+sub dump_desc_panel_body {
+    my ( $filter, $time_slot, $panel_state, @extra_classes ) = @_;
+
+    if ( !defined $panel_state ) {
         out_line $h->td(
             { out_class( @extra_classes, $CLASS_KIOSK_DESC_CELL_EMPTY ) } );
         return;
     }
+
+    my $panel = $panel_state->get_active_panel();
 
     my @subclasses = ( q{}, @{ $panel->get_css_subclasses() } );
     my $conflict;
@@ -1402,49 +1474,8 @@ sub dump_desc_panel_body {
         $panel->get_description()
     );
 
-    my @note;
-    if ( $conflict ) {
-        push @note, $h->b( q{Conflicts with one of your panels.} );
-    }
-    if ( defined $panel->get_cost() ) {
-        push @note, $h->b( q{Premium workshop:} ),
-            q{ Requires a separate purchase.};
-    }
-    if ( defined $panel->get_note() ) {
-        push @note, $h->i( $panel->get_note() );
-    }
-    if ( $panel->get_is_full() ) {
-        push @note,
-            $h->span(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_FULL
-                )
-            },
-            q{This workshop is full.}
-            );
-    } ## end if ( $panel->get_is_full...)
-    if ( defined $panel->get_difficulty() && $option_show_difficulty ) {
-        push @note, $h->span(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_DIFFICULTY
-                )
-            },
-            q{Difficulty level: } . $panel->get_difficulty()
-        );
-    } ## end if ( defined $panel->get_difficulty...)
-    if ( @note ) {
-        out_line $h->p(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_NOTE
-                )
-            },
-            join q{ },
-            @note
-        );
-    } ## end if ( @note )
+    dump_desc_panel_note( $panel, $conflict );
+
     out_close $HTML_DIV if $option_kiosk_mode;
     out_close $HTML_TABLE_DATA;
 
@@ -1467,39 +1498,29 @@ sub dump_desc_body {
         my @panel_states = values %{ $panels_for_timeslot };
         @panel_states = sort { $a->compare_room_index( $b ) } @panel_states;
 
-        my $busy;
-        $busy = 1
-            if $show_unbusy_panels
-            && $time_slot->is_presenter_hosting( $filter_panelist );
-
         foreach my $panel_state ( @panel_states ) {
-            my $idx = $panel_state->get_num_room_index();
-            next if $room_focus_map->{ $idx }->{ $FILTER_ROOM_DESC_HIDE };
-
-            my $panel = $panel_state->get_active_panel();
-
-            next unless $panel->get_start_seconds() == $time;
-
-            next if ( $panel->get_room_is_hidden() );
-
-            if ( $panel->is_presenter_hosting( $filter_panelist ) ) {
-                next if $show_unbusy_panels;
-            }
-            elsif ( defined $filter_panelist ) {
-                next unless $show_unbusy_panels;
-            }
+            next
+                unless should_panel_desc_be_dump(
+                $filter, $room_focus_map, $panel_state,
+                $show_unbusy_panels,
+                $time
+                );
 
             if ( !defined $time_header_seen ) {
                 $time_header_seen = 1;
 
-                dump_desc_time_start(
-                    $time, $busy ? ( qw{ Conflict } ) : (),
-                );
+                my @hdr_extra;
+                if (   $show_unbusy_panels
+                    && $time_slot->is_presenter_hosting( $filter_panelist ) )
+                {
+                    push @hdr_extra, qw{ Conflict };
+                }
+                dump_desc_time_start( $time, @hdr_extra );
             } ## end if ( !defined $time_header_seen)
 
             out_open $HTML_TABLE_ROW,
                 { out_class( $CLASS_DESC_PANEL_ROW ) };
-            dump_desc_panel_body( $filter, $region, $time_slot, $panel );
+            dump_desc_panel_body( $filter, $time_slot, $panel_state );
             out_close $HTML_TABLE_ROW;
         } ## end foreach my $panel_state ( @panel_states)
         if ( $time_header_seen ) {
@@ -1551,10 +1572,9 @@ sub cache_inline_style {
     state %cache;
     if (   !File::Spec->file_name_is_absolute( $file )
         && !-e $file
-        && -e File::Spec->catfile( q{css}, $file ) )
-    {
+        && -e File::Spec->catfile( q{css}, $file ) ) {
         $file = File::Spec->catfile( q{css}, $file );
-    } ## end if ( !File::Spec->file_name_is_absolute...)
+    }
     return $cache{ $file } //= read_file(
         $file,
         { chomp => 1, array_ref => 1, err_mode => q{carp} }
@@ -1739,13 +1759,12 @@ sub dump_styles {
         else {
             close_html_style \%state;
 
-            out_line $h->link(
-                {   href => $fname,
-                    rel  => q{stylesheet},
-                    type => q{text/css},
-                    ( defined $media ? ( media => $media ) : () )
-                }
-            );
+            out_line $h->link( {
+                href => $fname,
+                rel  => q{stylesheet},
+                type => q{text/css},
+                ( defined $media ? ( media => $media ) : () )
+            } );
         } ## end else [ if ( $is_html ) ]
     } ## end foreach my $style ( @option_css_styles)
     close_media_style \%state;
@@ -1773,12 +1792,11 @@ sub dump_file_header {
     }
 
     out_line $h->title( $title );
-    out_line $h->link(
-        {   href =>
-                q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
-            rel => q{stylesheet}
-        }
-    );
+    out_line $h->link( {
+        href =>
+            q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
+        rel => q{stylesheet}
+    } );
 
     dump_styles;
 
@@ -1835,8 +1853,7 @@ sub dump_table_all_regions {
     if ( $need_all_desc ) {
         dump_desc_all_timeslice( $filter );
         if ( exists $filter->{ $FILTER_PRESENTER }
-            && !$option_just_presenter )
-        {
+            && !$option_just_presenter ) {
             dump_desc_all_timeslice( $filter, 1 );
         }
     } ## end if ( $need_all_desc )
@@ -1890,13 +1907,12 @@ sub dump_kiosk_desc {
             { out_class( $CLASS_KIOSK_DESC_HEAD ) };
         out_open $HTML_TABLE_ROW,
             { out_class( $CLASS_KIOSK_DESC_ROW_HEADERS ) };
-        out_line $h->th(
-            {   out_class(
-                    $CLASS_KIOSK_COLUMN_ROOM,
-                    $CLASS_KIOSK_DESC_CELL_HEADER
-                )
-            }
-        );
+        out_line $h->th( {
+            out_class(
+                $CLASS_KIOSK_COLUMN_ROOM,
+                $CLASS_KIOSK_DESC_CELL_HEADER
+            )
+        } );
         out_line $h->th(
             {   out_class(
                     $CLASS_KIOSK_COLUMN_CURRENT,
@@ -1919,7 +1935,7 @@ sub dump_kiosk_desc {
             { out_class( $CLASS_KIOSK_DESC_BODY ) };
         my $time_slot   = $region->get_time_slot( $time );
         my $cur_panels  = $time_slot->get_current();
-        my $next_panels = $region->get_upcoming();
+        my $next_panels = $time_slot->get_upcoming();
 
         foreach my $room ( @region_rooms ) {
             my $idx   = $room->get_num_room_index();
@@ -1939,13 +1955,13 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
-                $DEFAULT_FILTER, $region, $time_slot,
-                $cur_panels->{ $idx }->get_active_panel(),
+                $DEFAULT_FILTER, $time_slot,
+                $cur_panels->{ $idx },
                 $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
-                $DEFAULT_FILTER, $region, $time_slot,
-                $next_panels->{ $idx }->get_active_panel(),
+                $DEFAULT_FILTER, $time_slot,
+                $next_panels->{ $idx },
                 $CLASS_KIOSK_DESC_CELL_FUTURE
             );
             out_close $HTML_TABLE_ROW;
@@ -1970,12 +1986,11 @@ sub dump_kiosk {
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
     out_line $h->title( $option_title );
-    out_line $h->link(
-        {   href => q{css/kiosk.css},
-            rel  => q{stylesheet},
-            type => q{text/css}
-        }
-    );
+    out_line $h->link( {
+        href => q{css/kiosk.css},
+        rel  => q{stylesheet},
+        type => q{text/css}
+    } );
     dump_styles;
     out_line $h->script(
         { type => q{text/javascript}, src => q{js/kiosk.js} } );
@@ -1984,12 +1999,11 @@ sub dump_kiosk {
     out_open $HTML_BODY;
 
     out_open $HTML_DIV, { out_class( $CLASS_KIOSK_BAR ) };
-    out_line $h->img(
-        {   out_class( $CLASS_KIOSK_LOGO ),
-            src => q{images/CosplayAmericaLogoAlt.svg},
-            alt => q{Cosplay America}
-        }
-    );
+    out_line $h->img( {
+        out_class( $CLASS_KIOSK_LOGO ),
+        src => q{images/CosplayAmericaLogoAlt.svg},
+        alt => q{Cosplay America}
+    } );
     out_open $HTML_DIV,
         { out_class( $CLASS_KIOSK_TIME ), id => q{current_time} };
     out_line q{SOMEDAY ##:## ?M};
@@ -2055,8 +2069,7 @@ sub split_filter_by_panelist {
             next if $per_info->get_is_other();
 
             if ( $per_info->get_presenter_rank() == $Presenter::RANK_GUEST
-                && !$option_file_per_presenter )
-            {
+                && !$option_file_per_presenter ) {
                 next;
             }
 
@@ -2101,37 +2114,53 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
-        q{day!}              => \$option_show_day_column,
-        q{descriptions!}     => \$option_show_descriptions,
-        q{file-by-day!}      => \$option_file_per_day,
-        q{file-by-guest!}    => \$option_file_per_guest,
-        q{file-by-panelist!} => \$option_file_per_presenter,
-        q{file-by-room!}     => \$option_file_per_room,
-        q{grid!}             => \$option_show_grid,
-        q{hide-unused!}      => \$option_hide_unused_rooms,
-        q{inline-css!}       => \$option_embed_css,
-        q{input=s}           => \$option_input_file,
-        q{just-guest!}       => \$option_just_presenter,
-        q{just-panelist!}    => \$option_just_presenter,
-        q{kiosk!}            => \$option_kiosk_mode,
-        q{output=s}          => \$option_output,
-        q{postcard!}         => \$option_is_postcard,
-        q{room=s@}           => \@option_rooms,
-        q{separate!}         => \$option_desc_at_end,
-        q{split-day!}        => \$option_split_per_day,
-        q{show-difficulty}   => \$option_show_difficulty,
-        q{style=s@}          => \@option_css_styles,
-        q{title=s}           => \$option_title,
-        q{unified!}          => \$option_unified_grid,
+
+        q{embed-css!}         => \$option_embed_css,
+        q{file-by-day!}       => \$option_file_per_day,
+        q{file-by-guest!}     => \$option_file_per_guest,
+        q{file-by-presenter!} => \$option_file_per_presenter,
+        q{file-by-room!}      => \$option_file_per_room,
+        q{hide-day+}          => sub { $option_show_day_column = 0 },
+        q{hide-descriptions+} => sub { $option_show_descriptions = 0 },
+        q{hide-grid+}         => sub { $option_show_grid = 0 },
+        q{hide-unused-rooms!} => \$option_hide_unused_rooms,
+        q{input=s}            => \$option_input_file,
+        q{just-premium!}      => \$option_just_premium,
+        q{just-presenter!}    => \$option_just_presenter,
+        q{mode-kiosk!}        => \$option_kiosk_mode,
+        q{mode-postcard!}     => \$option_is_postcard,
+        q{output=s}           => \$option_output,
+        q{room=s@}            => \@option_rooms,
+        q{separate!}          => \$option_desc_at_end,
+        q{show-day!}          => \$option_show_day_column,
+        q{show-descriptions!} => \$option_show_descriptions,
+        q{show-grid|grid!}    => \$option_show_grid,
+        q{show-unused-rooms+} => sub { $option_hide_unused_rooms = 0 },
+        q{split!}             => \$option_split_grids,
+        q{split-day!}         => \$option_split_per_day,
+        q{style=s@}           => \@option_css_styles,
+        q{title=s}            => \$option_title,
+
+        # Aliases
+        q{descriptions!} => \$option_show_descriptions,
+        q{inline-css!}   => \$option_embed_css,
+        q{just-guest!}   => \$option_just_presenter,
+        q{kiosk!}        => \$option_kiosk_mode,
+        q{postcard!}     => \$option_is_postcard,
+        q{unified+}      => sub { $option_split_grids = 0 },
+
+        # Undocumented
+        q{show-difficulty} => \$option_show_difficulty,
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $option_embed_css //= 1 if @option_css_styles;
     push @option_css_styles, qw{ index.css } unless @option_css_styles;
 
-    $option_input_file //= shift @args;
-    $option_output     //= shift @args;
-    $option_output     //= q{-};
-    $option_title      //= q{Cosplay America 2022 Schedule};
+    $option_input_file  //= shift @args;
+    $option_output      //= shift @args;
+    $option_output      //= q{-};
+    $option_split_grids //= 1;
+    $option_title       //= q{Cosplay America 2022 Schedule};
 
     if ( $option_kiosk_mode ) {
         @option_css_styles         = ( qw{+color} );
@@ -2148,7 +2177,7 @@ sub main {
         $option_show_descriptions  = 1;
         $option_show_grid          = 1;
         $option_split_per_day      = undef;
-        $option_unified_grid       = 1;
+        $option_split_grids        = undef;
     } ## end if ( $option_kiosk_mode)
     read_spreadsheet_file( $option_input_file );
 

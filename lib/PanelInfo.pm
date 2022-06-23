@@ -15,6 +15,26 @@ use PresenterSet;
 
 Readonly our $CAFE => q{Café};
 
+## no critic(ProhibitComplexRegexes)
+Readonly our $RE_FREE => qr{
+    \A (?:  free
+    | (?=n) (?: nothing
+              | n /? a )
+    | [\$]? (?: 0+ (?: [.] 0+ )? | [.] 0+ )
+    ) \z
+    }xmsi;
+Readonly our $RE_TBD => qr{ \A T [.]? B [.]? D[.]? \z }xms;
+## use critic
+
+q{free}        =~ $RE_FREE or croak q{Assertion fail};
+q{n/A}         =~ $RE_FREE or croak q{Assertion fail};
+q{nothing}     =~ $RE_FREE or croak q{Assertion fail};
+q{$} . q{0.00} =~ $RE_FREE or croak q{Assertion fail};
+q{$} . q{0.01} !~ $RE_FREE or croak q{Assertion fail};
+q{$} . q{0}    =~ $RE_FREE or croak q{Assertion fail};
+q{$} . q{00}   =~ $RE_FREE or croak q{Assertion fail};
+q{T.B.D.}      =~ $RE_TBD  or croak q{Assertion fail};
+
 sub norm_text_ {
     my ( @values ) = @_;
     @values = grep { defined } @values;
@@ -38,18 +58,12 @@ sub pre_set_text_ {
 
 sub norm_cost_ {
     my ( @values ) = @_;
-    my $value = lc norm_text_( @values );
+    my $value = norm_text_( @values );
     return unless defined $value;
     return if $value eq q{};
-    return if $value =~ m{ \A (?: [\$]? 0+ )? (?: [.] 0+ ) \z}xms;
-    return $value if $value =~ m{ \A [\$] \d+ (?: [.] \d+)? \z}xms;
-    return $value if $value =~ m{ \A part}xms;
-    return $value if $value =~ m{ \A \d+ \z }xms;
-    return        if $value eq q{na};
-    return        if $value eq q{n/a};
-    return        if $value eq q{free};
-    return        if $value eq q{nothing};
-    return q{TBD};
+    return if $value =~ $RE_FREE;
+    return q{RE_TBD} if $value =~ $RE_TBD;
+    return $value;
 } ## end sub norm_cost_
 
 sub pre_init_cost_ {
