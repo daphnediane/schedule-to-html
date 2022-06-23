@@ -19,6 +19,12 @@ my @cache
 
 ## use critic
 
+sub release {
+    my ( $self ) = @_;
+    $self->set_line_cache_( undef );
+    return;
+}
+
 sub find_sheet_handle {
     my ( $self, $sheet ) = @_;
     return 0 unless defined $sheet;

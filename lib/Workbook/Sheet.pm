@@ -15,7 +15,6 @@ use utf8;
 
 my @workbook
     :Field
-    :Type(Workbook)
     :Arg(Name => q{workbook}, Mandatory => 1)
     :Get(get_workbook)
     :Set(Name => q{set_workbook_}, Restricted => 1);
@@ -50,6 +49,13 @@ my @is_open
 
 ## use critic
 
+sub release {
+    my ( $self ) = @_;
+    $self->set_workbook_( undef );
+    $self->set_sheet_handle_( undef );
+    return;
+} ## end sub release
+
 sub init_ :Init {
     my ( $self ) = @_;
 
@@ -59,14 +65,14 @@ sub init_ :Init {
     }
     my $sheet_handle = $wb->find_sheet_handle( $self->get_sheet() );
     if ( !defined $sheet_handle ) {
-        $self->set_workbook_( undef );
+        $self->release();
         return;
     }
     $self->set_sheet_handle_( $sheet_handle );
 
     my ( $first_row, $last_row ) = $wb->get_line_range( $sheet_handle );
     if ( !defined $last_row ) {
-        $self->set_workbook_( undef );
+        $self->release();
         return;
     }
     $self->set_next_row_( $first_row );

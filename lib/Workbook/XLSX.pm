@@ -20,6 +20,12 @@ my @wb
 
 my $parser = Spreadsheet::ParseXLSX->new;
 
+sub release {
+    my ( $self ) = @_;
+    $self->set_workbook_( undef );
+    return;
+}
+
 sub find_sheet_handle {
     my ( $self, $sheet ) = @_;
     $sheet //= 0;

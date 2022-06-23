@@ -62,7 +62,7 @@ sub norm_cost_ {
     return unless defined $value;
     return if $value eq q{};
     return if $value =~ $RE_FREE;
-    return q{RE_TBD} if $value =~ $RE_TBD;
+    return q{TBD} if $value =~ $RE_TBD;
     return $value;
 } ## end sub norm_cost_
 

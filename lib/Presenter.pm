@@ -81,6 +81,19 @@ my @members
 
 ## use critic
 
+sub get_pid {
+    my ( $self ) = @_;
+    return ${ $self };
+}
+
+sub find_by_pid {
+    my ( $class, $pid ) = @_;
+
+    my $value = $pid_map[ $pid ];
+    return $value if defined $value;
+    return;
+} ## end sub find_by_pid
+
 sub improve_presenter_rank {
     my ( $self, $new_rank ) = @_;
 
@@ -130,14 +143,14 @@ sub get_members {
 sub add_members {
     my ( $self, @new_members ) = @_;
 
-    my $gid      = ${ $self };
+    my $gid      = $self->get_pid();
     my $mem_hash = $self->get_members_();
     if ( !defined $mem_hash ) {
         $mem_hash = {};
         $self->set_members_( $mem_hash );
     }
     foreach my $member ( @new_members ) {
-        my $mid = ${ $member };
+        my $mid = $member->get_pid();
         next if $mem_hash->{ $mid };
         $mem_hash->{ $mid } = $member;
         my $gpr_hash = $member->get_groups_();
@@ -153,14 +166,14 @@ sub add_members {
 sub add_groups {
     my ( $self, @new_groups ) = @_;
 
-    my $mid      = ${ $self };
+    my $mid      = $self->get_pid();
     my $gpr_hash = $self->get_groups_();
     if ( !defined $gpr_hash ) {
         $gpr_hash = {};
         $self->set_groups_( $gpr_hash );
     }
     foreach my $group ( @new_groups ) {
-        my $gid = ${ $group };
+        my $gid = $group->get_pid();
         next if $gpr_hash->{ $gid };
         $gpr_hash->{ $gid } = $group;
         my $mem_hash = $group->get_members_();
@@ -196,7 +209,7 @@ sub compare {
     }
 
     return $self->get_presenter_name() cmp $other->get_presenter_name()
-        || ${ $self } <=> ${ $other };
+        || $self->get_pid() <=> $other->get_pid();
 } ## end sub compare
 
 sub get_map_ {
@@ -241,23 +254,10 @@ sub new {
     return $class->Object::InsideOut::new( @args );
 } ## end sub new
 
-sub get_pid {
-    my ( $self ) = @_;
-    return ${ $self };
-}
-
-sub find_by_pid {
-    my ( $class, $pid ) = @_;
-
-    my $value = $pid_map[ $pid ];
-    return $value if defined $value;
-    return;
-} ## end sub find_by_pid
-
 sub init_ :Init {
     my ( $self, $args ) = @_;
     push @presenters, $self unless $self->get_is_other();
-    my $pid = ${ $self };
+    my $pid = $self->get_pid();
     $pid_map[ $pid ] = $self;
     $self->get_map_(
         $self->get_presenter_rank(),
@@ -266,6 +266,13 @@ sub init_ :Init {
     )->{ lc $self->get_presenter_name() } = $self;
     return;
 } ## end sub init_
+
+sub destroy_ :Destroy {
+    my ( $self ) = @_;
+    my $pid = $self->get_pid();
+    $pid_map[ $pid ] = undef;
+    return;
+} ## end sub destroy_
 
 sub lookup {
     my ( $class, $name_with_group, $index, $rank ) = @_;

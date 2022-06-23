@@ -32,8 +32,10 @@ my @is_break
 
 sub increment_rows {
     my ( $self, $amount ) = @_;
+    my $rows = $self->get_rows() // 0;
     $amount //= 1;
-    $rows[ ${ $self } ] += $amount;
+    $rows += $amount;
+    $self->set_rows( $rows );
     return;
 } ## end sub increment_rows
 

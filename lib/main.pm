@@ -315,6 +315,9 @@ sub read_spreadsheet_rooms {
         process_spreadsheet_room_sheet( $header, \@san_header, $raw );
     }
 
+    $sheet->release() if defined $sheet;
+    undef $sheet;
+
     return;
 } ## end sub read_spreadsheet_rooms
 
@@ -373,6 +376,9 @@ sub read_spreadsheet_panel_types {
 
         process_spreadsheet_paneltype_sheet( $header, \@san_header, $raw );
     }
+
+    $sheet->release() if defined $sheet;
+    undef $sheet;
 
     return;
 } ## end sub read_spreadsheet_panel_types
@@ -609,6 +615,9 @@ sub read_spreadsheet_file {
             $raw
         );
     } ## end while ( my $raw = $main_sheet...)
+
+    $main_sheet->release() if defined $main_sheet;
+    $wb->release()         if defined $wb;
 
     undef $main_sheet;
     undef $wb;
@@ -1056,7 +1065,7 @@ sub dump_grid_cell_room {
     );
 
     my $cost = $panel->get_cost();
-    if ( defined $cost && $cost !~ m{ \A part }xms ) {
+    if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
         out_line $h->div(
             {   out_class(
                     map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } (
@@ -1423,7 +1432,7 @@ sub dump_desc_panel_body {
     } ## end else [ if ( $option_show_grid)]
 
     my $cost = $panel->get_cost();
-    if ( defined $cost && $cost !~ m{ \A part }xms ) {
+    if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
         out_line $h->div(
             {   out_class(
                     map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } (
@@ -1500,7 +1509,7 @@ sub dump_desc_body {
 
         foreach my $panel_state ( @panel_states ) {
             next
-                unless should_panel_desc_be_dump(
+                unless should_panel_desc_be_dumped(
                 $filter, $room_focus_map, $panel_state,
                 $show_unbusy_panels,
                 $time
