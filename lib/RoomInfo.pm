@@ -9,16 +9,21 @@ use common::sense;
 use Readonly;
 use utf8;
 
-Readonly our $SPLIT_PREFIX => q{SPLIT};
-Readonly our $BREAK        => q{BREAK};
-Readonly our $HIDE_IDX     => 100;
+use overload
+    q{<=>} => q{compare},
+    q{cmp} => q{compare};
+
+Readonly our $SPLIT_PREFIX     => q{SPLIT};
+Readonly our $BREAK            => q{BREAK};
+Readonly our $HIDDEN_SORT_KEY  => 100;
+Readonly our $UNKNOWN_SORT_KEY => 999;
 
 ## no critic (ProhibitUnusedVariables)
 
-my @index
+my @sort_key
     :Field
     :Type(scalar)
-    :Std_All(room_index);
+    :Std_All(sort_key);
 
 my @short_name
     :Field
@@ -39,6 +44,35 @@ my @hotel
 
 ## use critic
 
+my @uid_map;
+
+sub get_room_id {
+    my ( $self ) = @_;
+    return ${ $self };
+}
+
+sub find_by_room_id {
+    my ( $class, $uid ) = @_;
+
+    my $value = $uid_map[ $uid ];
+    return $value if defined $value;
+    return;
+} ## end sub find_by_room_id
+
+sub init_ :Init {
+    my ( $self, $args ) = @_;
+    my $uid = $self->get_room_id();
+    $uid_map[ $uid ] = $self;
+    return;
+} ## end sub init_
+
+sub destroy_ :Destroy {
+    my ( $self ) = @_;
+    my $uid = $self->get_room_id();
+    $uid_map[ $uid ] = undef;
+    return;
+} ## end sub destroy_
+
 sub has_prefix {
     my ( $self, $prefix ) = @_;
     return unless defined $prefix;
@@ -55,20 +89,12 @@ sub get_is_split {
     return $self->has_prefix( $SPLIT_PREFIX );
 }
 
-sub get_num_room_index {
-    my ( $self ) = @_;
-    my $idx = $self->get_room_index();
-    return unless defined $idx;
-    return $idx if $idx =~ m{ \A \d+ \z }xms;
-    return;
-} ## end sub get_num_room_index
-
 sub get_room_is_hidden {
     my ( $self ) = @_;
-    my $idx = $self->get_room_index();
-    return 1 unless defined $idx;
-    return 1 unless $idx =~ m{ \A \d+ \z }xms;
-    return 1 if $idx >= $HIDE_IDX;
+    my $sort_key = $self->get_sort_key();
+    return 1 unless defined $sort_key;
+    return 1 unless $sort_key =~ m{ \A \d+ \z }xms;
+    return 1 if $sort_key >= $HIDDEN_SORT_KEY;
     return;
 } ## end sub get_room_is_hidden
 
@@ -79,4 +105,21 @@ sub get_room_is_break {
     return;
 } ## end sub get_room_is_break
 
+sub compare {
+    my ( $self, $other, $swap ) = @_;
+    if ( !defined $other ) {
+        my $before = $swap ? 1 : -1;
+        return $self <= $UNKNOWN_SORT_KEY ? $before : -$before;
+    }
+
+    die q{Compare Room with something else:}, ( ref $other ), qq{\n}
+        unless ref $other && $other->isa( q{RoomInfo} );
+
+    ( $self, $other ) = ( $other, $self ) if $swap;
+
+    return
+           $self->get_sort_key() <=> $other->get_sort_key()
+        || $self->get_long_room_name() cmp $other->get_long_room_name()
+        || $self->get_room_id() <=> $other->get_room_id();
+} ## end sub compare
 1;

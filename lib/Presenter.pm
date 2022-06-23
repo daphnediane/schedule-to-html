@@ -189,7 +189,7 @@ sub add_groups {
 sub compare {
     my ( $self, $other, $swap ) = @_;
     die qq{Compare Presenter with something else\n}
-        unless q{Presenter} eq ref $other;
+        unless ref $other && $other->isa( q{Presenter} );
 
     ( $self, $other ) = ( $other, $self ) if $swap;
 

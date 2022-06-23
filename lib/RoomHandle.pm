@@ -11,8 +11,6 @@ use utf8;
 
 use RoomInfo;
 
-Readonly our $UNKNOWN_INDEX => 999;
-
 ## no critic (ProhibitUnusedVariables)
 
 my @room
@@ -43,19 +41,12 @@ sub get_hotel_room {
     return $room->get_hotel_room();
 } ## end sub get_hotel_room
 
-sub get_room_index {
+sub get_room_id {
     my ( $self ) = @_;
     my $room = $self->get_room();
     return unless defined $room;
-    return $room->get_room_index();
-} ## end sub get_room_index
-
-sub get_num_room_index {
-    my ( $self ) = @_;
-    my $room = $self->get_room();
-    return unless defined $room;
-    return $room->get_num_room_index();
-} ## end sub get_num_room_index
+    return $room->get_room_id();
+} ## end sub get_room_id
 
 sub get_room_is_hidden {
     my ( $self ) = @_;
@@ -70,12 +61,5 @@ sub get_room_is_break {
     return unless defined $room;
     return $room->get_room_is_break();
 } ## end sub get_room_is_break
-
-sub compare_room_index {
-    my ( $self, $other ) = @_;
-    return ( $self->get_num_room_index() // $UNKNOWN_INDEX )
-        <=> ( $other->get_num_room_index() // $UNKNOWN_INDEX )
-        || $self->get_long_room_name() cmp $other->get_long_room_name();
-} ## end sub compare_room_index
 
 1;
