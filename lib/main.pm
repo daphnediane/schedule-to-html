@@ -2069,7 +2069,7 @@ sub split_filter_by_panelist {
         foreach my $per_info ( Presenter->get_known() ) {
             next if $per_info->get_is_other();
 
-            if ( $per_info->get_presenter_rank() == $Presenter::RANK_GUEST
+            if ( $per_info->get_presenter_rank() != $Presenter::RANK_GUEST
                 && !$option_file_per_presenter ) {
                 next;
             }
