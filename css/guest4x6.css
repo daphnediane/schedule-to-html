@@ -12,8 +12,24 @@
 		page-break-after: auto;
 		column-span: none;
 		break-before: all;
-		font-size: 10.5pt;
-		margin-block-start: 2in;
+		font-size: 3.9pt;
+		/*margin-block-start: 2in;*/
+	}
+
+	.scheduleFridayMorning {
+		font-size: 5.2pt;
+	}
+
+	.scheduleFridayAfternoon {
+		font-size: 8.5pt;
+	}
+
+	.scheduleSaturdayMorning {
+		font-size: 5.2pt;
+	}
+
+	.scheduleSaturdayAfternoon {
+		font-size: 6.4pt;
 	}
 
 	.schedTimeSlot,

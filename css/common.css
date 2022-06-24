@@ -137,7 +137,7 @@ html {
 
 .panelCost {
     font-weight: bolder;
-    text-decoration: underline;
+    /*text-decoration: underline;*/
 }
 
 .schedColumnDay {

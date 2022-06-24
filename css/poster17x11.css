@@ -1,5 +1,5 @@
 @page {
-    size: landscape;
+    size: 20in 30in;
 }
 
 html {
@@ -10,7 +10,7 @@ html {
 .schedule {
     column-span: none;
     break-before: column;
-    font-size: 6.7px;
+    font-size: 7px;
 }
 
 .schedHeader {
@@ -18,7 +18,6 @@ html {
 }
 
 .descriptions {
-    -webkit-column-break-before: always;
-    font-size: 6.7pt;
+    font-size: 9.3pt;
     column-count: 2;
 }
