@@ -1337,7 +1337,7 @@ sub dump_desc_panel_note {
     if ( $conflict ) {
         push @note, $h->b( q{Conflicts with one of your panels.} );
     }
-    if ( defined $panel->get_cost() && $panel->get_cost() =~ m{model}xms ) {
+    if ( defined $panel->get_cost() && $panel->get_cost() !~ m{model}xmsi ) {
         push @note, $h->b( q{Premium workshop:} ),
             q{ Requires a separate purchase.};
     }
