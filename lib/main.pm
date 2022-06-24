@@ -51,7 +51,7 @@ Readonly our $HTML_TABLE_HEAD => q{thead};
 Readonly our $HTML_TABLE_ROW  => q{tr};
 
 # CSS Classes
-Readonly our $CLASS_DESC_FMT_SUBCLASS        => q{desc%s};
+Readonly our $CLASS_DESC_BASE                => q{desc};
 Readonly our $CLASS_DESC_PANEL_ROW           => q{descPanelRow};
 Readonly our $CLASS_DESC_SECTION             => q{descriptions};
 Readonly our $CLASS_DESC_TIME_COLUMN         => q{descTimeSlotColumn};
@@ -63,7 +63,7 @@ Readonly our $CLASS_DESC_TYPE_HEADER         => q{descTypeHeader};
 Readonly our $CLASS_DESC_TYPE_TABLE          => q{descTypeTable};
 Readonly our $CLASS_GRID_CELL_DAY            => q{schedWeekDay};
 Readonly our $CLASS_GRID_CELL_EMPTY          => q{schedRoomEmpty};
-Readonly our $CLASS_GRID_CELL_FMT_SUBCLASS   => q{panel%s};
+Readonly our $CLASS_GRID_CELL_BASE           => q{panel};
 Readonly our $CLASS_GRID_CELL_FOCUS          => q{roomFocus};
 Readonly our $CLASS_GRID_CELL_HEADER         => q{schedHeader};
 Readonly our $CLASS_GRID_CELL_PRESENTER_BUSY => q{schedTimeSlotGuestBusy};
@@ -222,6 +222,26 @@ sub canonical_header {
     $hdr =~ s{_\z}{}xmsg;
     return $hdr;
 } ## end sub canonical_header
+
+sub canonical_class {
+    my ( $class ) = @_;
+    $class = canonical_header( $class );
+    $class =~ s{_(\w)}{\u$1}xmsg;
+    return $class;
+} ## end sub canonical_class
+
+sub join_subclass {
+    my ( $base, @subclasses ) = @_;
+
+    $base //= q{};
+    foreach my $subclass ( @subclasses ) {
+        next unless defined $subclass;
+        $subclass =~ s{\A(\w)}{\u$1}xms if ( $base =~ m{\w\z}xms );
+        $base .= $subclass;
+    }
+    return if $base eq q{};
+    return $base;
+} ## end sub join_subclass
 
 sub to_presenter {
     my ( $per_info, $names ) = @_;
@@ -932,9 +952,18 @@ sub dump_grid_row_room_names {
 } ## end sub dump_grid_row_room_names
 
 sub dump_grid_header {
-    my ( $filter, $room_focus_map ) = @_;
+    my ( $filter, $region, $room_focus_map ) = @_;
 
-    out_open $HTML_TABLE, { out_class( $CLASS_GRID_TABLE ) };
+    out_open $HTML_TABLE,
+        {
+        out_class(
+            $CLASS_GRID_TABLE,
+            join_subclass(
+                $CLASS_GRID_TABLE,
+                canonical_class( $region->get_region_name() )
+            )
+        )
+        };
 
     out_open $HTML_COLGROUP;
 
@@ -1017,7 +1046,7 @@ sub dump_grid_cell_room {
         rowspan => $panel_state->get_rows() // 1,
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
-            map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } @subclasses
+            map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } @subclasses
         )
         };
 
@@ -1025,29 +1054,25 @@ sub dump_grid_cell_room {
         if $option_show_descriptions;
 
     out_line $h->div(
-        {   out_class(
-                sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
-                $SUBCLASS_PIECE_ID
-            )
+        {   out_class( join_subclass(
+                $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_ID ) )
         },
         $panel->get_uniq_id()
     );
 
     if ( $panel->get_is_full() ) {
         out_line $h->div(
-            {   out_class(
-                    sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_FULL
-                )
+            {   out_class( join_subclass(
+                    $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_FULL
+                ) )
             },
             q{Workshop is Full}
         );
     } ## end if ( $panel->get_is_full...)
     out_line $h->span(
-        {   out_class(
-                sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
-                $SUBCLASS_PIECE_NAME
-            )
+        {   out_class( join_subclass(
+                $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_NAME
+            ) )
         },
         $name
     );
@@ -1056,7 +1081,7 @@ sub dump_grid_cell_room {
     if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
         out_line $h->div(
             {   out_class(
-                    map { sprintf $CLASS_GRID_CELL_FMT_SUBCLASS, $_ } (
+                    map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
                         $SUBCLASS_PIECE_COST,
                     )
                 )
@@ -1067,10 +1092,9 @@ sub dump_grid_cell_room {
 
     if ( defined $credited_presenter ) {
         out_line $h->span(
-            {   out_class(
-                    sprintf $CLASS_GRID_CELL_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_PRESENTER
-                )
+            {   out_class( join_subclass(
+                    $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_PRESENTER
+                ) )
             },
             $credited_presenter
         );
@@ -1177,7 +1201,7 @@ sub dump_grid_timeslice {
 
     my %room_focus_map = room_id_focus_map( $filter, $region );
 
-    dump_grid_header( $filter, \%room_focus_map );
+    dump_grid_header( $filter, $region, \%room_focus_map );
     foreach my $time ( @times ) {
         dump_grid_row_time(
             $filter, $region, \%room_focus_map,
@@ -1295,30 +1319,25 @@ sub dump_desc_panel_note {
     if ( $panel->get_is_full() ) {
         push @note,
             $h->span(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_FULL
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_FULL ) )
             },
             q{This workshop is full.}
             );
     } ## end if ( $panel->get_is_full...)
     if ( defined $panel->get_difficulty() && $option_show_difficulty ) {
         push @note, $h->span(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_DIFFICULTY
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_DIFFICULTY
+                ) )
             },
             q{Difficulty level: } . $panel->get_difficulty()
         );
     } ## end if ( defined $panel->get_difficulty...)
     if ( @note ) {
         out_line $h->p(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_NOTE
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_NOTE ) )
             },
             join q{ },
             @note
@@ -1350,7 +1369,7 @@ sub should_panel_desc_be_dumped {
         } ## end if ( $panel->is_presenter_hosting...)
     } ## end if ( defined $filter_panelist)
 
-    return if ( $option_just_premium && !defined $panel->get_post() );
+    return if ( $option_just_premium && !defined $panel->get_cost() );
     return 1;
 } ## end sub should_panel_desc_be_dumped
 
@@ -1392,31 +1411,28 @@ sub dump_desc_panel_body {
         id => $panel->get_href_anchor(),
         out_class(
             @extra_classes,
-            map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } @subclasses
+            map { join_subclass( $CLASS_DESC_BASE, $_ ) } @subclasses
         )
         };
     out_open $HTML_DIV if $option_kiosk_mode;
     out_line $h->div(
-        { out_class( sprintf $CLASS_DESC_FMT_SUBCLASS, $SUBCLASS_PIECE_ID ) },
+        {   out_class( join_subclass( $CLASS_DESC_BASE, $SUBCLASS_PIECE_ID ) )
+        },
         $panel->get_uniq_id()
     );
     if ( $option_show_grid ) {
         out_line $h->a(
             {   href => q{#} . $panel->get_href_anchor() . q{Grid},
-                out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_NAME
-                )
+                out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_NAME ) )
             },
             $name
         );
     } ## end if ( $option_show_grid)
     else {
         out_line $h->div(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_NAME
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_NAME ) )
             },
             $name
         );
@@ -1426,7 +1442,7 @@ sub dump_desc_panel_body {
     if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
         out_line $h->div(
             {   out_class(
-                    map { sprintf $CLASS_DESC_FMT_SUBCLASS, $_ } (
+                    map { join_subclass( $CLASS_DESC_BASE, $_ ) } (
                         $SUBCLASS_PIECE_COST,
                     )
                 )
@@ -1436,40 +1452,35 @@ sub dump_desc_panel_body {
     } ## end if ( defined $cost && ...)
     if ( $option_kiosk_mode ) {
         out_line $h->p(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_START
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_START
+                ) )
             },
             decode_time( $panel->get_start_seconds(), qw{ both } )
         );
     } ## end if ( $option_kiosk_mode)
     else {
         out_line $h->p(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_ROOM
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_ROOM ) )
             },
             $room->get_long_room_name()
         );
     } ## end else [ if ( $option_kiosk_mode)]
     if ( defined $credited_presenter ) {
         out_line $h->p(
-            {   out_class(
-                    sprintf $CLASS_DESC_FMT_SUBCLASS,
-                    $SUBCLASS_PIECE_PRESENTER
-                )
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_PRESENTER
+                ) )
             },
             $credited_presenter
         );
     } ## end if ( defined $credited_presenter)
 
     out_line $h->p(
-        {   out_class(
-                sprintf $CLASS_DESC_FMT_SUBCLASS,
-                $SUBCLASS_PIECE_DESCRIPTION
-            )
+        {   out_class( join_subclass(
+                $CLASS_DESC_BASE, $SUBCLASS_PIECE_DESCRIPTION
+            ) )
         },
         $panel->get_description()
     );
@@ -2121,9 +2132,6 @@ sub main {
         q{file-by-guest!}     => \$option_file_per_guest,
         q{file-by-presenter!} => \$option_file_per_presenter,
         q{file-by-room!}      => \$option_file_per_room,
-        q{hide-day+}          => sub { $option_show_day_column = 0 },
-        q{hide-descriptions+} => sub { $option_show_descriptions = 0 },
-        q{hide-grid+}         => sub { $option_show_grid = 0 },
         q{hide-unused-rooms!} => \$option_hide_unused_rooms,
         q{input=s}            => \$option_input_file,
         q{just-premium!}      => \$option_just_premium,
@@ -2136,11 +2144,17 @@ sub main {
         q{show-day!}          => \$option_show_day_column,
         q{show-descriptions!} => \$option_show_descriptions,
         q{show-grid|grid!}    => \$option_show_grid,
-        q{show-unused-rooms+} => sub { $option_hide_unused_rooms = 0 },
         q{split!}             => \$option_split_grids,
         q{split-day!}         => \$option_split_per_day,
         q{style=s@}           => \@option_css_styles,
         q{title=s}            => \$option_title,
+
+        # Negations
+        q{hide-day+}          => sub { $option_show_day_column   = 0; },
+        q{hide-descriptions+} => sub { $option_show_descriptions = 0; },
+        q{hide-grid+}         => sub { $option_show_grid         = 0; },
+        q{show-unused-rooms+} => sub { $option_hide_unused_rooms = 0; },
+        q{unified+}           => sub { $option_split_grids       = 0; },
 
         # Aliases
         q{descriptions!} => \$option_show_descriptions,
@@ -2148,7 +2162,6 @@ sub main {
         q{just-guest!}   => \$option_just_presenter,
         q{kiosk!}        => \$option_kiosk_mode,
         q{postcard!}     => \$option_is_postcard,
-        q{unified+}      => sub { $option_split_grids = 0 },
 
         # Undocumented
         q{show-difficulty} => \$option_show_difficulty,
