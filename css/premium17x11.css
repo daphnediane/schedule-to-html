@@ -1,0 +1,15 @@
+@page {
+    size: 17in 11in;
+}
+
+.descCost {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+}
+
+.descriptions {
+    font-size: 13px;
+    column-count: 6;
+}

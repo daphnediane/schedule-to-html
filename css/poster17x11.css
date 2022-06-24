@@ -1,5 +1,5 @@
 @page {
-    size: 20in 30in;
+    size: 17in 11in;
 }
 
 html {
@@ -7,10 +7,36 @@ html {
     column-span: none;
 }
 
+.descCost {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+}
+
+.panelCost {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+}
+
+
 .schedule {
     column-span: none;
     break-before: column;
-    font-size: 7px;
+}
+
+.scheduleFriday {
+    font-size: 10px;
+}
+
+.scheduleSaturday {
+    font-size: 10px;
+}
+
+.scheduleSunday {
+    font-size: 12px;
 }
 
 .schedHeader {
@@ -18,6 +44,7 @@ html {
 }
 
 .descriptions {
-    font-size: 9.3pt;
+    -webkit-column-break-before: always;
+    font-size: 13px;
     column-count: 2;
 }

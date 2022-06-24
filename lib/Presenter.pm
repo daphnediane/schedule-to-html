@@ -121,6 +121,12 @@ sub get_groups {
     return values %{ $groups };
 } ## end sub get_groups
 
+sub is_in_group {
+    my ( $self ) = @_;
+    return 1 if defined $self->get_groups_();
+    return;
+}
+
 sub is_group {
     my ( $self ) = @_;
     return 1 if defined $self->get_members_();

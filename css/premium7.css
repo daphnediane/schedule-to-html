@@ -1,0 +1,49 @@
+@page {
+    size: 17in 11in;
+}
+
+html {
+    column-count: 6;
+    column-span: none;
+}
+
+.descTypeTable {
+    -webkit-column-break-inside: avoid;
+    column-count: 1;
+    break-before: avoid;
+    break-after: auto;
+    font-size: 10px;
+}
+
+.descTypeColumn {
+    margin-bottom: 0;
+}
+
+.descCost {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+}
+
+.desc {
+    break-before: none;
+    break-inside: avoid;
+}
+
+.descTimeSlot {
+    break-before: none;
+    break-inside: avoid;
+}
+
+h2 {
+    break-before: column;
+    break-after: avoid;
+}
+
+.descriptions {
+    column-count: 1;
+    break-before: avoid;
+    break-after: auto;
+    margin-top: 0;
+}

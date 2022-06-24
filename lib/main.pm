@@ -116,6 +116,14 @@ Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START       => q{Start};
 Readonly our $SUBCLASS_PIECE_COST        => q{Cost};
 
+# TODO Make this a class
+# Time processing state
+Readonly our $MTR_ACTIVE_REGION  => q{Region};
+Readonly our $MTR_PANEL_STATES   => q{PanelStates};
+Readonly our $MTR_LAST_TIME_SEEN => q{LastTime};
+Readonly our $MTR_ACTIVE_BREAK   => q{ActiveBreak};
+Readonly our $MTR_EMPTY_TIMES    => q{EmptyTimeSlots};
+
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
@@ -139,28 +147,33 @@ Readonly our $FILTER_SET_FOCUS =>
 
 Readonly our $FILTER_SET_DEFAULT => {};
 
-my @option_css_styles;
-my @option_rooms;
-my $option_desc_at_end;
-my $option_embed_css;
-my $option_file_per_day;
-my $option_file_per_guest;
-my $option_file_per_presenter;
-my $option_file_per_room;
-my $option_hide_unused_rooms;
-my $option_input_file;
-my $option_is_postcard;
-my $option_just_premium;
-my $option_just_presenter;
-my $option_kiosk_mode;
-my $option_output;
-my $option_show_day_column;
-my $option_show_descriptions;
-my $option_show_difficulty = 1;
-my $option_show_grid;
-my $option_split_grids;
-my $option_split_per_day;
-my $option_title;
+Readonly our $OPT_DESC_AT_END       => q{separate};
+Readonly our $OPT_DESC_BY_COLUMNS   => q{desc-by-columns};
+Readonly our $OPT_DESC_BY_GUEST     => q{desc-by-guest};
+Readonly our $OPT_DESC_BY_PRESENTER => q{desc-by-presenter};
+Readonly our $OPT_EMBED_CSS         => q{embed-css};
+Readonly our $OPT_FILE_BY_DAY       => q{file-by-day};
+Readonly our $OPT_FILE_BY_GUEST     => q{file-by-guest};
+Readonly our $OPT_FILE_BY_PRESENTER => q{file-by-presenter};
+Readonly our $OPT_FILE_BY_ROOM      => q{file-by-room};
+Readonly our $OPT_HIDE_UNUSED_ROOMS => q{hide-unused-rooms};
+Readonly our $OPT_INPUT             => q{input};
+Readonly our $OPT_JUST_PREMIUM      => q{just-premium};
+Readonly our $OPT_JUST_PRESENTER    => q{just-presenter};
+Readonly our $OPT_MODE_KIOSK        => q{mode-kiosk};
+Readonly our $OPT_MODE_POSTCARD     => q{mode-postcard};
+Readonly our $OPT_OUTPUT            => q{output};
+Readonly our $OPT_ROOM              => q{room};
+Readonly our $OPT_SHOW_DAY_COLUMN   => q{show-day};
+Readonly our $OPT_SHOW_DESCRIPTIONS => q{show-descriptions};
+Readonly our $OPT_SHOW_DIFFICULTY   => q{show-difficulty};
+Readonly our $OPT_SHOW_GRID         => q{show-grid};
+Readonly our $OPT_SPLIT_GRIDS       => q{split};
+Readonly our $OPT_SPLIT_PER_DAY     => q{split-day};
+Readonly our $OPT_STYLE             => q{style};
+Readonly our $OPT_TITLE             => q{title};
+
+my %opt = {};
 
 my @all_rooms;
 my %room_by_name;
@@ -185,20 +198,20 @@ sub register_time_split {
 sub check_if_new_region {
     my ( $time, $prev_region ) = @_;
     if ( defined $prev_region ) {
-        return unless $option_split_grids;
+        return unless $opt{ $OPT_SPLIT_GRIDS };
         return unless exists $time_split{ $time };
-        if ( $option_split_per_day ) {
+        if ( $opt{ $OPT_SPLIT_PER_DAY } ) {
             my $prev_time = $prev_region->get_start_seconds();
             my $prev_day  = decode_time( $prev_time, qw{ day } );
             my $new_day   = decode_time( $time, qw{ day } );
             return if $prev_day eq $new_day;
             $time_split{ $time } = $new_day;
-        } ## end if ( $option_split_per_day)
+        } ## end if ( $opt{ $OPT_SPLIT_PER_DAY...})
     } ## end if ( defined $prev_region)
-    elsif ( !$option_split_grids ) {
+    elsif ( !$opt{ $OPT_SPLIT_GRIDS } ) {
         $time_split{ $time } //= q{Schedule};
     }
-    elsif ( $option_split_per_day ) {
+    elsif ( $opt{ $OPT_SPLIT_PER_DAY } ) {
         $time_split{ $time } = decode_time( $time, qw{ day } );
     }
     else {
@@ -581,9 +594,9 @@ sub process_spreadsheet_row {
 } ## end sub process_spreadsheet_row
 
 sub read_spreadsheet_file {
-    my $wb = Workbook->new( filename => $option_input_file );
+    my $wb = Workbook->new( filename => $opt{ $OPT_INPUT } );
     if ( !defined $wb || !$wb->get_is_open() ) {
-        die qq{Unable to read ${option_input_file}\n};
+        die qq{Unable to read ${opt{ $OPT_INPUT }}\n};
     }
 
     read_spreadsheet_rooms( $wb );
@@ -591,11 +604,11 @@ sub read_spreadsheet_file {
 
     my $main_sheet = $wb->sheet();
     if ( !defined $main_sheet || !$main_sheet->get_is_open() ) {
-        die qq{Unable to find schedule sheet for ${option_input_file}\n};
+        die qq{Unable to find schedule sheet for ${opt{ $OPT_INPUT }}\n};
     }
 
     my $header = $main_sheet->get_next_line()
-        or die qq{Missing header in: ${option_input_file}\n};
+        or die qq{Missing header in: ${opt{ $OPT_INPUT }}\n};
     my @san_header = map { canonical_header( $_ ) } @{ $header };
 
     my @presenters_by_column = ();
@@ -623,169 +636,184 @@ sub read_spreadsheet_file {
     return;
 } ## end sub read_spreadsheet_file
 
+sub mtr_process_time {
+    my ( $state, $time ) = @_;
+
+    # Add new panels
+    foreach my $panel ( @{ $panels_by_start{ $time } } ) {
+
+        if ( $panel->get_room_is_hidden() ) {
+            if ($panel->get_is_break()
+                && ( !exists $state->{ $MTR_ACTIVE_BREAK }
+                    || $panel->get_end_seconds()
+                    > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() )
+            ) {
+                $state->{ $MTR_ACTIVE_BREAK } = $panel;
+            } ## end if ( $panel->get_is_break...)
+            next;
+        } ## end if ( $panel->get_room_is_hidden...)
+
+        my $panel_state = ActivePanel->new(
+            active_panel => $panel,
+            rows         => 0,
+            start_time   => $time,
+            end_time     => $panel->get_end_seconds(),
+            room         => $panel->get_room(),
+        );
+
+        $state->{ $MTR_PANEL_STATES }->{ $panel->get_room_id() }
+            = $panel_state;
+    } ## end foreach my $panel ( @{ $panels_by_start...})
+
+    if ( exists $state->{ $MTR_ACTIVE_BREAK }
+        && $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() <= $time ) {
+        delete $state->{ $MTR_ACTIVE_BREAK };
+    }
+    foreach my $room ( @all_rooms ) {
+        next if $room->get_room_is_hidden();
+        my $room_id = $room->get_room_id();
+
+        my $prev_state = $state->{ $MTR_PANEL_STATES }->{ $room_id };
+        if ( defined $prev_state ) {
+            my $prev_end = $prev_state->get_end_seconds();
+            next if $prev_end > $time;
+        }
+
+        if ( !exists $state->{ $MTR_ACTIVE_BREAK } ) {
+            delete $state->{ $MTR_PANEL_STATES }->{ $room_id };
+            next;
+        }
+
+        my $panel_state = ActivePanel->new(
+            active_panel => $state->{ $MTR_ACTIVE_BREAK },
+            rows         => 0,
+            start_time   => $time,
+            end_time     => $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds(),
+            room         => $room,
+            is_break     => 1,
+        );
+        $state->{ $MTR_PANEL_STATES }->{ $room_id } = $panel_state;
+    } ## end foreach my $room ( @all_rooms)
+
+    my %timeslot_info;
+    while ( my ( $room_id, $panel_state )
+        = each %{ $state->{ $MTR_PANEL_STATES } } ) {
+        my $panel = $panel_state->get_active_panel();
+        $timeslot_info{ $room_id } = $panel_state;
+
+        $panel_state->increment_rows();
+        $state->{ $MTR_ACTIVE_REGION }
+            ->add_active_room( $panel_state->get_room() )
+            unless $panel_state->get_is_break();
+
+    } ## end while ( my ( $room_id, $panel_state...))
+
+    if ( %timeslot_info ) {
+        if ( exists $state->{ $MTR_EMPTY_TIMES } ) {
+            foreach my $empty ( keys %{ $state->{ $MTR_EMPTY_TIMES } } ) {
+                $state->{ $MTR_ACTIVE_REGION }->get_time_slot( $empty )
+                    ->init_current( {} );
+            }
+            delete $state->{ $MTR_EMPTY_TIMES };
+        } ## end if ( exists $state->{ ...})
+
+        $state->{ $MTR_ACTIVE_REGION }->get_time_slot( $time )
+            ->init_current( \%timeslot_info );
+
+        $state->{ $MTR_LAST_TIME_SEEN } = $time;
+    } ## end if ( %timeslot_info )
+    elsif ( defined $state->{ $MTR_LAST_TIME_SEEN } ) {
+        $state->{ $MTR_EMPTY_TIMES }->{ $time } = 1;
+    }
+    return;
+} ## end sub mtr_process_time
+
+sub mtr_process_half_hours_upto {
+    my ( $state, $split_time ) = @_;
+    return unless defined $state->{ $MTR_LAST_TIME_SEEN };
+
+    my $time = $state->{ $MTR_LAST_TIME_SEEN } + $HALF_HOUR_IN_SEC;
+    while ( $time < $split_time ) {
+        mtr_process_time( $state, $time );
+        $time += $HALF_HOUR_IN_SEC;
+    }
+
+    return;
+} ## end sub mtr_process_half_hours_upto
+
+sub mtr_finish_region {
+    my ( $state ) = @_;
+
+    return unless defined $state->{ $MTR_ACTIVE_REGION };
+    return unless $opt{ $OPT_MODE_KIOSK };
+    my @times
+        = reverse sort { $a <=> $b }
+        $state->{ $MTR_ACTIVE_REGION }->get_unsorted_times();
+    my %next_panels = ();
+
+    foreach my $time ( @times ) {
+        my $time_slot
+            = $state->{ $MTR_ACTIVE_REGION }->get_time_slot( $time );
+
+        # Save current next panels
+        $time_slot->init_upcoming( { %next_panels } );
+
+        # Update next panels
+        my $current_panels = $time_slot->get_current();
+        while ( my ( $room_id, $panel_state ) = each %{ $current_panels } ) {
+            next
+                unless $panel_state->get_start_seconds() == $time;
+            $next_panels{ $room_id } = $panel_state;
+        }
+    } ## end foreach my $time ( @times )
+
+    return;
+} ## end sub mtr_finish_region
+
+sub mtr_check_for_next_region {
+    my ( $state, $split_time ) = @_;
+
+    my $next_range = check_if_new_region(
+        $split_time,
+        $state->{ $MTR_ACTIVE_REGION }
+    );
+    return unless defined $next_range;
+
+    mtr_finish_region( $state );
+    $state->{ $MTR_ACTIVE_REGION } = $next_range;
+    delete $state->{ $MTR_EMPTY_TIMES };
+    delete $state->{ $MTR_LAST_TIME_SEEN };
+
+    return unless defined $state->{ $MTR_PANEL_STATES };
+
+    my %new_active;
+    while ( my ( $room_id, $panel_state )
+        = each %{ $state->{ $MTR_PANEL_STATES } } ) {
+        my $new_state = $panel_state->clone();
+        $new_state->set_rows( 0 );
+        $new_state->set_start_time( $split_time );
+        $new_active{ $room_id } = $new_state;
+    } ## end while ( my ( $room_id, $panel_state...))
+    $state->{ $MTR_PANEL_STATES } = \%new_active;
+
+    return;
+} ## end sub mtr_check_for_next_region
+
 sub make_time_ranges {
     my %time_points
         = map { $_ => 1 } ( keys %time_split, get_timepoints() );
     my @time_points = sort { $a <=> $b } keys %time_points;
 
-    my $region_active;
-    my $region_start_time;
-    my %panels_active;
-    my $last_time;
-    my %empty_times;
-    my $current_break;
-
-    my $process_time = sub {
-        my ( $time ) = @_;
-
-        # Add new panels
-        foreach my $panel ( @{ $panels_by_start{ $time } } ) {
-
-            if ( $panel->get_room_is_hidden() ) {
-                if ($panel->get_is_break()
-                    && ( !defined $current_break
-                        || $panel->get_end_seconds()
-                        > $current_break->get_end_seconds() )
-                ) {
-                    $current_break = $panel;
-                } ## end if ( $panel->get_is_break...)
-                next;
-            } ## end if ( $panel->get_room_is_hidden...)
-
-            my $panel_state = ActivePanel->new(
-                active_panel => $panel,
-                rows         => 0,
-                start_time   => $time,
-                end_time     => $panel->get_end_seconds(),
-                room         => $panel->get_room(),
-            );
-
-            $panels_active{ $panel->get_room_id() } = $panel_state;
-        } ## end foreach my $panel ( @{ $panels_by_start...})
-
-        if ( defined $current_break
-            && $current_break->get_end_seconds() <= $time ) {
-            undef $current_break;
-        }
-        foreach my $room ( @all_rooms ) {
-            next if $room->get_room_is_hidden();
-            my $room_id = $room->get_room_id();
-
-            my $prev_state = $panels_active{ $room_id };
-            if ( defined $prev_state ) {
-                my $prev_end = $prev_state->get_end_seconds();
-                next if $prev_end > $time;
-            }
-
-            if ( !defined $current_break ) {
-                delete $panels_active{ $room_id };
-                next;
-            }
-
-            my $panel_state = ActivePanel->new(
-                active_panel => $current_break,
-                rows         => 0,
-                start_time   => $time,
-                end_time     => $current_break->get_end_seconds(),
-                room         => $room,
-                is_break     => 1,
-            );
-            $panels_active{ $room_id } = $panel_state;
-        } ## end foreach my $room ( @all_rooms)
-
-        my %timeslot_info;
-        my @active_room_ids = keys %panels_active;
-        while ( my ( $room_id, $panel_state ) = each %panels_active ) {
-            my $panel = $panel_state->get_active_panel();
-            $timeslot_info{ $room_id } = $panel_state;
-
-            $panel_state->increment_rows();
-            $region_active->add_active_room( $panel_state->get_room() )
-                unless $panel_state->get_is_break();
-
-        } ## end while ( my ( $room_id, $panel_state...))
-
-        if ( %timeslot_info ) {
-            foreach my $empty ( keys %empty_times ) {
-                $region_active->get_time_slot( $empty )->init_current( {} );
-            }
-            %empty_times = ();
-
-            $region_active->get_time_slot( $time )
-                ->init_current( \%timeslot_info );
-
-            $last_time = $time;
-        } ## end if ( %timeslot_info )
-        elsif ( defined $last_time ) {
-            $empty_times{ $time } = 1;
-        }
-        return;
-    };
-
-    my $process_half_hours_upto = sub {
-        my ( $split_time ) = @_;
-        return unless defined $last_time;
-
-        my $time = $last_time + $HALF_HOUR_IN_SEC;
-        while ( $time < $split_time ) {
-            $process_time->( $time );
-            $time += $HALF_HOUR_IN_SEC;
-        }
-
-        return;
-    };
-
-    my $finish_region = sub {
-        return unless defined $region_active;
-        return unless $option_kiosk_mode;
-        my @times
-            = reverse sort { $a <=> $b } $region_active->get_unsorted_times();
-        my %next_panels = ();
-
-        foreach my $time ( @times ) {
-            my $time_slot = $region_active->get_time_slot( $time );
-
-            # Save current next panels
-            $time_slot->init_upcoming( { %next_panels } );
-
-            # Update next panels
-            my $current_panels = $time_slot->get_current();
-            while ( my ( $room_id, $panel_state )
-                = each %{ $current_panels } ) {
-                next
-                    unless $panel_state->get_start_seconds() == $time;
-                $next_panels{ $room_id } = $panel_state;
-            } ## end while ( my ( $room_id, $panel_state...))
-        } ## end foreach my $time ( @times )
-    };
-
-    my $check_for_next_region = sub {
-        my ( $split_time ) = @_;
-
-        my $next_range = check_if_new_region( $split_time, $region_active );
-        return unless defined $next_range;
-
-        $finish_region->();
-        my %new_active = %panels_active;
-        while ( my ( $room_id, $panel_state ) = each %panels_active ) {
-            my $new_state = $panel_state->clone();
-            $new_state->set_rows( 0 );
-            $new_state->set_start_time( $split_time );
-            $new_active{ $room_id } = $new_state;
-        } ## end while ( my ( $room_id, $panel_state...))
-        %panels_active     = %new_active;
-        $region_active     = $next_range;
-        $region_start_time = $split_time;
-        undef $last_time;
-        %empty_times = ();
-    };
+    my $state = {};
 
     foreach my $split_time ( @time_points ) {
-        $process_half_hours_upto->( $split_time ) if %panels_active;
-        $check_for_next_region->( $split_time );
-        $process_time->( $split_time );
-    }
-    $finish_region->();
+        mtr_process_half_hours_upto( $state, $split_time )
+            if defined $state->{ $MTR_PANEL_STATES }
+            && %{ $state->{ $MTR_PANEL_STATES } };
+        mtr_check_for_next_region( $state, $split_time );
+        mtr_process_time( $state, $split_time );
+    } ## end foreach my $split_time ( @time_points)
+    mtr_finish_region( $state );
 
     return;
 } ## end sub make_time_ranges
@@ -854,7 +882,7 @@ sub get_rooms_for_region {
 
     my @rooms = grep { !$_->get_room_is_hidden() } @all_rooms;
 
-    if ( $option_hide_unused_rooms && defined $region ) {
+    if ( $opt{ $OPT_HIDE_UNUSED_ROOMS } && defined $region ) {
         @rooms = grep { $region->is_room_active( $_ ) } @rooms;
     }
 
@@ -874,23 +902,23 @@ sub room_id_focus_map {
         return %res;
     } ## end if ( exists $filter->{...})
 
-    if ( @option_rooms ) {
+    if ( defined $opt{ $OPT_ROOM } ) {
         my %res;
         my $def_class = [];
     ROOM:
         foreach my $room ( @region_rooms ) {
             my $room_id = $room->get_room_id();
             my $name    = $room->get_long_room_name();
-            foreach my $match ( @option_rooms ) {
+            foreach my $match ( @{ $opt{ $OPT_ROOM } } ) {
                 if ( $name =~ m{\Q$match\E}xmsi ) {
                     $res{ $room_id } = $FILTER_SET_FOCUS;
                     next ROOM;
                 }
-            } ## end foreach my $match ( @option_rooms)
+            } ## end foreach my $match ( @{ $opt...})
             $res{ $room_id } = $FILTER_SET_UNFOCUS;
         } ## end ROOM: foreach my $room ( @region_rooms)
         return %res;
-    } ## end if ( @option_rooms )
+    } ## end if ( defined $opt{ $OPT_ROOM...})
 
     return map { $_->get_room_id() => $FILTER_SET_DEFAULT } @region_rooms;
 } ## end sub room_id_focus_map
@@ -898,7 +926,7 @@ sub room_id_focus_map {
 sub dump_grid_row_room_names {
     my ( $filter, $kind, $room_focus_map ) = @_;
 
-    if ( $option_show_day_column ) {
+    if ( $opt{ $OPT_SHOW_DAY_COLUMN } ) {
         out_line $h->th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
@@ -909,7 +937,7 @@ sub dump_grid_row_room_names {
             },
             $HEADING_DAY
         );
-    } ## end if ( $option_show_day_column)
+    } ## end if ( $opt{ $OPT_SHOW_DAY_COLUMN...})
     out_line $h->th(
         {   out_class(
                 $CLASS_GRID_CELL_HEADER,
@@ -926,7 +954,7 @@ sub dump_grid_row_room_names {
         my $room_id = $room->get_room_id();
         my $hotel   = $room->get_hotel_room();
         my $name    = $room->get_long_room_name();
-        if ( $hotel ne $name && !$option_kiosk_mode ) {
+        if ( $hotel ne $name && !$opt{ $OPT_MODE_KIOSK } ) {
             $name = $name . $h->br() . $h->i( $hotel );
         }
         out_line $h->th(
@@ -967,7 +995,7 @@ sub dump_grid_header {
 
     out_open $HTML_COLGROUP;
 
-    if ( $option_show_day_column ) {
+    if ( $opt{ $OPT_SHOW_DAY_COLUMN } ) {
         out_line $h->col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
     }
     out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
@@ -1051,7 +1079,7 @@ sub dump_grid_cell_room {
         };
 
     out_open $HTML_ANCHOR, { href => q{#} . $panel->get_href_anchor() }
-        if $option_show_descriptions;
+        if $opt{ $OPT_SHOW_DESCRIPTIONS };
 
     out_line $h->div(
         {   out_class( join_subclass(
@@ -1100,7 +1128,7 @@ sub dump_grid_cell_room {
         );
     } ## end if ( defined $credited_presenter)
 
-    out_close $HTML_ANCHOR if $option_show_descriptions;
+    out_close $HTML_ANCHOR if $opt{ $OPT_SHOW_DESCRIPTIONS };
     out_close $HTML_TABLE_DATA;
 
     return;
@@ -1128,7 +1156,7 @@ sub dump_grid_row_time {
     out_open $HTML_TABLE_ROW,
         { out_class( @time_row_classes ), id => $time_id };
 
-    if ( $option_show_day_column ) {
+    if ( $opt{ $OPT_SHOW_DAY_COLUMN } ) {
         out_line $h->th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_DAY,
@@ -1141,7 +1169,7 @@ sub dump_grid_row_time {
             { out_class( @time_classes ) },
             decode_time( $time, qw{ time } )
         );
-    } ## end if ( $option_show_day_column)
+    } ## end if ( $opt{ $OPT_SHOW_DAY_COLUMN...})
     else {
         my ( $day, $tm ) = decode_time( $time );
         my @before_time;
@@ -1155,7 +1183,7 @@ sub dump_grid_row_time {
             { out_class( @time_classes ) },
             join q{}, @before_time, $tm
         );
-    } ## end else [ if ( $option_show_day_column)]
+    } ## end else [ if ( $opt{ $OPT_SHOW_DAY_COLUMN...})]
 
     my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
@@ -1224,7 +1252,7 @@ sub dump_desc_header {
             ? q{Other panels}
             : q{Schedule for } . $presenter->get_presenter_name();
 
-        if ( $option_is_postcard ) {
+        if ( $opt{ $OPT_MODE_POSTCARD } ) {
             out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
             out_open $HTML_COLGROUP;
             out_line $h->col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
@@ -1240,7 +1268,7 @@ sub dump_desc_header {
             out_open $HTML_TABLE_BODY;
             out_open $HTML_TABLE_ROW;
             out_open $HTML_TABLE_DATA;
-        } ## end if ( $option_is_postcard)
+        } ## end if ( $opt{ $OPT_MODE_POSTCARD...})
         else {
             out_line $h->h2( $hdr_text );
         }
@@ -1259,12 +1287,12 @@ sub dump_desc_footer {
     out_close $HTML_DIV;
 
     if ( exists $filter->{ $FILTER_PRESENTER } ) {
-        if ( $option_is_postcard ) {
+        if ( $opt{ $OPT_MODE_POSTCARD } ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
             out_close $HTML_TABLE_BODY;
             out_close $HTML_TABLE;
-        } ## end if ( $option_is_postcard)
+        } ## end if ( $opt{ $OPT_MODE_POSTCARD...})
     } ## end if ( exists $filter->{...})
 
     return;
@@ -1325,7 +1353,7 @@ sub dump_desc_panel_note {
             q{This workshop is full.}
             );
     } ## end if ( $panel->get_is_full...)
-    if ( defined $panel->get_difficulty() && $option_show_difficulty ) {
+    if ( defined $panel->get_difficulty() && $opt{ $OPT_SHOW_DIFFICULTY } ) {
         push @note, $h->span(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_DIFFICULTY
@@ -1361,15 +1389,14 @@ sub should_panel_desc_be_dumped {
 
     my $filter_panelist = $filter->{ $FILTER_PRESENTER };
     if ( defined $filter_panelist ) {
-        if ($panel->is_presenter_hosting( $filter_panelist )
-            ? !$show_unbusy_panels
-            : $show_unbusy_panels
-        ) {
-            return;
-        } ## end if ( $panel->is_presenter_hosting...)
+        if ( $panel->is_presenter_hosting( $filter_panelist ) ) {
+            return if $show_unbusy_panels;
+        }
+        else {
+            return unless $show_unbusy_panels;
+        }
     } ## end if ( defined $filter_panelist)
-
-    return if ( $option_just_premium && !defined $panel->get_cost() );
+    return if ( $opt{ $OPT_JUST_PREMIUM } && !defined $panel->get_cost() );
     return 1;
 } ## end sub should_panel_desc_be_dumped
 
@@ -1414,13 +1441,13 @@ sub dump_desc_panel_body {
             map { join_subclass( $CLASS_DESC_BASE, $_ ) } @subclasses
         )
         };
-    out_open $HTML_DIV if $option_kiosk_mode;
+    out_open $HTML_DIV if $opt{ $OPT_MODE_KIOSK };
     out_line $h->div(
         {   out_class( join_subclass( $CLASS_DESC_BASE, $SUBCLASS_PIECE_ID ) )
         },
         $panel->get_uniq_id()
     );
-    if ( $option_show_grid ) {
+    if ( $opt{ $OPT_SHOW_GRID } ) {
         out_line $h->a(
             {   href => q{#} . $panel->get_href_anchor() . q{Grid},
                 out_class( join_subclass(
@@ -1428,7 +1455,7 @@ sub dump_desc_panel_body {
             },
             $name
         );
-    } ## end if ( $option_show_grid)
+    } ## end if ( $opt{ $OPT_SHOW_GRID...})
     else {
         out_line $h->div(
             {   out_class( join_subclass(
@@ -1436,7 +1463,7 @@ sub dump_desc_panel_body {
             },
             $name
         );
-    } ## end else [ if ( $option_show_grid)]
+    } ## end else [ if ( $opt{ $OPT_SHOW_GRID...})]
 
     my $cost = $panel->get_cost();
     if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
@@ -1450,7 +1477,7 @@ sub dump_desc_panel_body {
             $cost
         );
     } ## end if ( defined $cost && ...)
-    if ( $option_kiosk_mode ) {
+    if ( $opt{ $OPT_MODE_KIOSK } ) {
         out_line $h->p(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_START
@@ -1458,7 +1485,7 @@ sub dump_desc_panel_body {
             },
             decode_time( $panel->get_start_seconds(), qw{ both } )
         );
-    } ## end if ( $option_kiosk_mode)
+    } ## end if ( $opt{ $OPT_MODE_KIOSK...})
     else {
         out_line $h->p(
             {   out_class( join_subclass(
@@ -1466,7 +1493,7 @@ sub dump_desc_panel_body {
             },
             $room->get_long_room_name()
         );
-    } ## end else [ if ( $option_kiosk_mode)]
+    } ## end else [ if ( $opt{ $OPT_MODE_KIOSK...})]
     if ( defined $credited_presenter ) {
         out_line $h->p(
             {   out_class( join_subclass(
@@ -1487,14 +1514,15 @@ sub dump_desc_panel_body {
 
     dump_desc_panel_note( $panel, $conflict );
 
-    out_close $HTML_DIV if $option_kiosk_mode;
+    out_close $HTML_DIV if $opt{ $OPT_MODE_KIOSK };
     out_close $HTML_TABLE_DATA;
 
     return;
 } ## end sub dump_desc_panel_body
 
 sub dump_desc_body {
-    my ( $filter, $region, $room_focus_map, $show_unbusy_panels ) = @_;
+    my ( $filter, $region, $room_focus_map, $show_unbusy_panels, $on_dump )
+        = @_;
     my $filter_panelist = $filter->{ $FILTER_PRESENTER };
 
     $region->set_day_being_output( q{} );
@@ -1521,6 +1549,9 @@ sub dump_desc_body {
             if ( !defined $time_header_seen ) {
                 $time_header_seen = 1;
 
+                $on_dump->() if defined $on_dump;
+                undef $on_dump;
+
                 my @hdr_extra;
                 if (   $show_unbusy_panels
                     && $time_slot->is_presenter_hosting( $filter_panelist ) )
@@ -1543,40 +1574,72 @@ sub dump_desc_body {
     return;
 } ## end sub dump_desc_body
 
+sub dump_desc_body_regions {
+    my ( $filter, $region, $show_unbusy_panels, $on_dump ) = @_;
+    if ( defined $region ) {
+        my %room_focus_map = room_id_focus_map( $filter, $region );
+        dump_desc_body(
+            $filter,             $region, \%room_focus_map,
+            $show_unbusy_panels, $on_dump
+        );
+        return;
+    } ## end if ( defined $region )
+
+    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
+        $region = $time_region{ $region_time };
+        my %room_focus_map = room_id_focus_map( $filter, $region );
+        my $on_dump_region;
+        $on_dump_region = sub {
+            undef $on_dump_region;
+            $on_dump->();
+            undef $on_dump;
+            }
+            if defined $on_dump;
+        dump_desc_body(
+            $filter,             $region, \%room_focus_map,
+            $show_unbusy_panels, $on_dump
+        );
+    } ## end foreach my $region_time ( sort...)
+
+    return;
+} ## end sub dump_desc_body_regions
+
 sub dump_desc_timeslice {
     my ( $filter, $region ) = @_;
 
-    my %room_focus_map = room_id_focus_map( $filter, $region );
+    my @filters = ( $filter );
+    @filters = split_filter_by_panelist(
+        $opt{ $OPT_DESC_BY_GUEST },
+        $opt{ $OPT_DESC_BY_PRESENTER },
+        1,
+        @filters
+    );
 
-    dump_desc_header( $filter, $region );
-    dump_desc_body( $filter, $region, \%room_focus_map );
-    dump_desc_footer( $filter, $region );
+    foreach my $desc_filter ( @filters ) {
+        my $on_dump;
+        $on_dump = sub {
+            undef $on_dump;
+            dump_desc_header( $desc_filter, $region );
+        };
+        dump_desc_body_regions( $desc_filter, $region, 0, $on_dump );
+        dump_desc_footer( $desc_filter, $region ) unless defined $on_dump;
 
-    if ( exists $filter->{ $FILTER_PRESENTER } && !$option_just_presenter ) {
-        dump_desc_header( $filter, $region, 1 );
-        dump_desc_body( $filter, $region, \%room_focus_map, 1 );
-        dump_desc_footer( $filter, $region, 1 );
-    }
+        if (   exists $desc_filter->{ $FILTER_PRESENTER }
+            && !$opt{ $OPT_JUST_PRESENTER }
+            && !$opt{ $OPT_DESC_BY_GUEST }
+            && !$opt{ $OPT_DESC_BY_PRESENTER } ) {
+            $on_dump = sub {
+                undef $on_dump;
+                dump_desc_header( $desc_filter, $region, 1 );
+            };
+            dump_desc_body_regions( $desc_filter, $region, 1, $on_dump );
+            dump_desc_footer( $desc_filter, $region, 1 )
+                unless defined $on_dump;
+        } ## end if ( exists $desc_filter...)
+    } ## end foreach my $desc_filter ( @filters)
 
     return;
 } ## end sub dump_desc_timeslice
-
-sub dump_desc_all_timeslice {
-    my ( $filter, $show_unbusy_panels ) = @_;
-
-    dump_desc_header( $filter, undef, $show_unbusy_panels );
-    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-        my $region         = $time_region{ $region_time };
-        my %room_focus_map = room_id_focus_map( $filter, $region );
-        dump_desc_body(
-            $filter, $region, \%room_focus_map,
-            $show_unbusy_panels
-        );
-    } ## end foreach my $region_time ( sort...)
-    dump_desc_footer( $filter, undef, $show_unbusy_panels );
-
-    return;
-} ## end sub dump_desc_all_timeslice
 
 sub cache_inline_style {
     my ( $file ) = @_;
@@ -1597,7 +1660,7 @@ sub open_dump_file {
     my ( $filter, $def_name ) = @_;
     $def_name //= q{index};
 
-    if ( $option_output eq q{-} ) {
+    if ( $opt{ $OPT_OUTPUT } eq q{-} ) {
         $output_file_handle = \*STDOUT;
         $output_file_name   = q{<STDOUT>};
         return;
@@ -1606,7 +1669,7 @@ sub open_dump_file {
     my @subnames
         = map { canonical_header $_ } @{ $filter->{ $FILTER_OUTPUT_NAME } };
 
-    my $ofname = $option_output;
+    my $ofname = $opt{ $OPT_OUTPUT };
     if ( -d $ofname ) {
         push @subnames, $def_name unless @subnames;
         $ofname = File::Spec->catfile(
@@ -1637,7 +1700,7 @@ sub open_dump_file {
 } ## end sub open_dump_file
 
 sub close_dump_file {
-    if ( $option_output ne q{-} && defined $output_file_handle ) {
+    if ( $opt{ $OPT_OUTPUT } ne q{-} && defined $output_file_handle ) {
         $output_file_handle->close
             or die qq{Unable to close ${output_file_name}: ${ERRNO}\n};
     }
@@ -1709,7 +1772,9 @@ sub close_html_style {
 sub dump_styles {
     my %state;
 
-    foreach my $style ( @option_css_styles ) {
+    return unless defined $opt{ $OPT_STYLE };
+
+    foreach my $style ( @{ $opt{ $OPT_STYLE } } ) {
         my $is_html = $style =~ m{.html?\z}xms;
         my $fname   = $style;
         my $media;
@@ -1753,7 +1818,7 @@ sub dump_styles {
                 out_css_close;
             } ## end foreach my $prefix ( sort keys...)
         } ## end elsif ( $fname =~ m{\A [+] (?:panel_)?color }xmsi)
-        elsif ( $option_embed_css ) {
+        elsif ( $opt{ $OPT_EMBED_CSS } ) {
             my $lines = cache_inline_style( $fname );
             my $line_seen;
 
@@ -1767,7 +1832,7 @@ sub dump_styles {
                 $line_seen = 1;
                 out_line $line;
             } ## end foreach my $line ( @{ $lines...})
-        } ## end elsif ( $option_embed_css)
+        } ## end elsif ( $opt{ $OPT_EMBED_CSS...})
         else {
             close_html_style \%state;
 
@@ -1778,7 +1843,7 @@ sub dump_styles {
                 ( defined $media ? ( media => $media ) : () )
             } );
         } ## end else [ if ( $is_html ) ]
-    } ## end foreach my $style ( @option_css_styles)
+    } ## end foreach my $style ( @{ $opt...})
     close_media_style \%state;
     close_html_style \%state;
 
@@ -1798,7 +1863,7 @@ sub dump_file_header {
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
 
     my @subnames = @{ $filter->{ $FILTER_OUTPUT_NAME } };
-    my $title    = $option_title;
+    my $title    = $opt{ $OPT_TITLE };
     if ( @subnames ) {
         $title .= q{: } . join q{, }, @subnames;
     }
@@ -1826,18 +1891,18 @@ sub dump_file_footer {
 sub dump_table_one_region {
     my ( $filter ) = @_;
 
-    if ( $option_show_grid ) {
+    if ( $opt{ $OPT_SHOW_GRID } ) {
         dump_grid_timeslice(
             $filter,
             $filter->{ $FILTER_SPLIT_TIMESTAMP }
         );
-    } ## end if ( $option_show_grid)
-    if ( $option_show_descriptions ) {
+    } ## end if ( $opt{ $OPT_SHOW_GRID...})
+    if ( $opt{ $OPT_SHOW_DESCRIPTIONS } ) {
         dump_desc_timeslice(
             $filter,
             $filter->{ $FILTER_SPLIT_TIMESTAMP }
         );
-    } ## end if ( $option_show_descriptions)
+    } ## end if ( $opt{ $OPT_SHOW_DESCRIPTIONS...})
 
     return;
 } ## end sub dump_table_one_region
@@ -1845,30 +1910,26 @@ sub dump_table_one_region {
 sub dump_table_all_regions {
     my ( $filter ) = @_;
 
-    my $need_all_desc = $option_show_descriptions;
+    my $need_all_desc = $opt{ $OPT_SHOW_DESCRIPTIONS };
 
-    if ( $option_show_grid ) {
+    if ( $opt{ $OPT_SHOW_GRID } ) {
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
             dump_grid_timeslice( $filter, $region );
-            next unless $option_show_descriptions;
-            next if $option_desc_at_end;
+            next unless $opt{ $OPT_SHOW_DESCRIPTIONS };
+            next if $opt{ $OPT_DESC_AT_END };
 
             dump_desc_timeslice( $filter, $region );
             undef $need_all_desc;
         } ## end foreach my $region_time ( sort...)
-        if ( !$option_desc_at_end ) {
+        if ( !$opt{ $OPT_DESC_AT_END } ) {
             return;
         }
-    } ## end if ( $option_show_grid)
+    } ## end if ( $opt{ $OPT_SHOW_GRID...})
 
     if ( $need_all_desc ) {
-        dump_desc_all_timeslice( $filter );
-        if ( exists $filter->{ $FILTER_PRESENTER }
-            && !$option_just_presenter ) {
-            dump_desc_all_timeslice( $filter, 1 );
-        }
-    } ## end if ( $need_all_desc )
+        dump_desc_timeslice( $filter, undef );
+    }
 
     return;
 } ## end sub dump_table_all_regions
@@ -1997,7 +2058,7 @@ sub dump_kiosk {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( $option_title );
+    out_line $h->title( $opt{ $OPT_TITLE } );
     out_line $h->link( {
         href => q{css/kiosk.css},
         rel  => q{stylesheet},
@@ -2046,7 +2107,7 @@ sub dump_kiosk {
 sub split_filter_by_timestamp {
     my ( @filters ) = @_;
 
-    return @filters unless $option_file_per_day;
+    return @filters unless $opt{ $OPT_FILE_BY_DAY };
 
     my @res;
     foreach my $filter ( @filters ) {
@@ -2068,21 +2129,33 @@ sub split_filter_by_timestamp {
 } ## end sub split_filter_by_timestamp
 
 sub split_filter_by_panelist {
-    my ( @filters ) = @_;
+    my ( $by_guest, $by_presenters, $is_by_desc, @filters ) = @_;
 
     return @filters
-        unless ( $option_file_per_guest || $option_file_per_presenter );
+        unless ( $by_guest
+        || $by_presenters );
 
     my @res;
     foreach my $filter ( @filters ) {
+        if ( exists $filter->{ $FILTER_PRESENTER } ) {
+            push @res, $filter;
+            next;
+        }
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
         foreach my $per_info ( Presenter->get_known() ) {
             next if $per_info->get_is_other();
 
-            if ( $per_info->get_presenter_rank() != $Presenter::RANK_GUEST
-                && !$option_file_per_presenter ) {
-                next;
+            if ( $per_info->get_presenter_rank() == $Presenter::RANK_GUEST ) {
+                next unless $by_guest;
+            }
+            else {
+                next unless $by_presenters;
+            }
+            if ( $is_by_desc ) {
+                next
+                    if $per_info->get_is_meta()
+                    || defined $per_info->is_in_group();
             }
 
             push @res,
@@ -2101,7 +2174,7 @@ sub split_filter_by_panelist {
 sub split_filter_by_room {
     my ( @filters ) = @_;
 
-    return @filters unless $option_file_per_room;
+    return @filters unless $opt{ $OPT_FILE_BY_ROOM };
 
     my @res;
     foreach my $filter ( @filters ) {
@@ -2126,90 +2199,102 @@ sub main {
 
     GetOptionsFromArray(
         \@args,
+        \%opt,
 
-        q{embed-css!}         => \$option_embed_css,
-        q{file-by-day!}       => \$option_file_per_day,
-        q{file-by-guest!}     => \$option_file_per_guest,
-        q{file-by-presenter!} => \$option_file_per_presenter,
-        q{file-by-room!}      => \$option_file_per_room,
-        q{hide-unused-rooms!} => \$option_hide_unused_rooms,
-        q{input=s}            => \$option_input_file,
-        q{just-premium!}      => \$option_just_premium,
-        q{just-presenter!}    => \$option_just_presenter,
-        q{mode-kiosk!}        => \$option_kiosk_mode,
-        q{mode-postcard!}     => \$option_is_postcard,
-        q{output=s}           => \$option_output,
-        q{room=s@}            => \@option_rooms,
-        q{separate!}          => \$option_desc_at_end,
-        q{show-day!}          => \$option_show_day_column,
-        q{show-descriptions!} => \$option_show_descriptions,
-        q{show-grid|grid!}    => \$option_show_grid,
-        q{split!}             => \$option_split_grids,
-        q{split-day!}         => \$option_split_per_day,
-        q{style=s@}           => \@option_css_styles,
-        q{title=s}            => \$option_title,
+        q{embed-css|inline-css!},
+        q{desc-by-columns!},
+        q{desc-by-guest!},
+        q{desc-by-presenter!},
+        q{file-by-day!},
+        q{file-by-guest!},
+        q{file-by-presenter!},
+        q{file-by-room!},
+        q{hide-unused-rooms!},
+        q{input=s},
+        q{just-premium!},
+        q{just-presenter|just-guest!},
+        q{mode-kiosk|kiosk!},
+        q{mode-postcard|postcard!},
+        q{output=s},
+        q{room=s@},
+        q{separate!},
+        q{show-day!},
+        q{show-descriptions|descriptions!},
+        q{show-difficulty!},
+        q{show-grid|grid!},
+        q{split-day!},
+        q{split!},
+        q{style=s@},
+        q{title=s},
 
         # Negations
-        q{hide-day+}          => sub { $option_show_day_column   = 0; },
-        q{hide-descriptions+} => sub { $option_show_descriptions = 0; },
-        q{hide-grid+}         => sub { $option_show_grid         = 0; },
-        q{show-unused-rooms+} => sub { $option_hide_unused_rooms = 0; },
-        q{unified+}           => sub { $option_split_grids       = 0; },
-
-        # Aliases
-        q{descriptions!} => \$option_show_descriptions,
-        q{inline-css!}   => \$option_embed_css,
-        q{just-guest!}   => \$option_just_presenter,
-        q{kiosk!}        => \$option_kiosk_mode,
-        q{postcard!}     => \$option_is_postcard,
-
-        # Undocumented
-        q{show-difficulty} => \$option_show_difficulty,
+        q{hide-day+}          => sub { $opt{ $OPT_SHOW_DAY_COLUMN }   = 0; },
+        q{hide-descriptions+} => sub { $opt{ $OPT_SHOW_DESCRIPTIONS } = 0; },
+        q{hide-grid+}         => sub { $opt{ $OPT_SHOW_GRID }         = 0; },
+        q{show-unused-rooms+} => sub { $opt{ $OPT_HIDE_UNUSED_ROOMS } = 0; },
+        q{unified+}           => sub { $opt{ $OPT_SPLIT_GRIDS }       = 0; },
+        q{hide-difficulty}    => sub { $opt{ $OPT_SHOW_DIFFICULTY }   = 0; },
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
-    $option_embed_css //= 1 if @option_css_styles;
-    push @option_css_styles, qw{ index.css } unless @option_css_styles;
+    $opt{ $OPT_INPUT }  //= shift @args;
+    $opt{ $OPT_OUTPUT } //= shift @args;
+    $opt{ $OPT_OUTPUT } //= q{-};
 
-    $option_input_file  //= shift @args;
-    $option_output      //= shift @args;
-    $option_output      //= q{-};
-    $option_split_grids //= 1;
-    $option_title       //= q{Cosplay America 2022 Schedule};
+    $opt{ $OPT_EMBED_CSS }         //= 1 if defined $opt{ $OPT_STYLE };
+    $opt{ $OPT_DESC_BY_GUEST }     //= 1 if $opt{ $OPT_DESC_BY_PRESENTER };
+    $opt{ $OPT_FILE_BY_GUEST }     //= 1 if $opt{ $OPT_FILE_BY_PRESENTER };
+    $opt{ $OPT_FILE_BY_GUEST }     //= 1 if $opt{ $OPT_JUST_PRESENTER };
+    $opt{ $OPT_SHOW_DESCRIPTIONS } //= 0 if $opt{ $OPT_SHOW_GRID };
+    $opt{ $OPT_SHOW_GRID }         //= 0 if $opt{ $OPT_SHOW_DESCRIPTIONS };
 
-    if ( $option_kiosk_mode ) {
-        @option_css_styles         = ( qw{+color} );
-        $option_desc_at_end        = undef;
-        $option_embed_css          = undef;
-        $option_file_per_day       = undef;
-        $option_file_per_guest     = undef;
-        $option_file_per_presenter = undef;
-        $option_file_per_room      = undef;
-        @option_rooms              = ();
-        $option_is_postcard        = undef;
-        $option_just_presenter     = undef;
-        $option_show_day_column    = undef;
-        $option_show_descriptions  = 1;
-        $option_show_grid          = 1;
-        $option_split_per_day      = undef;
-        $option_split_grids        = undef;
-    } ## end if ( $option_kiosk_mode)
-    read_spreadsheet_file( $option_input_file );
+    $opt{ $OPT_SHOW_DIFFICULTY }   //= 1;
+    $opt{ $OPT_SHOW_DESCRIPTIONS } //= 1;
+    $opt{ $OPT_SHOW_GRID }         //= 1;
+    $opt{ $OPT_SPLIT_GRIDS }       //= 1;
+    $opt{ $OPT_STYLE }             //= [ qw{ index.css } ];
+    $opt{ $OPT_TITLE }             //= q{Cosplay America 2022 Schedule};
+
+    if ( $opt{ $OPT_MODE_KIOSK } ) {
+        $opt{ $OPT_STYLE }             = [ qw{+color} ];
+        $opt{ $OPT_DESC_AT_END }       = undef;
+        $opt{ $OPT_SHOW_DESCRIPTIONS } = 1;
+        $opt{ $OPT_SHOW_GRID }         = 1;
+        delete @opt{
+            $OPT_EMBED_CSS,
+            $OPT_DESC_BY_GUEST,
+            $OPT_DESC_BY_PRESENTER,
+            $OPT_FILE_BY_DAY,
+            $OPT_FILE_BY_GUEST,
+            $OPT_FILE_BY_PRESENTER,
+            $OPT_FILE_BY_ROOM,
+            $OPT_ROOM,
+            $OPT_MODE_POSTCARD,
+            $OPT_JUST_PRESENTER,
+            $OPT_SHOW_DAY_COLUMN,
+            $OPT_SPLIT_PER_DAY,
+            $OPT_SPLIT_GRIDS,
+        };
+    } ## end if ( $opt{ $OPT_MODE_KIOSK...})
+
+    use Data::Dumper;
+    say Data::Dumper->Dump( [ \%opt ], [ qw{opt } ] ) or 0;
+
+    read_spreadsheet_file( $opt{ $OPT_INPUT } );
 
     make_time_ranges;
 
-    if ( $option_kiosk_mode ) {
+    if ( $opt{ $OPT_MODE_KIOSK } ) {
         dump_kiosk;
         return;
     }
 
-    $option_show_grid         //= 0 if $option_show_descriptions;
-    $option_show_descriptions //= 0 if $option_show_grid;
-    $option_show_grid         //= 1;
-    $option_show_descriptions //= 1;
-    $option_file_per_guest //= 1 if $option_just_presenter;
-
     my @filters = ( $DEFAULT_FILTER );
-    @filters = split_filter_by_panelist( @filters );
+    @filters = split_filter_by_panelist(
+        $opt{ $OPT_FILE_BY_GUEST },
+        $opt{ $OPT_FILE_BY_PRESENTER },
+        undef,
+        @filters
+    );
     @filters = split_filter_by_room( @filters );
     @filters = split_filter_by_timestamp( @filters );
 
