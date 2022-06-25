@@ -44,6 +44,6 @@ html {
 
 .descriptions {
     -webkit-column-break-before: always;
-    font-size: 13px;
-    column-count: 2;
+    font-size: 20px;
+    column-count: 1;
 }

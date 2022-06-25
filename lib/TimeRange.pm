@@ -6,56 +6,27 @@ use strict;
 use warnings;
 use common::sense;
 
-use Date::Parse qw{ str2time };
-use Readonly;
 use utf8;
-
-Readonly our $SEC_PER_MIN  => 60;
-Readonly our $MIN_PER_HOUR => 60;
-
-sub norm_date_time_ {
-    my ( $value ) = @_;
-    return unless defined $value;
-    return        if $value eq q{};
-    return $value if $value =~ m{\A \d+ \z}xms;
-
-    # @todo(TimeStamp): This assumes American order
-    my $time = str2time( $value );
-    return $time if defined $time;
-    warn qq{Unable to parse the following time: ${value}\n};
-    return;
-} ## end sub norm_date_time_
+use TimeDecoder qw{ :from_text };
 
 sub pre_init_time_ {
     my ( $class, $param, $spec, $obj, $value ) = @_;
-    return norm_date_time_( $value );
+    return text_to_datetime( $value );
 }
 
 sub pre_set_time_ {
     my ( $class, $field, @args ) = @_;
-    return norm_date_time_( @args );
+    return text_to_datetime( @args );
 }
-
-sub norm_dur_ {
-    my ( $value ) = @_;
-    return unless defined $value;
-    return if $value eq q{};
-
-    return unless $value =~ m{ \A \d+ (?: : \d+ )? \z}xms;
-
-    my ( $hour, $min ) = split m{:}xms, $value, $2;
-    $min += $hour * $MIN_PER_HOUR;
-    return $min * $SEC_PER_MIN;
-} ## end sub norm_dur_
 
 sub pre_init_dur_ {
     my ( $class, $param, $spec, $obj, $value ) = @_;
-    return norm_dur_( $value );
+    return text_to_duration( $value );
 }
 
 sub pre_set_dur_ {
     my ( $class, $field, @args ) = @_;
-    return norm_dur_( @args );
+    return text_to_duration( @args );
 }
 
 my @start_seconds

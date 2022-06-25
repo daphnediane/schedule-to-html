@@ -18,6 +18,7 @@ desc_tbl --input input/spreadsheet.txt --output output/
 | Option              | Meaning                                                   |
 | ------------------- | --------------------------------------------------------- |
 | --embed-css         | Embed any CSS files in the generated HTML, default        |
+| --end-time <time>   | Exclude any panels after <time>                           |
 | --file-by-day       | Generate a file for each day                              |
 | --file-by-guest     | Generate a file for each guest                            |
 | --file-by-presenter | Generate a file for each presenter including guest        |
@@ -28,8 +29,8 @@ desc_tbl --input input/spreadsheet.txt --output output/
 | --hide-unused-rooms | Only include rooms that have events scheduled             |
 | --input <file>      | Source data for schedule, UTF-16 spreadsheet or xlsx file |
 | --inpuz <file>      | May have a :# suffix to select a sheet by index           |
-| --just-presenter    | Only include descriptions for current presenter panels    |
 | --just-premium      | Only include descriptions for premium panels              |
+| --just-presenter    | Only include descriptions for current presenter panels    |
 | --mode-kiosk        | Generate files for use in a realtime kiosk                |
 | --mode-postcard     | Output for use in schedule postcards                      |
 | --no-embed-css      | Link to CSS files in the generated HTML                   |
@@ -42,6 +43,7 @@ desc_tbl --input input/spreadsheet.txt --output output/
 | --show-unused-rooms | Show all rooms                                            |
 | --split             | Split the grids by SPLIT time segements of days, default  |
 | --split-day         | Only split once per day                                   |
+| --start-time <time> | Exclude any panels before <time>                          |
 | --style <file>      | CSS file to include, may be given multiple times          |
 | --title <name>      | Sets the page titles                                      |
 | --unified           | Do not split table by SPLIT time segments or days         |

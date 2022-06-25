@@ -21,7 +21,7 @@ use Presenter qw{};
 use RoomField qw{};
 use RoomHandle qw{};
 use RoomInfo qw{};
-use TimeDecoder qw{ :decode :timepoints};
+use TimeDecoder qw{ :from_text :to_text :timepoints};
 use TimeRange qw{};
 use TimeRegion qw{};
 use TimeSlot qw{};
@@ -171,6 +171,8 @@ Readonly our $OPT_SHOW_GRID         => q{show-grid};
 Readonly our $OPT_SPLIT_GRIDS       => q{split};
 Readonly our $OPT_SPLIT_PER_DAY     => q{split-day};
 Readonly our $OPT_STYLE             => q{style};
+Readonly our $OPT_TIME_END          => q{end-time};
+Readonly our $OPT_TIME_START        => q{start-time};
 Readonly our $OPT_TITLE             => q{title};
 
 my %opt = {};
@@ -202,8 +204,8 @@ sub check_if_new_region {
         return unless exists $time_split{ $time };
         if ( $opt{ $OPT_SPLIT_PER_DAY } ) {
             my $prev_time = $prev_region->get_start_seconds();
-            my $prev_day  = decode_time( $prev_time, qw{ day } );
-            my $new_day   = decode_time( $time, qw{ day } );
+            my $prev_day  = datetime_to_text( $prev_time, qw{ day } );
+            my $new_day   = datetime_to_text( $time, qw{ day } );
             return if $prev_day eq $new_day;
             $time_split{ $time } = $new_day;
         } ## end if ( $opt{ $OPT_SPLIT_PER_DAY...})
@@ -212,7 +214,7 @@ sub check_if_new_region {
         $time_split{ $time } //= q{Schedule};
     }
     elsif ( $opt{ $OPT_SPLIT_PER_DAY } ) {
-        $time_split{ $time } = decode_time( $time, qw{ day } );
+        $time_split{ $time } = datetime_to_text( $time, qw{ day } );
     }
     else {
         $time_split{ $time } //= q{Before Convention};
@@ -220,7 +222,7 @@ sub check_if_new_region {
 
     my $region = $time_region{ $time } //= TimeRegion->new(
         name => $time_split{ $time }
-            // q{From } . decode_time( $time, qw{ both } ),
+            // q{From } . datetime_to_text( $time, qw{ both } ),
         start_time => $time,
     );
     return $region;
@@ -802,9 +804,16 @@ sub mtr_check_for_next_region {
 sub make_time_ranges {
     my %time_points
         = map { $_ => 1 } ( keys %time_split, get_timepoints() );
-    my @time_points = sort { $a <=> $b } keys %time_points;
-
     my $state = {};
+
+    my @time_points = keys %time_points;
+    my $first_time  = text_to_datetime( $opt{ $OPT_TIME_START } );
+    @time_points = grep { $first_time <= $_ } @time_points
+        if defined $first_time;
+    my $final_time = text_to_datetime( $opt{ $OPT_TIME_END } );
+    @time_points = grep { $final_time >= $_ } @time_points
+        if defined $final_time;
+    @time_points = sort { $a <=> $b } @time_points;
 
     foreach my $split_time ( @time_points ) {
         mtr_process_half_hours_upto( $state, $split_time )
@@ -1152,7 +1161,7 @@ sub dump_grid_row_time {
         }
     } ## end if ( exists $filter->{...})
 
-    my $time_id = q{sched_id_} . decode_time_id( $time );
+    my $time_id = q{sched_id_} . datetime_to_kiosk_id( $time );
     out_open $HTML_TABLE_ROW,
         { out_class( @time_row_classes ), id => $time_id };
 
@@ -1163,15 +1172,15 @@ sub dump_grid_row_time {
                     $CLASS_GRID_COLUMN_DAY
                 )
             },
-            decode_time( $time, qw{ day } )
+            datetime_to_text( $time, qw{ day } )
         );
         out_line $h->th(
             { out_class( @time_classes ) },
-            decode_time( $time, qw{ time } )
+            datetime_to_text( $time, qw{ time } )
         );
     } ## end if ( $opt{ $OPT_SHOW_DAY_COLUMN...})
     else {
-        my ( $day, $tm ) = decode_time( $time );
+        my ( $day, $tm ) = datetime_to_text( $time );
         my @before_time;
 
         if (   $region->get_last_output_time() == $time
@@ -1311,7 +1320,7 @@ sub dump_desc_time_start {
         $h->tr( $h->th(
             { out_class( $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT ) },
             join q{ },
-            decode_time( $time, qw{ both } ),
+            datetime_to_text( $time, qw{ both } ),
             @hdr_suffix
         ) )
     );
@@ -1483,7 +1492,7 @@ sub dump_desc_panel_body {
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_START
                 ) )
             },
-            decode_time( $panel->get_start_seconds(), qw{ both } )
+            datetime_to_text( $panel->get_start_seconds(), qw{ both } )
         );
     } ## end if ( $opt{ $OPT_MODE_KIOSK...})
     else {
@@ -1964,7 +1973,7 @@ sub dump_kiosk_desc {
     my @times        = sort { $a <=> $b } $region->get_unsorted_times();
     my @region_rooms = get_rooms_for_region( $region );
     foreach my $time ( @times ) {
-        my $time_id = q{desc_id_} . decode_time_id( $time );
+        my $time_id = q{desc_id_} . datetime_to_kiosk_id( $time );
         out_open $HTML_DIV,
             {
             out_class( $CLASS_KIOSK_DESCRIPTIONS, $CLASS_KIOSK_HIDDEN ),
@@ -2201,10 +2210,11 @@ sub main {
         \@args,
         \%opt,
 
-        q{embed-css|inline-css!},
         q{desc-by-columns!},
         q{desc-by-guest!},
         q{desc-by-presenter!},
+        q{embed-css|inline-css!},
+        q{end-time=s},
         q{file-by-day!},
         q{file-by-guest!},
         q{file-by-presenter!},
@@ -2224,6 +2234,7 @@ sub main {
         q{show-grid|grid!},
         q{split-day!},
         q{split!},
+        q{start-time=s},
         q{style=s@},
         q{title=s},
 
