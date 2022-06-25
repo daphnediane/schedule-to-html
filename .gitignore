@@ -18,10 +18,16 @@ prev_output
 report
 dump_flyers
 
+# Avoid generated files
+*.html
+
 # Do not include our font license keys
 css/license-fonts.css
 # Allow a test document in the .css directory
 css/index.html
+
+# Do not include our logo
+kiosk/images
 
 !.clang-format
 !.devcontainer
