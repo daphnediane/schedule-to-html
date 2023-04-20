@@ -2263,7 +2263,7 @@ sub main {
     $opt{ $OPT_SHOW_GRID }         //= 1;
     $opt{ $OPT_SPLIT_GRIDS }       //= 1;
     $opt{ $OPT_STYLE }             //= [ qw{ index.css } ];
-    $opt{ $OPT_TITLE }             //= q{Cosplay America 2022 Schedule};
+    $opt{ $OPT_TITLE }             //= q{Cosplay America 2023 Schedule};
 
     if ( $opt{ $OPT_MODE_KIOSK } ) {
         $opt{ $OPT_STYLE }             = [ qw{+color} ];

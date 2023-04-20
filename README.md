@@ -166,7 +166,7 @@ If the --split-day switch is used, only SPLITDAY will split the grid and
 other splits will be ignored. In that case only the first word of the
 "panel" name will be used for the split.
 
-| Room Name  | Sork Key | Hotel Room | Long Name |
+| Room Name  | Sort Key | Hotel Room | Long Name |
 | ---------- | -------- | ---------- | --------- |
 | SPLITDAY   | 101      | SPLIT      | SPLIT     |
 | SPLITNIGHT | 101      | SPLIT      | SPLIT     |
