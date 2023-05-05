@@ -13,6 +13,7 @@ Readonly our $DURATION        => q{Duration};
 Readonly our $END_TIME        => q{End_Time};
 Readonly our $FULL            => q{Full};
 Readonly our $NOTE            => q{Note};
+Readonly our $AV_NOTE         => q{AV Notes};
 Readonly our $PANEL_KIND      => q{Kind};
 Readonly our $PANEL_NAME      => q{Name};
 Readonly our $PANELIST_ALT    => q{Alt_Panelist};

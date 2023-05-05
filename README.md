@@ -37,6 +37,7 @@ desc_tbl --input input/spreadsheet.txt --output output/
 | --output <name>     | Output filename or directory if any --file-by-... used    |
 | --room <room>       | Focus on matching room, may be given more than once       |
 | --separate          | Put descriptions after all grids instead of mixing them   |
+| --show-av           | Include notes for Audio Visual                            |
 | --show-day          | Include a column for week day                             |
 | --show-description  | Includes panel descriptions, implies --hide-grid          |
 | --show-grid         | Includes the grid, implies --hide-description             |
@@ -75,39 +76,40 @@ Spaces or underscopes may be used to separate words in field names.
 
 Normal Columns:
 
-| Field Name    | Required               | Contents                                                                                                                                       | Example                          |
-| ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Uniq ID       | Yes                    | Two letter unique id, plus 3 digit panel id, UNIQUE ID must match PanelTypes, SPLIT is special, ZZ for unlisted time                           | ZZ123                            |
-| Changed       | After first draft      | Timestamp of change                                                                                                                            | 6/25/22 6:00 PM                  |
-| Name          | Yes                    | Name of the panel as will appear in the program                                                                                                | A Sample Panel                   |
-| Room          | If Scheduled           | Name of the room, must match the Rooms sheet if used                                                                                           | Programming 1                    |
-| Original Time | If moved               | If the time of the panel was changed, original time so that I can find it in program to remove old copy                                        | 6/25/22 6:00 PM                  |
-| Start Time    | If Scheduled           | Start time of panel, make blank to "unschedule" a panel instead of just deleting it                                                            | 6/25/22 6:00 PM                  |
-| Duration      | If Scheduled           | Duration of the panel                                                                                                                          | 1:00                             |
-| Description   | If Scheduled           | Description of the panel                                                                                                                       | A Panel about panels             |
-| Note          |                        | Additional notes that will appear in the program verbatium highlight                                                                           | Note: This is not really a panel |
-| Difficulty    |                        | Number representing the difficulty of the panel                                                                                                | 1                                |
-| Cost          |                        | How much costs to attend                                                                                                                       | $35                              |
-| Seats Sold    | If premium workshop    | How many seats have been already sold                                                                                                          | 3                                |
-| Capacity      | If premium workshop    | How many seats are available                                                                                                                   | 23                               |
-| Full          |                        | If the panel is full. TODO support Seats_Sold and Capacity                                                                                     | Yes                              |
-| Hide Panelist |                        | Set no non-blank (such as "Yes") if panelist names are not to be shown for the description                                                     | Yes                              |
-| Alt Panelist  |                        | Replacement text for the panelist names in the description instead of computing automatically                                                  | Mystery Guest                    |
-| G:Name=Group  |                        | Guest with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted            | Yes                              |
-| G:Name        |                        | Guest with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                             | *                                |
-| G:Other       |                        | Additional guests that don't have a header, you can just add rows if you want more columns                                                     | One Shot Wonder                  |
-| S:Name=Group  |                        | Staff with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted            | Yes                              |
-| S:Name        |                        | Staff with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                             | Yes                              |
-| S:Other       |                        | Additional staff that don't have a header, you can just add rows if you want more columns                                                      | Jane Doe, John Smith             |
-| I:Name=Group  |                        | Invited panelist with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted | *                                |
-| I:Name        |                        | Invited panelist with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                  | Yes                              |
-| I:Other       |                        | Additional invited panelist that don't have a header, you can just add rows if you want more columns                                           | Jane Doe, John Smith             |
-| P:Name=Group  |                        | Fan panelist with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted     | *                                |
-| P:Name        |                        | Fan panelist with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                      | Yes                              |
-| P:Other       |                        | Additional panelist that don't have a header, you can just add rows if you want more columns                                                   | Jane Doe, John Smith             |
-| Kind          | If no PanelTypes sheet | Panel kind based on prefix, if there is a PanelTypes sheet this can be computed from Uniq ID                                                   | Workshop                         |
-| Room Idx      | If no Rooms sheet      | Id of room, used for sorting, 100+ are hidden                                                                                                  |                                  |
-| Real Room     | If no Rooms sheet      | Hotel Room name                                                                                                                                |                                  |
+| Field Name    | Required               | Contents                                                                                                                                       | Example                           |
+| ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Uniq ID       | Yes                    | Two letter unique id, plus 3 digit panel id, UNIQUE ID must match PanelTypes, SPLIT is special, ZZ for unlisted time                           | ZZ123                             |
+| Changed       | After first draft      | Timestamp of change                                                                                                                            | 6/25/22 6:00 PM                   |
+| Name          | Yes                    | Name of the panel as will appear in the program                                                                                                | A Sample Panel                    |
+| Room          | If Scheduled           | Name of the room, must match the Rooms sheet if used                                                                                           | Programming 1                     |
+| Original Time | If moved               | If the time of the panel was changed, original time so that I can find it in program to remove old copy                                        | 6/25/22 6:00 PM                   |
+| Start Time    | If Scheduled           | Start time of panel, make blank to "unschedule" a panel instead of just deleting it                                                            | 6/25/22 6:00 PM                   |
+| Duration      | If Scheduled           | Duration of the panel                                                                                                                          | 1:00                              |
+| Description   | If Scheduled           | Description of the panel                                                                                                                       | A Panel about panels              |
+| Note          |                        | Additional notes that will appear in the program verbatium highlight                                                                           | Note: This is not really a panel  |
+| AV Notes      |                        | Information for Audio/Visual Setup. Will show if --show-av argument is used                                                                    | Mic: 2 handheld Video: HMDI Stage |
+| Difficulty    |                        | Number representing the difficulty of the panel                                                                                                | 1                                 |
+| Cost          |                        | How much costs to attend                                                                                                                       | $35                               |
+| Seats Sold    | If premium workshop    | How many seats have been already sold                                                                                                          | 3                                 |
+| Capacity      | If premium workshop    | How many seats are available                                                                                                                   | 23                                |
+| Full          |                        | If the panel is full. TODO support Seats_Sold and Capacity                                                                                     | Yes                               |
+| Hide Panelist |                        | Set no non-blank (such as "Yes") if panelist names are not to be shown for the description                                                     | Yes                               |
+| Alt Panelist  |                        | Replacement text for the panelist names in the description instead of computing automatically                                                  | Mystery Guest                     |
+| G:Name=Group  |                        | Guest with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted            | Yes                               |
+| G:Name        |                        | Guest with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                             | *                                 |
+| G:Other       |                        | Additional guests that don't have a header, you can just add rows if you want more columns                                                     | One Shot Wonder                   |
+| S:Name=Group  |                        | Staff with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted            | Yes                               |
+| S:Name        |                        | Staff with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                             | Yes                               |
+| S:Other       |                        | Additional staff that don't have a header, you can just add rows if you want more columns                                                      | Jane Doe, John Smith              |
+| I:Name=Group  |                        | Invited panelist with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted | *                                 |
+| I:Name        |                        | Invited panelist with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                  | Yes                               |
+| I:Other       |                        | Additional invited panelist that don't have a header, you can just add rows if you want more columns                                           | Jane Doe, John Smith              |
+| P:Name=Group  |                        | Fan panelist with name of Name, member of group. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted     | *                                 |
+| P:Name        |                        | Fan panelist with name of Name. Set to non-blank ( such as "Yes" ) if required to be present, "*" if present but unlisted                      | Yes                               |
+| P:Other       |                        | Additional panelist that don't have a header, you can just add rows if you want more columns                                                   | Jane Doe, John Smith              |
+| Kind          | If no PanelTypes sheet | Panel kind based on prefix, if there is a PanelTypes sheet this can be computed from Uniq ID                                                   | Workshop                          |
+| Room Idx      | If no Rooms sheet      | Id of room, used for sorting, 100+ are hidden                                                                                                  |                                   |
+| Real Room     | If no Rooms sheet      | Hotel Room name                                                                                                                                |                                   |
 
 Panelist Columns
 

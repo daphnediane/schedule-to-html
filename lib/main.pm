@@ -164,6 +164,7 @@ Readonly our $OPT_MODE_KIOSK        => q{mode-kiosk};
 Readonly our $OPT_MODE_POSTCARD     => q{mode-postcard};
 Readonly our $OPT_OUTPUT            => q{output};
 Readonly our $OPT_ROOM              => q{room};
+Readonly our $OPT_SHOW_AV           => q{show-av};
 Readonly our $OPT_SHOW_DAY_COLUMN   => q{show-day};
 Readonly our $OPT_SHOW_DESCRIPTIONS => q{show-descriptions};
 Readonly our $OPT_SHOW_DIFFICULTY   => q{show-difficulty};
@@ -559,6 +560,7 @@ sub process_spreadsheet_row {
         is_full       => $panel_data{ $PanelField::FULL },
         name          => $panel_data{ $PanelField::PANEL_NAME },
         note          => $panel_data{ $PanelField::NOTE },
+        av_note       => $panel_data{ $PanelField::AV_NOTE },
         panel_kind    => $panel_data{ $PanelField::PANEL_KIND },
         room          => $room,
         start_time    => $panel_data{ $PanelField::START_TIME },
@@ -1352,6 +1354,9 @@ sub dump_desc_panel_note {
     }
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
+    }
+    if ( $opt{ $OPT_SHOW_AV } ) {
+        push @note, $h->b( q{Audio/Visual: } ) . $h->i( $panel->get_av_note() // $h->b( q{No notes} ) );
     }
     if ( $panel->get_is_full() ) {
         push @note,
@@ -2228,6 +2233,7 @@ sub main {
         q{output=s},
         q{room=s@},
         q{separate!},
+        q{show-av!},
         q{show-day!},
         q{show-descriptions|descriptions!},
         q{show-difficulty!},

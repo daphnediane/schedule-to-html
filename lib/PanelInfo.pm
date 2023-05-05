@@ -122,6 +122,13 @@ my @note
     :Set(Name => q{set_note}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_note);
 
+my @av_note
+    :Field
+    :Type(scalar)
+    :Arg(Name => q{av_note}, Pre => \&PanelInfo::pre_init_text_)
+    :Set(Name => q{set_av_note}, Pre => \&PanelInfo::pre_set_text_)
+    :Get(get_av_note);
+
 my @difficulty
     :Field
     :Type(scalar)
