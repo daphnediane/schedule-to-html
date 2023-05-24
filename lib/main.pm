@@ -176,7 +176,7 @@ Readonly our $OPT_TIME_END          => q{end-time};
 Readonly our $OPT_TIME_START        => q{start-time};
 Readonly our $OPT_TITLE             => q{title};
 
-my %opt = {};
+my %opt = ();
 
 my @all_rooms;
 my %room_by_name;
@@ -1566,7 +1566,6 @@ sub dump_desc_body {
                 $time_header_seen = 1;
 
                 $on_dump->() if defined $on_dump;
-                undef $on_dump;
 
                 my @hdr_extra;
                 if (   $show_unbusy_panels
@@ -1604,13 +1603,6 @@ sub dump_desc_body_regions {
     foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
         $region = $time_region{ $region_time };
         my %room_focus_map = room_id_focus_map( $filter, $region );
-        my $on_dump_region;
-        $on_dump_region = sub {
-            undef $on_dump_region;
-            $on_dump->();
-            undef $on_dump;
-            }
-            if defined $on_dump;
         dump_desc_body(
             $filter,             $region, \%room_focus_map,
             $show_unbusy_panels, $on_dump
@@ -1633,24 +1625,24 @@ sub dump_desc_timeslice {
 
     foreach my $desc_filter ( @filters ) {
         my $on_dump;
+        my $header_dumped;
         $on_dump = sub {
-            undef $on_dump;
+            return if $header_dumped;
+            $header_dumped = 1;
             dump_desc_header( $desc_filter, $region );
         };
         dump_desc_body_regions( $desc_filter, $region, 0, $on_dump );
-        dump_desc_footer( $desc_filter, $region ) unless defined $on_dump;
+        dump_desc_footer( $desc_filter, $region ) if $header_dumped;
+        $header_dumped = undef;
 
         if (   exists $desc_filter->{ $FILTER_PRESENTER }
             && !$opt{ $OPT_JUST_PRESENTER }
             && !$opt{ $OPT_DESC_BY_GUEST }
             && !$opt{ $OPT_DESC_BY_PRESENTER } ) {
-            $on_dump = sub {
-                undef $on_dump;
-                dump_desc_header( $desc_filter, $region, 1 );
-            };
             dump_desc_body_regions( $desc_filter, $region, 1, $on_dump );
             dump_desc_footer( $desc_filter, $region, 1 )
-                unless defined $on_dump;
+                if $header_dumped;
+            $header_dumped = undef;
         } ## end if ( exists $desc_filter...)
     } ## end foreach my $desc_filter ( @filters)
 

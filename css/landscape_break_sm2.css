@@ -1,0 +1,24 @@
+@page {
+    size: landscape;
+}
+
+html {
+    column-count: 2;
+    column-span: none;
+}
+
+.schedule {
+    column-span: none;
+    break-before: column;
+    font-size: 6.7px;
+}
+
+.schedHeader {
+    height: 3em;
+}
+
+.descriptions {
+    -webkit-column-break-before: always;
+    font-size: 6.7pt;
+    column-count: 2;
+}
