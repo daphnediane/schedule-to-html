@@ -29,6 +29,7 @@ desc_tbl --input input/spreadsheet.txt --output output/
 | --hide-unused-rooms | Only include rooms that have events scheduled             |
 | --input <file>      | Source data for schedule, UTF-16 spreadsheet or xlsx file |
 | --inpuz <file>      | May have a :# suffix to select a sheet by index           |
+| --just-free         | Only include descriptions for free panels                 |
 | --just-premium      | Only include descriptions for premium panels              |
 | --just-presenter    | Only include descriptions for current presenter panels    |
 | --mode-kiosk        | Generate files for use in a realtime kiosk                |

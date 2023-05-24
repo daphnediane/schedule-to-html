@@ -158,6 +158,7 @@ Readonly our $OPT_FILE_BY_PRESENTER => q{file-by-presenter};
 Readonly our $OPT_FILE_BY_ROOM      => q{file-by-room};
 Readonly our $OPT_HIDE_UNUSED_ROOMS => q{hide-unused-rooms};
 Readonly our $OPT_INPUT             => q{input};
+Readonly our $OPT_JUST_FREE         => q{just-free};
 Readonly our $OPT_JUST_PREMIUM      => q{just-premium};
 Readonly our $OPT_JUST_PRESENTER    => q{just-presenter};
 Readonly our $OPT_MODE_KIOSK        => q{mode-kiosk};
@@ -1412,6 +1413,7 @@ sub should_panel_desc_be_dumped {
             return unless $show_unbusy_panels;
         }
     } ## end if ( defined $filter_panelist)
+    return if ( $opt{ $OPT_JUST_FREE }    && defined $panel->get_cost() );
     return if ( $opt{ $OPT_JUST_PREMIUM } && !defined $panel->get_cost() );
     return 1;
 } ## end sub should_panel_desc_be_dumped
@@ -2220,6 +2222,7 @@ sub main {
         q{file-by-room!},
         q{hide-unused-rooms!},
         q{input=s},
+        q{just-free!},
         q{just-premium!},
         q{just-presenter|just-guest!},
         q{mode-kiosk|kiosk!},
@@ -2264,6 +2267,10 @@ sub main {
     $opt{ $OPT_SPLIT_GRIDS }       //= 1;
     $opt{ $OPT_STYLE }             //= [ qw{ index.css } ];
     $opt{ $OPT_TITLE }             //= q{Cosplay America 2023 Schedule};
+
+    if ( $opt{ $OPT_JUST_FREE } && $opt{ $OPT_JUST_PREMIUM } ) {
+        die qq{Only one of --just-free and --just-premium can be specified\n};
+    }
 
     if ( $opt{ $OPT_MODE_KIOSK } ) {
         $opt{ $OPT_STYLE }             = [ qw{+color} ];
