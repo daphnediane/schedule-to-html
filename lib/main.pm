@@ -1356,7 +1356,9 @@ sub dump_desc_panel_note {
         push @note, $h->i( $panel->get_note() );
     }
     if ( $opt{ $OPT_SHOW_AV } ) {
-        push @note, $h->b( q{Audio/Visual: } ) . $h->i( $panel->get_av_note() // $h->b( q{No notes} ) );
+        push @note,
+            $h->b( q{Audio/Visual: } )
+            . $h->i( $panel->get_av_note() // $h->b( q{No notes} ) );
     }
     if ( $panel->get_is_full() ) {
         push @note,
