@@ -5,50 +5,81 @@ Utility that I use to create an HTML page from a schedule for Cosplay America.
 
 Not very well documented sorry.
 
-Quick start:
-
-And place spreadsheet in the input directory.
-
 ## Run:
 
-desc_tbl --input input/spreadsheet.txt --output output/
+desc_tbl --input input/spreadsheet.xlsx --output output/
 
 ## Options:
 
-| Option              | Meaning                                                   |
-| ------------------- | --------------------------------------------------------- |
-| --embed-css         | Embed any CSS files in the generated HTML, default        |
-| --end-time <time>   | Exclude any panels after <time>                           |
-| --file-by-day       | Generate a file for each day                              |
-| --file-by-guest     | Generate a file for each guest                            |
-| --file-by-presenter | Generate a file for each presenter including guest        |
-| --file-by-room      | Generate a file for each room                             |
-| --hide-day          | Does not include a column for week day, default           |
-| --hide-description  | Does not include description, implies --show-grid         |
-| --hide-grid         | Does not includes the grid, implies --show-description    |
-| --hide-unused-rooms | Only include rooms that have events scheduled             |
-| --input <file>      | Source data for schedule, UTF-16 spreadsheet or xlsx file |
-| --inpuz <file>      | May have a :# suffix to select a sheet by index           |
-| --just-free         | Only include descriptions for free panels                 |
-| --just-premium      | Only include descriptions for premium panels              |
-| --just-presenter    | Only include descriptions for current presenter panels    |
-| --mode-kiosk        | Generate files for use in a realtime kiosk                |
-| --mode-postcard     | Output for use in schedule postcards                      |
-| --no-embed-css      | Link to CSS files in the generated HTML                   |
-| --output <name>     | Output filename or directory if any --file-by-... used    |
-| --room <room>       | Focus on matching room, may be given more than once       |
-| --separate          | Put descriptions after all grids instead of mixing them   |
-| --show-av           | Include notes for Audio Visual                            |
-| --show-day          | Include a column for week day                             |
-| --show-description  | Includes panel descriptions, implies --hide-grid          |
-| --show-grid         | Includes the grid, implies --hide-description             |
-| --show-unused-rooms | Show all rooms                                            |
-| --split             | Split the grids by SPLIT time segements of days, default  |
-| --split-day         | Only split once per day                                   |
-| --start-time <time> | Exclude any panels before <time>                          |
-| --style <file>      | CSS file to include, may be given multiple times          |
-| --title <name>      | Sets the page titles                                      |
-| --unified           | Do not split table by SPLIT time segments or days         |
+| Option                    | Meaning                                                                |
+| ------------------------- | ---------------------------------------------------------------------- |
+| --desc-alt-form           | Change how descriptions are output _Needs CSS work_                    |
+| --desc-by-columns         | _Reserved for future_                                                  |
+| --desc-by-guest           | Arrange descriptions by guest, showing just guest                      |
+| --desc-by-presenter       | Arrange descriptions by presenter, implies --desc-by-guest             |
+| --desc-table-form         | Do not change how descriptions are output, default                     |
+| --descriptions            | _Alias for --descriptions_                                             |
+| --embed-css               | Embed any CSS files in the generated HTML, default                     |
+| --end-time _time_         | Exclude any panels after _time_                                        |
+| --file-all-days           | Do not generate a file for each day, default                           |
+| --file-all-room           | Do not generate a file for each room                                   |
+| --file-by-day             | Generate separate file for each day                                    |
+| --file-by-guest           | Generate a file for each guest                                         |
+| --file-by-presenter       | Generate a file for each presenter, implies --file-by-guest            |
+| --file-by-room            | Generate a file for each room                                          |
+| --flyer                   | _Alias for --mode-flier_                                               |
+| --grid                    | _Alias for --show-grid                                                 |
+| --hide-av                 | Do not include notes for Audio Visual                                  |
+| --hide-day                | Does not include a column for week day, default                        |
+| --hide-descriptions       | Does not include description, implies --show-grid                      |
+| --hide-difficulty         | Hide difficulty information                                            |
+| --hide-free               | Hide descriptions for panels that are free                             |
+| --hide-grid               | Does not includes the grid, implies --show-description                 |
+| --hide-premium            | Hide descriptions for panels that are premium                          |
+| --hide-unused-rooms       | Only include rooms that have events scheduled                          |
+| --inline-css              | _Alias for --embed-css_                                                |
+| --input _file_.txt        | Source data for schedule, UTF-16 spreadsheet                           |
+| --input _file_.xlsx       | Source data for schedule, xlsx file                                    |
+| --input _file_.xlsx:_num_ | May have a _num_ suffix to select a sheet by index                     |
+| --just-free               | _Alias for --hide-premium_                                             |
+| --just-guest              | _Alias for --just-guest_                                               |
+| --just-premium            | _Alias for --hide-free_                                                |
+| --just-presenter          | Hide descriptions for other presenters, implies --file-by-guest        |
+| --kiosk                   | _Alias for --mode-kiosk_                                               |
+| --mode-flyer              | Default generation mode                                                |
+| --mode-kiosk              | Generate files for use in a realtime kiosk                             |
+| --mode-postcard           | Output for use in schedule postcards                                   |
+| --no-desc-by-columns      | _Reserved for future_                                                  |
+| --no-desc-by-guest        | Do not arrange by guest, exclude guest if --desc-by-presenter is given |
+| --no-desc-by-presenter    | Do not arrange descriptions by presenter                               |
+| --no-embed-css            | Link to CSS files in the generated HTML                                |
+| --no-file-by-guest        | Do not generate a file for each guest                                  |
+| --no-file-by-presenter    | Do not generate a file for each presenter                              |
+| --no-inline-css           | _Alias for --no-embed-css_                                             |
+| --no-postcard             | _Alias for --no-mode-postcard_                                         |
+| --no-separate             | Do not change the placement of descriptions between grids              |
+| --no-split                | _Alias for unified_                                                    |
+| --output _name_           | Output filename or directory if any --file-by-... used                 |
+| --postcard                | _Alias for --mode-postcard_                                            |
+| --room _room_             | Focus on matching room, may be given more than once                    |
+| --separate                | Put descriptions after all grids instead of after each grid            |
+| --show-all-rooms          | Show rooms even if they have no events scheduled                       |
+| --show-av                 | Include notes for Audio Visual                                         |
+| --show-day                | Include a column for week day                                          |
+| --show-descriptions       | Includes panel descriptions, implies --hide-grid                       |
+| --show-difficulty         | Show difficulty information, default                                   |
+| --show-free               | Show descriptions for panels that are free, implies --hide-premium     |
+| --show-grid               | Includes the grid, implies --hide-description                          |
+| --show-premium            | Show descriptions for panels that are premium, implies --hide-free     |
+| --show-unused-rooms       | _Alias for --show-all-rooms_                                           |
+| --split                   | Implies --split-time-region, unless --split-day                        |
+| --split-day               | Only split once per day                                                |
+| --split-half-day          | _Alias for --split-time-region_                                        |
+| --split-time-region       | Split the grids by SPLIT time segments, default                        |
+| --start-time _time_       | Exclude any panels before _time_                                       |
+| --style _file_            | CSS file to include, may be given multiple times, implies --embed-css  |
+| --title _name_            | Sets the page titles                                                   |
+| --unified                 | Do not split table by SPLIT time segments or days                      |
 
 If no option is specified for either grids or descriptions both are included.
 

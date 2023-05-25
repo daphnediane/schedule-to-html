@@ -13,6 +13,10 @@ html {
 	font-size: 7px;
 }
 
+.scheduleFriday {
+	font-size: 6.7px !important;
+}
+
 .schedHeader {
 	height: 3em;
 }

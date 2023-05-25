@@ -147,36 +147,38 @@ Readonly our $FILTER_SET_FOCUS =>
 
 Readonly our $FILTER_SET_DEFAULT => {};
 
-Readonly our $OPT_DESC_AT_END       => q{separate};
-Readonly our $OPT_DESC_BY_COLUMNS   => q{desc-by-columns};
-Readonly our $OPT_DESC_BY_GUEST     => q{desc-by-guest};
-Readonly our $OPT_DESC_BY_PRESENTER => q{desc-by-presenter};
-Readonly our $OPT_EMBED_CSS         => q{embed-css};
-Readonly our $OPT_FILE_BY_DAY       => q{file-by-day};
-Readonly our $OPT_FILE_BY_GUEST     => q{file-by-guest};
-Readonly our $OPT_FILE_BY_PRESENTER => q{file-by-presenter};
-Readonly our $OPT_FILE_BY_ROOM      => q{file-by-room};
-Readonly our $OPT_HIDE_UNUSED_ROOMS => q{hide-unused-rooms};
-Readonly our $OPT_INPUT             => q{input};
-Readonly our $OPT_JUST_FREE         => q{just-free};
-Readonly our $OPT_JUST_PREMIUM      => q{just-premium};
-Readonly our $OPT_JUST_PRESENTER    => q{just-presenter};
-Readonly our $OPT_MODE_KIOSK        => q{mode-kiosk};
-Readonly our $OPT_MODE_POSTCARD     => q{mode-postcard};
-Readonly our $OPT_MODE_ALT_DESC     => q{mode-alt-desc};
-Readonly our $OPT_OUTPUT            => q{output};
-Readonly our $OPT_ROOM              => q{room};
-Readonly our $OPT_SHOW_AV           => q{show-av};
-Readonly our $OPT_SHOW_DAY_COLUMN   => q{show-day};
-Readonly our $OPT_SHOW_DESCRIPTIONS => q{show-descriptions};
-Readonly our $OPT_SHOW_DIFFICULTY   => q{show-difficulty};
-Readonly our $OPT_SHOW_GRID         => q{show-grid};
-Readonly our $OPT_SPLIT_GRIDS       => q{split};
-Readonly our $OPT_SPLIT_PER_DAY     => q{split-day};
-Readonly our $OPT_STYLE             => q{style};
-Readonly our $OPT_TIME_END          => q{end-time};
-Readonly our $OPT_TIME_START        => q{start-time};
-Readonly our $OPT_TITLE             => q{title};
+Readonly our $OPT_DESC_ALT_FORM        => q{desc-alt-form};
+Readonly our $OPT_DESC_AT_END          => q{separate};
+Readonly our $OPT_DESC_BY_COLUMNS      => q{desc-by-columns};     # Unused
+Readonly our $OPT_DESC_BY_GUEST        => q{desc-by-guest};
+Readonly our $OPT_DESC_BY_PRESENTER    => q{desc-by-presenter};
+Readonly our $OPT_EMBED_CSS            => q{embed-css};
+Readonly our $OPT_FILE_BY_DAY          => q{file-by-day};
+Readonly our $OPT_FILE_BY_GUEST        => q{file-by-guest};
+Readonly our $OPT_FILE_BY_PRESENTER    => q{file-by-presenter};
+Readonly our $OPT_FILE_BY_ROOM         => q{file-by-room};
+Readonly our $OPT_INPUT                => q{input};
+Readonly our $OPT_JUST_PRESENTER       => q{just-presenter};
+Readonly our $OPT_MODE_FLYER           => q{mode-flyer};
+Readonly our $OPT_MODE_KIOSK           => q{mode-kiosk};
+Readonly our $OPT_MODE_POSTCARD        => q{mode-postcard};
+Readonly our $OPT_OUTPUT               => q{output};
+Readonly our $OPT_ROOM                 => q{room};
+Readonly our $OPT_SHOW_AV              => q{show-av};
+Readonly our $OPT_SHOW_COST_FREE       => q{show-free};
+Readonly our $OPT_SHOW_COST_PREMIUM    => q{show-premium};
+Readonly our $OPT_SHOW_DAY_COLUMN      => q{show-day};
+Readonly our $OPT_SHOW_DESCRIPTIONS    => q{show-descriptions};
+Readonly our $OPT_SHOW_DIFFICULTY      => q{show-difficulty};
+Readonly our $OPT_SHOW_ALL_ROOMS       => q{show-all-rooms};
+Readonly our $OPT_SHOW_GRID            => q{show-grid};
+Readonly our $OPT_SPLIT_NONE           => q{split-none};
+Readonly our $OPT_SPLIT_PER_TIMEREGION => q{split-timeregion};
+Readonly our $OPT_SPLIT_PER_DAY        => q{split-day};
+Readonly our $OPT_STYLE                => q{style};
+Readonly our $OPT_TIME_END             => q{end-time};
+Readonly our $OPT_TIME_START           => q{start-time};
+Readonly our $OPT_TITLE                => q{title};
 
 my %opt = ();
 
@@ -203,7 +205,7 @@ sub register_time_split {
 sub check_if_new_region {
     my ( $time, $prev_region ) = @_;
     if ( defined $prev_region ) {
-        return unless $opt{ $OPT_SPLIT_GRIDS };
+        return if $opt{ $OPT_SPLIT_NONE };
         return unless exists $time_split{ $time };
         if ( $opt{ $OPT_SPLIT_PER_DAY } ) {
             my $prev_time = $prev_region->get_start_seconds();
@@ -213,7 +215,7 @@ sub check_if_new_region {
             $time_split{ $time } = $new_day;
         } ## end if ( $opt{ $OPT_SPLIT_PER_DAY...})
     } ## end if ( defined $prev_region)
-    elsif ( !$opt{ $OPT_SPLIT_GRIDS } ) {
+    elsif ( $opt{ $OPT_SPLIT_NONE } ) {
         $time_split{ $time } //= q{Schedule};
     }
     elsif ( $opt{ $OPT_SPLIT_PER_DAY } ) {
@@ -895,11 +897,9 @@ sub get_rooms_for_region {
 
     my @rooms = grep { !$_->get_room_is_hidden() } @all_rooms;
 
-    if ( $opt{ $OPT_HIDE_UNUSED_ROOMS } && defined $region ) {
-        @rooms = grep { $region->is_room_active( $_ ) } @rooms;
-    }
-
-    return @rooms;
+    return @rooms if $opt{ $OPT_SHOW_ALL_ROOMS };
+    return @rooms if !defined $region;
+    return grep { $region->is_room_active( $_ ) } @rooms;
 } ## end sub get_rooms_for_region
 
 sub room_id_focus_map {
@@ -1314,13 +1314,13 @@ sub dump_desc_footer {
 sub dump_desc_time_start {
     my ( $time, @hdr_suffix ) = @_;
 
-    if ( $opt{ $OPT_MODE_ALT_DESC } ) {
+    if ( $opt{ $OPT_DESC_ALT_FORM } ) {
         out_line $h->div(
             { out_class( $CLASS_DESC_TIME_SLOT ) }, join q{ },
             datetime_to_text( $time, qw{ both } ),
             @hdr_suffix
         );
-    } ## end if ( $opt{ $OPT_MODE_ALT_DESC...})
+    } ## end if ( $opt{ $OPT_DESC_ALT_FORM...})
     else {
         out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
         out_open $HTML_COLGROUP;
@@ -1341,7 +1341,7 @@ sub dump_desc_time_start {
         );
 
         out_open $HTML_TABLE_BODY;
-    } ## end else [ if ( $opt{ $OPT_MODE_ALT_DESC...})]
+    } ## end else [ if ( $opt{ $OPT_DESC_ALT_FORM...})]
 
     return;
 } ## end sub dump_desc_time_start
@@ -1349,7 +1349,7 @@ sub dump_desc_time_start {
 sub dump_desc_time_end {
     my ( $time ) = @_;
 
-    if ( !$opt{ $OPT_MODE_ALT_DESC } ) {
+    if ( !$opt{ $OPT_DESC_ALT_FORM } ) {
         out_close $HTML_TABLE_BODY;
         out_close $HTML_TABLE;
     }
@@ -1428,16 +1428,21 @@ sub should_panel_desc_be_dumped {
             return unless $show_unbusy_panels;
         }
     } ## end if ( defined $filter_panelist)
-    return if ( $opt{ $OPT_JUST_FREE }    && defined $panel->get_cost() );
-    return if ( $opt{ $OPT_JUST_PREMIUM } && !defined $panel->get_cost() );
-    return 1;
+
+    return 1 if $opt{    #
+        defined $panel->get_cost()
+        ? $OPT_SHOW_COST_PREMIUM
+        : $OPT_SHOW_COST_FREE
+    };
+
+    return;
 } ## end sub should_panel_desc_be_dumped
 
 sub dump_desc_panel_body {
     my ( $filter, $time_slot, $panel_state, @extra_classes ) = @_;
 
     if ( !defined $panel_state ) {
-        return if $opt{ $OPT_MODE_ALT_DESC };
+        return if $opt{ $OPT_DESC_ALT_FORM };
         out_line $h->td(
             { out_class( @extra_classes, $CLASS_KIOSK_DESC_CELL_EMPTY ) } );
         return;
@@ -1468,7 +1473,7 @@ sub dump_desc_panel_body {
     }
 
     my $desc_element
-        = $opt{ $OPT_MODE_ALT_DESC } ? $HTML_DIV : $HTML_TABLE_DATA;
+        = $opt{ $OPT_DESC_ALT_FORM } ? $HTML_DIV : $HTML_TABLE_DATA;
 
     out_open $desc_element,
         {
@@ -1597,12 +1602,12 @@ sub dump_desc_body {
                 dump_desc_time_start( $time, @hdr_extra );
             } ## end if ( !defined $time_header_seen)
 
-            if ( !$opt{ $OPT_MODE_ALT_DESC } ) {
+            if ( !$opt{ $OPT_DESC_ALT_FORM } ) {
                 out_open $HTML_TABLE_ROW,
                     { out_class( $CLASS_DESC_PANEL_ROW ) };
             }
             dump_desc_panel_body( $filter, $time_slot, $panel_state );
-            if ( !$opt{ $OPT_MODE_ALT_DESC } ) {
+            if ( !$opt{ $OPT_DESC_ALT_FORM } ) {
                 out_close $HTML_TABLE_ROW;
             }
         } ## end foreach my $panel_state ( @panel_states)
@@ -2230,95 +2235,122 @@ sub split_filter_by_room {
 sub main {
     my ( @args ) = @_;
 
+    my $mode  = $OPT_MODE_FLYER;
+    my $split = $OPT_SPLIT_PER_TIMEREGION;
+
     GetOptionsFromArray(
         \@args,
         \%opt,
 
+        q{desc-alt-form},
         q{desc-by-columns!},
         q{desc-by-guest!},
         q{desc-by-presenter!},
         q{embed-css|inline-css!},
         q{end-time=s},
-        q{file-by-day!},
+        q{file-by-day},
         q{file-by-guest!},
         q{file-by-presenter!},
-        q{file-by-room!},
-        q{hide-unused-rooms!},
+        q{file-by-room},
         q{input=s},
-        q{just-free!},
-        q{just-premium!},
         q{just-presenter|just-guest!},
-        q{mode-kiosk|kiosk!},
-        q{mode-postcard|postcard!},
-        q{mode-alt-desc|alt-desc!},
         q{output=s},
         q{room=s@},
         q{separate!},
-        q{show-av!},
-        q{show-day!},
-        q{show-descriptions|descriptions!},
-        q{show-difficulty!},
-        q{show-grid|grid!},
-        q{split-day!},
-        q{split!},
+        q{show-all-rooms|show-unused-rooms},
+        q{show-av},
+        q{show-day},
+        q{show-descriptions|descriptions},
+        q{show-difficulty},
+        q{show-free},
+        q{show-grid|grid},
+        q{show-premium},
         q{start-time=s},
         q{style=s@},
         q{title=s},
 
+        # Modes
+        q{mode-flyer|flyer}       => sub { $mode = $OPT_MODE_FLYER; },
+        q{mode-kiosk|kiosk}       => sub { $mode = $OPT_MODE_KIOSK; },
+        q{mode-postcard|postcard} => sub { $mode = $OPT_MODE_POSTCARD; },
+
+        # Splitting grid
+        q{split-day}         => sub { $split = $OPT_SPLIT_PER_DAY; },
+        q{split-half-day}    => sub { $split = $OPT_SPLIT_PER_TIMEREGION; },
+        q{split-time-region} => sub { $split = $OPT_SPLIT_PER_TIMEREGION; },
+        q{unified|no-split}  => sub { $split = $OPT_SPLIT_NONE; },
+        q{split}             => sub {
+            $split = $OPT_SPLIT_PER_TIMEREGION if $split eq $OPT_SPLIT_NONE;
+        },
+
         # Negations
-        q{hide-day+}          => sub { $opt{ $OPT_SHOW_DAY_COLUMN }   = 0; },
-        q{hide-descriptions+} => sub { $opt{ $OPT_SHOW_DESCRIPTIONS } = 0; },
-        q{hide-grid+}         => sub { $opt{ $OPT_SHOW_GRID }         = 0; },
-        q{show-unused-rooms+} => sub { $opt{ $OPT_HIDE_UNUSED_ROOMS } = 0; },
-        q{unified+}           => sub { $opt{ $OPT_SPLIT_GRIDS }       = 0; },
-        q{hide-difficulty}    => sub { $opt{ $OPT_SHOW_DIFFICULTY }   = 0; },
+        q{file-all-days}     => sub { $opt{ $OPT_FILE_BY_DAY }       = 0; },
+        q{file-all-rooms}    => sub { $opt{ $OPT_FILE_BY_ROOM }      = 0; },
+        q{desc-table-form}   => sub { $opt{ $OPT_DESC_ALT_FORM }     = 0; },
+        q{hide-av}           => sub { $opt{ $OPT_SHOW_AV }           = 0; },
+        q{hide-day}          => sub { $opt{ $OPT_SHOW_DAY_COLUMN }   = 0; },
+        q{hide-descriptions} => sub { $opt{ $OPT_SHOW_DESCRIPTIONS } = 0; },
+        q{hide-difficulty}   => sub { $opt{ $OPT_SHOW_DIFFICULTY }   = 0; },
+        q{hide-free}         => sub { $opt{ $OPT_SHOW_COST_FREE }    = 0; },
+        q{hide-grid}         => sub { $opt{ $OPT_SHOW_GRID }         = 0; },
+        q{hide-premium}      => sub { $opt{ $OPT_SHOW_COST_PREMIUM } = 0; },
+        q{hide-unused-rooms} => sub { $opt{ $OPT_SHOW_ALL_ROOMS }    = 0; },
+        q{just-free}         => sub { $opt{ $OPT_SHOW_COST_PREMIUM } = 0; },
+        q{just-premium}      => sub { $opt{ $OPT_SHOW_COST_FREE }    = 0; },
     ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
 
     $opt{ $OPT_INPUT }  //= shift @args;
     $opt{ $OPT_OUTPUT } //= shift @args;
     $opt{ $OPT_OUTPUT } //= q{-};
+    $opt{ $mode }  = 1;
+    $opt{ $split } = 1;
 
     $opt{ $OPT_EMBED_CSS }         //= 1 if defined $opt{ $OPT_STYLE };
     $opt{ $OPT_DESC_BY_GUEST }     //= 1 if $opt{ $OPT_DESC_BY_PRESENTER };
     $opt{ $OPT_FILE_BY_GUEST }     //= 1 if $opt{ $OPT_FILE_BY_PRESENTER };
     $opt{ $OPT_FILE_BY_GUEST }     //= 1 if $opt{ $OPT_JUST_PRESENTER };
+    $opt{ $OPT_SHOW_COST_FREE }    //= 0 if $opt{ $OPT_SHOW_COST_PREMIUM };
+    $opt{ $OPT_SHOW_COST_PREMIUM } //= 0 if $opt{ $OPT_SHOW_COST_FREE };
     $opt{ $OPT_SHOW_DESCRIPTIONS } //= 0 if $opt{ $OPT_SHOW_GRID };
     $opt{ $OPT_SHOW_GRID }         //= 0 if $opt{ $OPT_SHOW_DESCRIPTIONS };
 
-    $opt{ $OPT_SHOW_DIFFICULTY }   //= 1;
+    $opt{ $OPT_SHOW_COST_FREE }    //= 1;
+    $opt{ $OPT_SHOW_COST_PREMIUM } //= 1;
     $opt{ $OPT_SHOW_DESCRIPTIONS } //= 1;
+    $opt{ $OPT_SHOW_DIFFICULTY }   //= 1;
     $opt{ $OPT_SHOW_GRID }         //= 1;
-    $opt{ $OPT_SPLIT_GRIDS }       //= 1;
     $opt{ $OPT_STYLE }             //= [ qw{ index.css } ];
     $opt{ $OPT_TITLE }             //= q{Cosplay America 2023 Schedule};
 
-    if ( $opt{ $OPT_JUST_FREE } && $opt{ $OPT_JUST_PREMIUM } ) {
-        die qq{Only one of --just-free and --just-premium can be specified\n};
-    }
+    die qq{Both free and premium panels hidden\n}
+        unless ( $opt{ $OPT_SHOW_COST_FREE }
+        || $opt{ $OPT_SHOW_COST_PREMIUM } );
 
     if ( $opt{ $OPT_MODE_KIOSK } ) {
         $opt{ $OPT_STYLE }             = [ qw{+color} ];
         $opt{ $OPT_DESC_AT_END }       = undef;
         $opt{ $OPT_SHOW_DESCRIPTIONS } = 1;
         $opt{ $OPT_SHOW_GRID }         = 1;
+        $opt{ $OPT_SPLIT_NONE }        = 1;
         delete @opt{
-            $OPT_EMBED_CSS,
             $OPT_DESC_BY_GUEST,
             $OPT_DESC_BY_PRESENTER,
+            $OPT_EMBED_CSS,
             $OPT_FILE_BY_DAY,
             $OPT_FILE_BY_GUEST,
             $OPT_FILE_BY_PRESENTER,
             $OPT_FILE_BY_ROOM,
-            $OPT_ROOM,
-            $OPT_MODE_POSTCARD,
             $OPT_JUST_PRESENTER,
+            $OPT_MODE_POSTCARD,
+            $OPT_ROOM,
             $OPT_SHOW_DAY_COLUMN,
+            $OPT_SPLIT_PER_TIMEREGION,
             $OPT_SPLIT_PER_DAY,
-            $OPT_SPLIT_GRIDS,
         };
     } ## end if ( $opt{ $OPT_MODE_KIOSK...})
 
     use Data::Dumper;
+    $Data::Dumper::Sortkeys = 1;
     say Data::Dumper->Dump( [ \%opt ], [ qw{opt } ] ) or 0;
 
     read_spreadsheet_file( $opt{ $OPT_INPUT } );
