@@ -163,6 +163,7 @@ Readonly our $OPT_JUST_PREMIUM      => q{just-premium};
 Readonly our $OPT_JUST_PRESENTER    => q{just-presenter};
 Readonly our $OPT_MODE_KIOSK        => q{mode-kiosk};
 Readonly our $OPT_MODE_POSTCARD     => q{mode-postcard};
+Readonly our $OPT_MODE_ALT_DESC     => q{mode-alt-desc};
 Readonly our $OPT_OUTPUT            => q{output};
 Readonly our $OPT_ROOM              => q{room};
 Readonly our $OPT_SHOW_AV           => q{show-av};
@@ -1313,22 +1314,34 @@ sub dump_desc_footer {
 sub dump_desc_time_start {
     my ( $time, @hdr_suffix ) = @_;
 
-    out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
-    out_open $HTML_COLGROUP;
-    out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
-    out_close $HTML_COLGROUP;
-
-    out_line $h->thead(
-        { out_class( $CLASS_DESC_TIME_HEADER ) },
-        $h->tr( $h->th(
-            { out_class( $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT ) },
-            join q{ },
+    if ( $opt{ $OPT_MODE_ALT_DESC } ) {
+        out_line $h->div(
+            { out_class( $CLASS_DESC_TIME_SLOT ) }, join q{ },
             datetime_to_text( $time, qw{ both } ),
             @hdr_suffix
-        ) )
-    );
+        );
+    } ## end if ( $opt{ $OPT_MODE_ALT_DESC...})
+    else {
+        out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
+        out_open $HTML_COLGROUP;
+        out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
+        out_close $HTML_COLGROUP;
 
-    out_open $HTML_TABLE_BODY;
+        out_line $h->thead(
+            { out_class( $CLASS_DESC_TIME_HEADER ) },
+            $h->tr( $h->th(
+                {   out_class(
+                        $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT
+                    )
+                },
+                join q{ },
+                datetime_to_text( $time, qw{ both } ),
+                @hdr_suffix
+            ) )
+        );
+
+        out_open $HTML_TABLE_BODY;
+    } ## end else [ if ( $opt{ $OPT_MODE_ALT_DESC...})]
 
     return;
 } ## end sub dump_desc_time_start
@@ -1336,8 +1349,10 @@ sub dump_desc_time_start {
 sub dump_desc_time_end {
     my ( $time ) = @_;
 
-    out_close $HTML_TABLE_BODY;
-    out_close $HTML_TABLE;
+    if ( !$opt{ $OPT_MODE_ALT_DESC } ) {
+        out_close $HTML_TABLE_BODY;
+        out_close $HTML_TABLE;
+    }
 
     return;
 } ## end sub dump_desc_time_end
@@ -1422,10 +1437,11 @@ sub dump_desc_panel_body {
     my ( $filter, $time_slot, $panel_state, @extra_classes ) = @_;
 
     if ( !defined $panel_state ) {
+        return if $opt{ $OPT_MODE_ALT_DESC };
         out_line $h->td(
             { out_class( @extra_classes, $CLASS_KIOSK_DESC_CELL_EMPTY ) } );
         return;
-    }
+    } ## end if ( !defined $panel_state)
 
     my $panel = $panel_state->get_active_panel();
 
@@ -1451,7 +1467,10 @@ sub dump_desc_panel_body {
         $name = q{Cosplay Café Featuring } . $name;
     }
 
-    out_open $HTML_TABLE_DATA,
+    my $desc_element
+        = $opt{ $OPT_MODE_ALT_DESC } ? $HTML_DIV : $HTML_TABLE_DATA;
+
+    out_open $desc_element,
         {
         id => $panel->get_href_anchor(),
         out_class(
@@ -1533,7 +1552,7 @@ sub dump_desc_panel_body {
     dump_desc_panel_note( $panel, $conflict );
 
     out_close $HTML_DIV if $opt{ $OPT_MODE_KIOSK };
-    out_close $HTML_TABLE_DATA;
+    out_close $desc_element;
 
     return;
 } ## end sub dump_desc_panel_body
@@ -1578,10 +1597,14 @@ sub dump_desc_body {
                 dump_desc_time_start( $time, @hdr_extra );
             } ## end if ( !defined $time_header_seen)
 
-            out_open $HTML_TABLE_ROW,
-                { out_class( $CLASS_DESC_PANEL_ROW ) };
+            if ( !$opt{ $OPT_MODE_ALT_DESC } ) {
+                out_open $HTML_TABLE_ROW,
+                    { out_class( $CLASS_DESC_PANEL_ROW ) };
+            }
             dump_desc_panel_body( $filter, $time_slot, $panel_state );
-            out_close $HTML_TABLE_ROW;
+            if ( !$opt{ $OPT_MODE_ALT_DESC } ) {
+                out_close $HTML_TABLE_ROW;
+            }
         } ## end foreach my $panel_state ( @panel_states)
         if ( $time_header_seen ) {
             dump_desc_time_end( $time );
@@ -2227,6 +2250,7 @@ sub main {
         q{just-presenter|just-guest!},
         q{mode-kiosk|kiosk!},
         q{mode-postcard|postcard!},
+        q{mode-alt-desc|alt-desc!},
         q{output=s},
         q{room=s@},
         q{separate!},
