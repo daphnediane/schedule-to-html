@@ -104,7 +104,7 @@ Space in header names are treated as underscores.
 If opening a XLSX file, this should be the first sheet, or the sheet can be
 specified by number with an :# after the file name.
 
-Spaces or underscopes may be used to separate words in field names.
+Spaces or underscores may be used to separate words in field names.
 
 Normal Columns:
 
@@ -118,8 +118,8 @@ Normal Columns:
 | Start Time    | If Scheduled           | Start time of panel, make blank to "unschedule" a panel instead of just deleting it                                                            | 6/25/22 6:00 PM                   |
 | Duration      | If Scheduled           | Duration of the panel                                                                                                                          | 1:00                              |
 | Description   | If Scheduled           | Description of the panel                                                                                                                       | A Panel about panels              |
-| Note          |                        | Additional notes that will appear in the program verbatium highlight                                                                           | Note: This is not really a panel  |
-| AV Notes      |                        | Information for Audio/Visual Setup. Will show if --show-av argument is used                                                                    | Mic: 2 handheld Video: HMDI Stage |
+| Note          |                        | Additional notes that will appear in the program verbatim highlight                                                                            | Note: This is not really a panel  |
+| AV Notes      |                        | Information for Audio/Visual Setup. Will show if --show-av argument is used                                                                    | Mic: 2 handheld Video: HDMI Stage |
 | Difficulty    |                        | Number representing the difficulty of the panel                                                                                                | 1                                 |
 | Cost          |                        | For paid panels, how much costs to attend                                                                                                      | $35                               |
 | Seats Sold    | If premium workshop    | How many seats have been already sold                                                                                                          | 3                                 |
@@ -178,7 +178,7 @@ event room name and control sorting
 
 If Hotel_Room and Long_Name are the same only one is shown.
 
-# Spliting the grid
+# Splitting the grid
 
 The special SPLIT... rooms are used to control where the grid splits
 
@@ -208,7 +208,7 @@ other splits will be ignored. In that case only the first word of the
 
 ## PanelTypes sheet
 
-Maping between UniqID prefix and panel types.
+Mapping between UniqID prefix and panel types.
 
 * Prefix - Two letter prefix of Uniq ID
 * Panel Kind - Full name of the panel kind

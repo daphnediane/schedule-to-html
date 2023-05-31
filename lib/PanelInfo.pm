@@ -13,7 +13,11 @@ use utf8;
 use RoomInfo;
 use PresenterSet;
 
-Readonly our $CAFE => q{Café};
+Readonly our $CAFE          => q{Café};
+Readonly our $COST_FREE     => q{$} . q{0};
+Readonly our $COST_TBD      => q{$} . q{TBD};
+Readonly our $COST_PART_TWO => q{part};
+Readonly our $COST_MODEL    => q{model};
 
 ## no critic(ProhibitComplexRegexes)
 Readonly our $RE_FREE => qr{
@@ -23,17 +27,22 @@ Readonly our $RE_FREE => qr{
     | [\$]? (?: 0+ (?: [.] 0+ )? | [.] 0+ )
     ) \z
     }xmsi;
-Readonly our $RE_TBD => qr{ \A T [.]? B [.]? D[.]? \z }xms;
+Readonly our $RE_TBD         => qr{ \A [\$]? T [.]? B [.]? D[.]? \z }xmsi;
+Readonly our $RE_PART_TWO    => qr{ \A part }xmsi;
+Readonly our $RE_MODEL       => qr{ model }xmsi;
+Readonly our $RE_ID_WORKSHOP => qr{ \A . W \z}xmsi;
 ## use critic
 
-q{free}        =~ $RE_FREE or croak q{Assertion fail};
-q{n/A}         =~ $RE_FREE or croak q{Assertion fail};
-q{nothing}     =~ $RE_FREE or croak q{Assertion fail};
-q{$} . q{0.00} =~ $RE_FREE or croak q{Assertion fail};
-q{$} . q{0.01} !~ $RE_FREE or croak q{Assertion fail};
-q{$} . q{0}    =~ $RE_FREE or croak q{Assertion fail};
-q{$} . q{00}   =~ $RE_FREE or croak q{Assertion fail};
-q{T.B.D.}      =~ $RE_TBD  or croak q{Assertion fail};
+q{free}        =~ $RE_FREE     or croak q{Assertion fail};
+q{n/A}         =~ $RE_FREE     or croak q{Assertion fail};
+q{nothing}     =~ $RE_FREE     or croak q{Assertion fail};
+q{$} . q{0.00} =~ $RE_FREE     or croak q{Assertion fail};
+q{$} . q{0.01} !~ $RE_FREE     or croak q{Assertion fail};
+q{$} . q{0}    =~ $RE_FREE     or croak q{Assertion fail};
+q{$} . q{00}   =~ $RE_FREE     or croak q{Assertion fail};
+q{T.B.D.}      =~ $RE_TBD      or croak q{Assertion fail};
+q{part two}    =~ $RE_PART_TWO or croak q{Assertion fail};
+q{model}       =~ $RE_MODEL    or croak q{Assertion fail};
 
 sub norm_text_ {
     my ( @values ) = @_;
@@ -61,8 +70,10 @@ sub norm_cost_ {
     my $value = norm_text_( @values );
     return unless defined $value;
     return if $value eq q{};
-    return if $value =~ $RE_FREE;
-    return q{$} . q{TBD} if $value =~ $RE_TBD;
+    return $COST_FREE     if $value =~ $RE_FREE;
+    return $COST_TBD      if $value =~ $RE_TBD;
+    return $COST_PART_TWO if $value =~ $RE_PART_TWO;
+    return $COST_MODEL    if $value =~ $RE_MODEL;
     return $value;
 } ## end sub norm_cost_
 
@@ -146,7 +157,7 @@ my @cost
     :Type(scalar)
     :Arg(Name => q{cost}, Pre => \&PanelInfo::pre_init_cost_)
     :Set(Name => q{set_cost}, Pre => \&PanelInfo::pre_set_cost_)
-    :Get(get_cost);
+    :Get(Name => q{_get_cost}, Private => 1 );
 
 my @full
     :Field
@@ -234,5 +245,39 @@ sub get_is_full {
 
     return;
 } ## end sub get_is_full
+
+sub get_cost {
+    my ( $self ) = @_;
+    my $cost = $self->_get_cost();
+    if ( defined $cost ) {
+        return if $cost eq $COST_FREE;
+        return $cost;
+    }
+
+    return $COST_TBD if $self->get_uniq_id_prefix() =~ $RE_ID_WORKSHOP;
+
+    return;
+} ## end sub get_cost
+
+sub get_cost_is_model {
+    my ( $self ) = @_;
+    return 1 if $self->_get_cost() eq $COST_MODEL;
+    return;
+}
+
+sub get_cost_is_missing {
+    my ( $self ) = @_;
+    return   if defined $self->_get_cost();
+    return 1 if $self->get_uniq_id_prefix() =~ $RE_ID_WORKSHOP;
+    return;
+} ## end sub get_cost_is_missing
+
+sub get_cost_part_one {
+    my ( $self ) = @_;
+    my $cost = $self->get_cost();
+    return unless defined $cost;
+    return if $cost eq $COST_PART_TWO;
+    return $cost;
+} ## end sub get_cost_part_one
 
 1;

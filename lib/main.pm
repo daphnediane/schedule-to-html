@@ -1118,8 +1118,8 @@ sub dump_grid_cell_room {
         $name
     );
 
-    my $cost = $panel->get_cost();
-    if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
+    my $cost = $panel->get_cost_part_one();
+    if ( defined $cost ) {
         out_line $h->div(
             {   out_class(
                     map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
@@ -1129,7 +1129,7 @@ sub dump_grid_cell_room {
             },
             $cost
         );
-    } ## end if ( defined $cost && ...)
+    } ## end if ( defined $cost )
 
     if ( defined $credited_presenter ) {
         out_line $h->span(
@@ -1364,10 +1364,14 @@ sub dump_desc_panel_note {
     if ( $conflict ) {
         push @note, $h->b( q{Conflicts with one of your panels.} );
     }
-    if ( defined $panel->get_cost() && $panel->get_cost() !~ m{model}xmsi ) {
+    if ( defined $panel->get_cost() ) {
         push @note, $h->b( q{Premium workshop:} ),
-            q{ Requires a separate purchase.};
-    }
+            $panel->get_cost_is_model()
+            ? q{ Requires a model which may be purchased separately.}
+            : $panel->get_cost_is_missing()
+            ? q{ May require a separate purchase.}
+            : q{ Requires a separate purchase.};
+    } ## end if ( defined $panel->get_cost...)
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
     }
@@ -1507,8 +1511,8 @@ sub dump_desc_panel_body {
         );
     } ## end else [ if ( $opt{ $OPT_SHOW_GRID...})]
 
-    my $cost = $panel->get_cost();
-    if ( defined $cost && $cost !~ m{ \A part }xmsi ) {
+    my $cost = $panel->get_cost_part_one();
+    if ( defined $cost ) {
         out_line $h->div(
             {   out_class(
                     map { join_subclass( $CLASS_DESC_BASE, $_ ) } (
@@ -1518,7 +1522,7 @@ sub dump_desc_panel_body {
             },
             $cost
         );
-    } ## end if ( defined $cost && ...)
+    } ## end if ( defined $cost )
     if ( $opt{ $OPT_MODE_KIOSK } ) {
         out_line $h->p(
             {   out_class( join_subclass(
