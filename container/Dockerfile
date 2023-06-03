@@ -1,59 +1,46 @@
-ARG OSNAME="almalinux"
-ARG OSLABEL="9"
+ARG OSNAME="debian"
+ARG OSLABEL="11"
 
 FROM ${OSNAME}:${OSLABEL}
 
-# Core packages
-RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
-    dnf install -y \
-    diffutils \
-    dnf-plugins-core \
-    epel-release \
+# syntax=docker/dockerfile:1
+RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends \
+    apt-file \
+    diffutils  \
     git \
-    hostname \
-    man-pages \
+    less \
+    libcommon-sense-perl \
+    libfile-slurp-perl \
+    libfile-spec-native-perl \
+    libhtml-tiny-perl \
+    libobject-insideout-perl \
+    libperl-critic-perl \
+    libreadonly-perl \
+    libreadonlyx-perl \
+    libregexp-assemble-perl \
+    libspreadsheet-parseexcel-perl \
+    libspreadsheet-parsexlsx-perl \
+    libtext-csv-perl \
+    libtimedate-perl \
+    libxml-twig-perl \
+    lighttpd \
+    locales \
+    locales-all \
+    man \
+    manpages \
     patch \
     perl \
-    perl-App-cpanminus \
-    perl-CPAN \
-    perl-File-Slurp \
-    perl-PathTools \
-    perl-Pod-Perldoc \
-    perl-TimeDate \
-    perl-XML-Parser \
-    procps-ng \
+    perltidy \
+    procps \
     rsync \
+    ssh \
     sudo \
     tmux \
     zsh
-
-# EPEL packages
-RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
-    dnf install -y \
-    lighttpd \
-    perl-CryptX \
-    perl-Regexp-Assemble \
-    perl-Text-CSV
-
-# EPEL/CRB packages
-# Some are EPEL but with CRB depends
-RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
-    dnf install -y \
-    --enablerepo=crb \
-    perl-App-cpanminus \
-    perl-common-sense \
-    perl-Perl-Critic \
-    perl-Readonly \
-    perl-Spreadsheet-ParseExcel \
-    perl-Spreadsheet-XLSX \
-    perltidy
-
-RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
-    cpanm \
-    HTML::Tiny \
-    Object::InsideOut \
-    Spreadsheet::ParseXLSX \
-    XML::Twig
 
 ARG USER_NAME=devel
 ARG USER_ID=1000

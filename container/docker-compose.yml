@@ -4,9 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        OSNAME: "almalinux"
-        OSLABEL: "9"
       platforms:
         - "linux/amd64"
     platform: "linux/amd64"
