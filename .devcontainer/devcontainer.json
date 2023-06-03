@@ -23,6 +23,29 @@
                 "[perl]": {
                     "editor.defaultFormatter": "Kaktus.perltidy-more"
                 },
+                "cSpell.words": [
+                    "azuretools",
+                    "devcontainer",
+                    "joki",
+                    "Kaktus",
+                    "Metacharacters",
+                    "nooutdent",
+                    "nowant",
+                    "Obliqu",
+                    "panelroom",
+                    "paren",
+                    "perltidy",
+                    "Pfister",
+                    "POSTMATCH",
+                    "PREMATCH",
+                    "sched",
+                    "SPLITDAY",
+                    "SPLITNIGHT",
+                    "stackoverflow",
+                    "Unfocus",
+                    "yzhang",
+                    "zhiyuan"
+                ],
                 "debug.allowBreakpointsEverywhere": true,
                 "editor.formatOnSave": true
             }

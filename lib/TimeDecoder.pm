@@ -72,7 +72,7 @@ sub datetime_to_text {
     my ( $time, $field ) = @_;
 
     my @ltime = localtime $time;
-    my $day   = strftime $FMT_DAY, @ltime;
+    my $day   = strftime $FMT_DAY,  @ltime;
     my $tm    = strftime $FMT_TIME, @ltime;
 
     if ( defined $field ) {

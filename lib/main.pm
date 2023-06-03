@@ -210,7 +210,7 @@ sub check_if_new_region {
         if ( $opt{ $OPT_SPLIT_PER_DAY } ) {
             my $prev_time = $prev_region->get_start_seconds();
             my $prev_day  = datetime_to_text( $prev_time, qw{ day } );
-            my $new_day   = datetime_to_text( $time, qw{ day } );
+            my $new_day   = datetime_to_text( $time,      qw{ day } );
             return if $prev_day eq $new_day;
             $time_split{ $time } = $new_day;
         } ## end if ( $opt{ $OPT_SPLIT_PER_DAY...})
@@ -266,7 +266,7 @@ sub join_subclass {
 sub to_presenter {
     my ( $per_info, $names ) = @_;
 
-    return unless defined $per_info;
+    return           unless defined $per_info;
     return $per_info unless $per_info->get_is_other();
 
     my @indices   = $per_info->get_index_array();
@@ -835,8 +835,8 @@ sub make_time_ranges {
 
 sub out_line {
     my ( @content ) = @_;
-    my $indent = join q{}, ( qq{\t} x $level );
-    my $content = join q{}, @content;
+    my $indent      = join q{}, ( qq{\t} x $level );
+    my $content     = join q{}, @content;
     foreach my $line ( split m{\n+}xms, $content ) {
         $line =~ s{\A\s+}{}xms;
         $line =~ s{\s+\Z}{}xms;
@@ -1489,7 +1489,9 @@ sub dump_desc_panel_body {
         };
     out_open $HTML_DIV if $opt{ $OPT_MODE_KIOSK };
     out_line $h->div(
-        {   out_class( join_subclass( $CLASS_DESC_BASE, $SUBCLASS_PIECE_ID ) )
+        {   out_class(
+                join_subclass( $CLASS_DESC_BASE, $SUBCLASS_PIECE_ID )
+            )
         },
         $panel->get_uniq_id()
     );
@@ -1854,7 +1856,7 @@ sub dump_styles {
                 out_line q{/* "}, $style, q{" */} unless $line_seen;
                 $line_seen = 1;
 
-                out_line q{.descType}, uc $prefix, q{,};
+                out_line q{.descType},          uc $prefix, q{,};
                 out_css_open q{.panelType},     uc $prefix;
                 out_line q{background-color: }, $color;
                 out_css_close;
@@ -2161,7 +2163,7 @@ sub split_filter_by_timestamp {
                 {
                 %new_filter,
                 $FILTER_SPLIT_TIMESTAMP => $region,
-                $FILTER_OUTPUT_NAME =>
+                $FILTER_OUTPUT_NAME     =>
                     [ @subname, $region->get_region_name() ],
                 };
         } ## end foreach my $time ( sort { $a...})
@@ -2203,7 +2205,7 @@ sub split_filter_by_panelist {
             push @res,
                 {
                 %new_filter,
-                $FILTER_PRESENTER => $per_info,
+                $FILTER_PRESENTER   => $per_info,
                 $FILTER_OUTPUT_NAME =>
                     [ @subname, $per_info->get_presenter_name() ],
                 };
@@ -2226,7 +2228,7 @@ sub split_filter_by_room {
             push @res,
                 {
                 %new_filter,
-                $FILTER_ROOM => $room,
+                $FILTER_ROOM        => $room,
                 $FILTER_OUTPUT_NAME =>
                     [ @subname, $room->get_short_room_name() ],
                 };

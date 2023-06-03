@@ -3,7 +3,6 @@
 var cos_weekday = [
   'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'
 ];
-// var cos_hdoc = null;
 var cos_clock = null;
 var cos_timer = null;
 var cos_time_slots = [];

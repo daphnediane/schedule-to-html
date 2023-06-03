@@ -69,7 +69,7 @@ sub norm_cost_ {
     my ( @values ) = @_;
     my $value = norm_text_( @values );
     return unless defined $value;
-    return if $value eq q{};
+    return                if $value eq q{};
     return $COST_FREE     if $value =~ $RE_FREE;
     return $COST_TBD      if $value =~ $RE_TBD;
     return $COST_PART_TWO if $value =~ $RE_PART_TWO;

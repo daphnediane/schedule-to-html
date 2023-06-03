@@ -58,7 +58,7 @@ my @time_last_output_time
 
 sub add_active_room {
     my ( $self, $room ) = @_;
-    return unless defined $room;
+    return              unless defined $room;
     croak q{Not a room} unless $room->isa( q{RoomInfo} );
     my $map = $self->get_active_rooms_();
     $map->{ ${ $room } } = $room;
@@ -67,7 +67,7 @@ sub add_active_room {
 
 sub is_room_active {
     my ( $self, $room ) = @_;
-    return unless defined $room;
+    return              unless defined $room;
     croak q{Not a room} unless $room->isa( q{RoomInfo} );
     my $map = $self->get_active_rooms_();
     return unless defined $map;

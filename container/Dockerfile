@@ -6,6 +6,7 @@ FROM ${OSNAME}:${OSLABEL}
 # Core packages
 RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
     dnf install -y \
+    diffutils \
     dnf-plugins-core \
     epel-release \
     git \
