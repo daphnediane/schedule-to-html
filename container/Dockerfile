@@ -1,5 +1,5 @@
-ARG OSNAME="debian"
-ARG OSLABEL="11"
+ARG OSNAME="perl"
+ARG OSLABEL="5"
 
 FROM ${OSNAME}:${OSLABEL}
 
@@ -34,6 +34,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     manpages \
     patch \
     perl \
+    perl-doc \
     perltidy \
     procps \
     rsync \
@@ -41,6 +42,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     sudo \
     tmux \
     zsh
+
+# TODO - Consider using Carton
+RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
+    cpanm \
+    common::sense \
+    Date::Parse \
+    File::Slurp \
+    HTML::Tiny \
+    Object::InsideOut \
+    Perl::Critic \
+    Perl::Tidy \
+    Readonly \
+    Readonly::XS \
+    Spreadsheet::ParseXLSX
 
 ARG USER_NAME=devel
 ARG USER_ID=1000
