@@ -27,7 +27,7 @@ css/license-fonts.css
 css/index.html
 
 # Do not include our logo
-kiosk/images
+kiosk/images/*
 
 !.clang-format
 !.devcontainer

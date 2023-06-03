@@ -28,7 +28,7 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --file-by-presenter       | Generate a file for each presenter, implies --file-by-guest            |
 | --file-by-room            | Generate a file for each room                                          |
 | --flyer                   | _Alias for --mode-flier_                                               |
-| --grid                    | _Alias for --show-grid                                                 |
+| --grid                    | _Alias for --show-grid_                                                |
 | --hide-av                 | Do not include notes for Audio Visual                                  |
 | --hide-day                | Does not include a column for week day, default                        |
 | --hide-descriptions       | Does not include description, implies --show-grid                      |
@@ -224,9 +224,7 @@ Examples:
 | DE     | DEMO       |
 
 
-##
-
-Examples:
+## Examples
 
 Wide landscape
 ```
@@ -267,11 +265,38 @@ desc_tbl \
     --just-guest
 ```
 
+Kiosk output
+```
+./desc_tbl \
+    --input input/Test.xlsx \
+    --output output/kiosk/ \
+    --mode-kiosk
+```
+
 Room output
 
+## Container
+
+There is a devcontainer set up for this repository to make it easier to use which launches
+a docker compose container with a debian based perl instance.
+
+### .devcontainer subdirectory
+
+| File                          | Contents                          |
+| ----------------------------- | --------------------------------- |
+| **devcontainer.json**         | Dev Container definition          |
+| **docker-compose.extend.yml** | Defines persistent home directory |
+
+### container subdirectory
+
+| File                   | Contents                                               |
+| ---------------------- | ------------------------------------------------------ |
+| **userhome**           | Default user home directory                            |
+| **docker-compose.yml** | Docker compose file defines schedule-to-html service   |
+| **Dockerfile**         | Container definition for the schedule-to-html service. |
 
 ## Licensing:
 
 For desc_tbl see LICENSE
 
-Files in .devcontainer may have their own license, SUCH as MIT
+Files in .devcontainer/container may have their own license
