@@ -1,0 +1,21 @@
+#!/bin/sh
+
+for i in "" "break" "break_sm"; do
+    mkdir -p output/flyers/byday"${i:+_${i}}"
+    ./schedule_html \
+        --style print:landscape"${i:+_${i}}".css \
+        --input input/Test.xlsx \
+        --output output/flyers/byday"${i:+_${i}}" \
+        --split-day \
+        --separate \
+        --hide-unused-rooms \
+        --file-by-day "$@"
+done
+
+./schedule_html \
+    --style print:landscape.css \
+    --input input/Test.xlsx \
+    --output output/flyers/single.html \
+    --split-day \
+    --separate \
+    --hide-unused-rooms "$@"

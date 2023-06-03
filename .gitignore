@@ -10,13 +10,7 @@
 Changes
 core
 input
-output
-perday
-perhalf
-posters
-prev_output
-report
-dump_flyers
+output/*
 
 # Avoid generated files
 *.html
@@ -25,6 +19,10 @@ dump_flyers
 css/license-fonts.css
 # Allow a test document in the .css directory
 css/index.html
+
+# Save output flyers directory
+!output/flyers
+output/flyers/*
 
 # Do not include our logo
 kiosk/images/*
