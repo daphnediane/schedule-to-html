@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use common::sense;
 
-use English qw( -no_match_vars );
+use English     qw( -no_match_vars );
 use File::Slurp qw{read_file};
 use utf8;
 

@@ -1,31 +1,31 @@
 #!/usr/bin/perl
 
 use common::sense;
-use Carp qw{verbose};
+use Carp        qw{verbose};
 use Date::Parse qw{ str2time };
-use English qw( -no_match_vars );
-use FindBin qw{};
+use English     qw( -no_match_vars );
+use FindBin     qw{};
 use File::Slurp qw{read_file};
 use File::Spec;
 use Getopt::Long qw{GetOptionsFromArray};
-use HTML::Tiny qw{};
+use HTML::Tiny   qw{};
 use Readonly;
 use strict;
 use utf8;
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel qw{};
-use PanelField qw{};
-use PanelInfo qw{};
-use Presenter qw{};
-use RoomField qw{};
-use RoomHandle qw{};
-use RoomInfo qw{};
-use TimeDecoder qw{ :from_text :to_text :timepoints};
-use TimeRange qw{};
-use TimeRegion qw{};
-use TimeSlot qw{};
-use Workbook qw{};
+use ActivePanel     qw{};
+use PanelField      qw{};
+use PanelInfo       qw{};
+use Presenter       qw{};
+use RoomField       qw{};
+use RoomHandle      qw{};
+use RoomInfo        qw{};
+use TimeDecoder     qw{ :from_text :to_text :timepoints};
+use TimeRange       qw{};
+use TimeRegion      qw{};
+use TimeSlot        qw{};
+use Workbook        qw{};
 use Workbook::Sheet qw{};
 
 # Global variables
@@ -1856,8 +1856,8 @@ sub dump_styles {
                 out_line q{/* "}, $style, q{" */} unless $line_seen;
                 $line_seen = 1;
 
-                out_line q{.descType},          uc $prefix, q{,};
-                out_css_open q{.panelType},     uc $prefix;
+                out_line q{.descType}, uc $prefix, q{,};
+                out_css_open q{.panelType}, uc $prefix;
                 out_line q{background-color: }, $color;
                 out_css_close;
             } ## end foreach my $prefix ( sort keys...)

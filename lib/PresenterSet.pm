@@ -89,18 +89,8 @@ sub is_presenter_unlisted {
     return;
 } ## end sub is_presenter_unlisted
 
-sub get_credits {
+sub _get_credits_shown {
     my ( $self ) = @_;
-
-    if ( $self->get_are_credits_hidden() ) {
-        return;
-    }
-
-    my $override = $self->get_override_credits();
-    return $override if defined $override;
-
-    my $credits = $self->get_credits_();
-    return $credits if defined $credits;
 
     my %shown;
     my $p_set = $self->get_set_();
@@ -135,8 +125,27 @@ PRESENTER:
         $shown{ $pid } = $presenter;
     } ## end PRESENTER: while ( my ( $pid, $state...))
 
+    return values %shown;
+} ## end sub _get_credits_shown
+
+sub get_credits {
+    my ( $self ) = @_;
+
+    if ( $self->get_are_credits_hidden() ) {
+        return;
+    }
+
+    my $override = $self->get_override_credits();
+    return $override if defined $override;
+
+    my $credits = $self->get_credits_();
+    return $credits if defined $credits;
+
+    my $p_set = $self->get_set_();
+
     my @presenters;
-    foreach my $presenter ( sort values %shown ) {
+
+    foreach my $presenter ( sort $self->_get_credits_shown() ) {
         my $name = $presenter->get_presenter_name();
         if ( $presenter->get_is_always_shown() && $presenter->is_group() ) {
             my $count = 0;

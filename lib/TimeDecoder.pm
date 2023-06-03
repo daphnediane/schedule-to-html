@@ -7,7 +7,7 @@ use warnings;
 use common::sense;
 
 use Date::Parse qw{ str2time };
-use POSIX qw{ strftime };
+use POSIX       qw{ strftime };
 use Readonly;
 use utf8;
 
