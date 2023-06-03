@@ -35,4 +35,4 @@ kiosk/images
 !.keep_empty_directory
 !.perlcriticrc
 !.perltidyrc
-
+!container/userhome/.ssh/known_hosts

@@ -1,0 +1,19 @@
+version: "3.9"
+services:
+  schedule-to-html:
+    build:
+      args:
+        USER_NAME: vscode
+        USER_ID: 1000
+        USER_SHELL: "/bin/zsh"
+        GROUP_NAME: vscode
+        GROUP_ID: 1000
+    volumes:
+      - ..:/workspaces/schedule-to-html
+      - userhome:/home/vscode
+    # Overrides default command so things don't shut down after the process ends.
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+volumes:
+  userhome:
+    name: vscode-user-home
