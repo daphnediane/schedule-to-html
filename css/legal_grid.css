@@ -21,3 +21,8 @@ html {
 	font-size: 7.3pt;
 	column-count: 2;
 }
+
+.longPanelist {
+	font-stretch: condensed;
+	font-family: "Helvetica Narrow", "Arial Narrow";
+}

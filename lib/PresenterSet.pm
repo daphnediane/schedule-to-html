@@ -6,7 +6,8 @@ use strict;
 use warnings;
 use common::sense;
 
-use Carp qw{croak};
+use Carp       qw{croak};
+use HTML::Tiny qw{};
 use List::Util;
 use Readonly;
 use utf8;
@@ -166,7 +167,22 @@ sub get_credits {
         push @presenters, $name;
     } ## end foreach my $presenter ( sort...)
 
-    $credits = join q{, }, @presenters if @presenters;
+    # Handle long presenter names
+    $credits = q{} if @presenters;
+    while ( @presenters ) {
+        my $name = shift @presenters;
+        $name .= q{,} if @presenters;
+
+        # Check for 20 characters in a row
+        if ( $name =~ m{\S{20}}xms ) {
+            state $h = HTML::Tiny->new( mode => q{html} );
+
+            $name = $h->span( { class => q{longPanelist} }, $name );
+        }
+        $name .= q{ } if @presenters;
+
+        $credits .= $name;
+    } ## end while ( @presenters )
 
     $self->set_credits_( $credits );
 
