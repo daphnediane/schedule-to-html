@@ -15,6 +15,7 @@ use utf8;
 
 use lib "${FindBin::Bin}/lib";
 use ActivePanel     qw{};
+use Options         qw{};
 use PanelField      qw{};
 use PanelInfo       qw{};
 use Presenter       qw{};
@@ -147,40 +148,7 @@ Readonly our $FILTER_SET_FOCUS =>
 
 Readonly our $FILTER_SET_DEFAULT => {};
 
-Readonly our $OPT_DESC_ALT_FORM        => q{desc-alt-form};
-Readonly our $OPT_DESC_AT_END          => q{separate};
-Readonly our $OPT_DESC_BY_COLUMNS      => q{desc-by-columns};     # Unused
-Readonly our $OPT_DESC_BY_GUEST        => q{desc-by-guest};
-Readonly our $OPT_DESC_BY_PRESENTER    => q{desc-by-presenter};
-Readonly our $OPT_EMBED_CSS            => q{embed-css};
-Readonly our $OPT_FILE_BY_DAY          => q{file-by-day};
-Readonly our $OPT_FILE_BY_GUEST        => q{file-by-guest};
-Readonly our $OPT_FILE_BY_PRESENTER    => q{file-by-presenter};
-Readonly our $OPT_FILE_BY_ROOM         => q{file-by-room};
-Readonly our $OPT_INPUT                => q{input};
-Readonly our $OPT_JUST_PRESENTER       => q{just-presenter};
-Readonly our $OPT_MODE_FLYER           => q{mode-flyer};
-Readonly our $OPT_MODE_KIOSK           => q{mode-kiosk};
-Readonly our $OPT_MODE_POSTCARD        => q{mode-postcard};
-Readonly our $OPT_OUTPUT               => q{output};
-Readonly our $OPT_ROOM                 => q{room};
-Readonly our $OPT_SHOW_AV              => q{show-av};
-Readonly our $OPT_SHOW_COST_FREE       => q{show-free};
-Readonly our $OPT_SHOW_COST_PREMIUM    => q{show-premium};
-Readonly our $OPT_SHOW_DAY_COLUMN      => q{show-day};
-Readonly our $OPT_SHOW_DESCRIPTIONS    => q{show-descriptions};
-Readonly our $OPT_SHOW_DIFFICULTY      => q{show-difficulty};
-Readonly our $OPT_SHOW_ALL_ROOMS       => q{show-all-rooms};
-Readonly our $OPT_SHOW_GRID            => q{show-grid};
-Readonly our $OPT_SPLIT_NONE           => q{split-none};
-Readonly our $OPT_SPLIT_PER_TIMEREGION => q{split-timeregion};
-Readonly our $OPT_SPLIT_PER_DAY        => q{split-day};
-Readonly our $OPT_STYLE                => q{style};
-Readonly our $OPT_TIME_END             => q{end-time};
-Readonly our $OPT_TIME_START           => q{start-time};
-Readonly our $OPT_TITLE                => q{title};
-
-my %opt = ();
+my $options;
 
 my @all_rooms;
 my %room_by_name;
@@ -205,20 +173,20 @@ sub register_time_split {
 sub check_if_new_region {
     my ( $time, $prev_region ) = @_;
     if ( defined $prev_region ) {
-        return if $opt{ $OPT_SPLIT_NONE };
+        return if $options->is_split_none();
         return unless exists $time_split{ $time };
-        if ( $opt{ $OPT_SPLIT_PER_DAY } ) {
+        if ( $options->is_split_day() ) {
             my $prev_time = $prev_region->get_start_seconds();
             my $prev_day  = datetime_to_text( $prev_time, qw{ day } );
             my $new_day   = datetime_to_text( $time,      qw{ day } );
             return if $prev_day eq $new_day;
             $time_split{ $time } = $new_day;
-        } ## end if ( $opt{ $OPT_SPLIT_PER_DAY...})
+        } ## end if ( $options->is_split_day...)
     } ## end if ( defined $prev_region)
-    elsif ( $opt{ $OPT_SPLIT_NONE } ) {
+    elsif ( $options->is_split_none() ) {
         $time_split{ $time } //= q{Schedule};
     }
-    elsif ( $opt{ $OPT_SPLIT_PER_DAY } ) {
+    elsif ( $options->is_split_day() ) {
         $time_split{ $time } = datetime_to_text( $time, qw{ day } );
     }
     else {
@@ -602,9 +570,9 @@ sub process_spreadsheet_row {
 } ## end sub process_spreadsheet_row
 
 sub read_spreadsheet_file {
-    my $wb = Workbook->new( filename => $opt{ $OPT_INPUT } );
+    my $wb = Workbook->new( filename => $options->get_input_file() );
     if ( !defined $wb || !$wb->get_is_open() ) {
-        die qq{Unable to read ${opt{ $OPT_INPUT }}\n};
+        die q{Unable to read }, $options->get_input_file(), qq{\n};
     }
 
     read_spreadsheet_rooms( $wb );
@@ -612,11 +580,12 @@ sub read_spreadsheet_file {
 
     my $main_sheet = $wb->sheet();
     if ( !defined $main_sheet || !$main_sheet->get_is_open() ) {
-        die qq{Unable to find schedule sheet for ${opt{ $OPT_INPUT }}\n};
+        die q{Unable to find schedule sheet for },
+            $options->get_input_file(), qq{\n};
     }
 
     my $header = $main_sheet->get_next_line()
-        or die qq{Missing header in: ${opt{ $OPT_INPUT }}\n};
+        or die q{Missing header in: }, $options->get_input_file(), qq{\n};
     my @san_header = map { canonical_header( $_ ) } @{ $header };
 
     my @presenters_by_column = ();
@@ -753,7 +722,7 @@ sub mtr_finish_region {
     my ( $state ) = @_;
 
     return unless defined $state->{ $MTR_ACTIVE_REGION };
-    return unless $opt{ $OPT_MODE_KIOSK };
+    return unless $options->is_mode_kiosk();
     my @times
         = reverse sort { $a <=> $b }
         $state->{ $MTR_ACTIVE_REGION }->get_unsorted_times();
@@ -813,10 +782,10 @@ sub make_time_ranges {
     my $state = {};
 
     my @time_points = keys %time_points;
-    my $first_time  = text_to_datetime( $opt{ $OPT_TIME_START } );
+    my $first_time  = $options->get_time_start();
     @time_points = grep { $first_time <= $_ } @time_points
         if defined $first_time;
-    my $final_time = text_to_datetime( $opt{ $OPT_TIME_END } );
+    my $final_time = $options->get_time_end();
     @time_points = grep { $final_time >= $_ } @time_points
         if defined $final_time;
     @time_points = sort { $a <=> $b } @time_points;
@@ -897,7 +866,7 @@ sub get_rooms_for_region {
 
     my @rooms = grep { !$_->get_room_is_hidden() } @all_rooms;
 
-    return @rooms if $opt{ $OPT_SHOW_ALL_ROOMS };
+    return @rooms if $options->show_all_rooms();
     return @rooms if !defined $region;
     return grep { $region->is_room_active( $_ ) } @rooms;
 } ## end sub get_rooms_for_region
@@ -915,23 +884,23 @@ sub room_id_focus_map {
         return %res;
     } ## end if ( exists $filter->{...})
 
-    if ( defined $opt{ $OPT_ROOM } ) {
+    if ( $options->has_rooms() ) {
         my %res;
         my $def_class = [];
     ROOM:
         foreach my $room ( @region_rooms ) {
             my $room_id = $room->get_room_id();
             my $name    = $room->get_long_room_name();
-            foreach my $match ( @{ $opt{ $OPT_ROOM } } ) {
+            foreach my $match ( $options->get_rooms() ) {
                 if ( $name =~ m{\Q$match\E}xmsi ) {
                     $res{ $room_id } = $FILTER_SET_FOCUS;
                     next ROOM;
                 }
-            } ## end foreach my $match ( @{ $opt...})
+            } ## end foreach my $match ( $options...)
             $res{ $room_id } = $FILTER_SET_UNFOCUS;
         } ## end ROOM: foreach my $room ( @region_rooms)
         return %res;
-    } ## end if ( defined $opt{ $OPT_ROOM...})
+    } ## end if ( $options->has_rooms...)
 
     return map { $_->get_room_id() => $FILTER_SET_DEFAULT } @region_rooms;
 } ## end sub room_id_focus_map
@@ -939,7 +908,7 @@ sub room_id_focus_map {
 sub dump_grid_row_room_names {
     my ( $filter, $kind, $room_focus_map ) = @_;
 
-    if ( $opt{ $OPT_SHOW_DAY_COLUMN } ) {
+    if ( $options->show_day_column() ) {
         out_line $h->th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
@@ -950,7 +919,7 @@ sub dump_grid_row_room_names {
             },
             $HEADING_DAY
         );
-    } ## end if ( $opt{ $OPT_SHOW_DAY_COLUMN...})
+    } ## end if ( $options->show_day_column...)
     out_line $h->th(
         {   out_class(
                 $CLASS_GRID_CELL_HEADER,
@@ -967,7 +936,7 @@ sub dump_grid_row_room_names {
         my $room_id = $room->get_room_id();
         my $hotel   = $room->get_hotel_room();
         my $name    = $room->get_long_room_name();
-        if ( $hotel ne $name && !$opt{ $OPT_MODE_KIOSK } ) {
+        if ( $hotel ne $name && !$options->is_mode_kiosk() ) {
             $name = $name . $h->br() . $h->i( $hotel );
         }
         out_line $h->th(
@@ -1008,7 +977,7 @@ sub dump_grid_header {
 
     out_open $HTML_COLGROUP;
 
-    if ( $opt{ $OPT_SHOW_DAY_COLUMN } ) {
+    if ( $options->show_day_column() ) {
         out_line $h->col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
     }
     out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
@@ -1092,7 +1061,7 @@ sub dump_grid_cell_room {
         };
 
     out_open $HTML_ANCHOR, { href => q{#} . $panel->get_href_anchor() }
-        if $opt{ $OPT_SHOW_DESCRIPTIONS };
+        if $options->show_sect_descriptions();
 
     out_line $h->div(
         {   out_class( join_subclass(
@@ -1141,7 +1110,7 @@ sub dump_grid_cell_room {
         );
     } ## end if ( defined $credited_presenter)
 
-    out_close $HTML_ANCHOR if $opt{ $OPT_SHOW_DESCRIPTIONS };
+    out_close $HTML_ANCHOR if $options->show_sect_descriptions();
     out_close $HTML_TABLE_DATA;
 
     return;
@@ -1169,7 +1138,7 @@ sub dump_grid_row_time {
     out_open $HTML_TABLE_ROW,
         { out_class( @time_row_classes ), id => $time_id };
 
-    if ( $opt{ $OPT_SHOW_DAY_COLUMN } ) {
+    if ( $options->show_day_column() ) {
         out_line $h->th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_DAY,
@@ -1182,7 +1151,7 @@ sub dump_grid_row_time {
             { out_class( @time_classes ) },
             datetime_to_text( $time, qw{ time } )
         );
-    } ## end if ( $opt{ $OPT_SHOW_DAY_COLUMN...})
+    } ## end if ( $options->show_day_column...)
     else {
         my ( $day, $tm ) = datetime_to_text( $time );
         my @before_time;
@@ -1196,7 +1165,7 @@ sub dump_grid_row_time {
             { out_class( @time_classes ) },
             join q{}, @before_time, $tm
         );
-    } ## end else [ if ( $opt{ $OPT_SHOW_DAY_COLUMN...})]
+    } ## end else [ if ( $options->show_day_column...)]
 
     my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
@@ -1265,7 +1234,7 @@ sub dump_desc_header {
             ? q{Other panels}
             : q{Schedule for } . $presenter->get_presenter_name();
 
-        if ( $opt{ $OPT_MODE_POSTCARD } ) {
+        if ( $options->is_mode_postcard() ) {
             out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
             out_open $HTML_COLGROUP;
             out_line $h->col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
@@ -1281,7 +1250,7 @@ sub dump_desc_header {
             out_open $HTML_TABLE_BODY;
             out_open $HTML_TABLE_ROW;
             out_open $HTML_TABLE_DATA;
-        } ## end if ( $opt{ $OPT_MODE_POSTCARD...})
+        } ## end if ( $options->is_mode_postcard...)
         else {
             out_line $h->h2( $hdr_text );
         }
@@ -1300,12 +1269,12 @@ sub dump_desc_footer {
     out_close $HTML_DIV;
 
     if ( exists $filter->{ $FILTER_PRESENTER } ) {
-        if ( $opt{ $OPT_MODE_POSTCARD } ) {
+        if ( $options->is_mode_postcard() ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
             out_close $HTML_TABLE_BODY;
             out_close $HTML_TABLE;
-        } ## end if ( $opt{ $OPT_MODE_POSTCARD...})
+        } ## end if ( $options->is_mode_postcard...)
     } ## end if ( exists $filter->{...})
 
     return;
@@ -1314,13 +1283,13 @@ sub dump_desc_footer {
 sub dump_desc_time_start {
     my ( $time, @hdr_suffix ) = @_;
 
-    if ( $opt{ $OPT_DESC_ALT_FORM } ) {
+    if ( $options->is_desc_form_div() ) {
         out_line $h->div(
             { out_class( $CLASS_DESC_TIME_SLOT ) }, join q{ },
             datetime_to_text( $time, qw{ both } ),
             @hdr_suffix
         );
-    } ## end if ( $opt{ $OPT_DESC_ALT_FORM...})
+    } ## end if ( $options->is_desc_form_div...)
     else {
         out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
         out_open $HTML_COLGROUP;
@@ -1341,7 +1310,7 @@ sub dump_desc_time_start {
         );
 
         out_open $HTML_TABLE_BODY;
-    } ## end else [ if ( $opt{ $OPT_DESC_ALT_FORM...})]
+    } ## end else [ if ( $options->is_desc_form_div...)]
 
     return;
 } ## end sub dump_desc_time_start
@@ -1349,7 +1318,7 @@ sub dump_desc_time_start {
 sub dump_desc_time_end {
     my ( $time ) = @_;
 
-    if ( !$opt{ $OPT_DESC_ALT_FORM } ) {
+    if ( $options->is_desc_form_table() ) {
         out_close $HTML_TABLE_BODY;
         out_close $HTML_TABLE;
     }
@@ -1375,7 +1344,7 @@ sub dump_desc_panel_note {
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
     }
-    if ( $opt{ $OPT_SHOW_AV } ) {
+    if ( $options->show_av() ) {
         push @note,
             $h->b( q{Audio/Visual: } )
             . $h->i( $panel->get_av_note() // $h->b( q{No notes} ) );
@@ -1389,7 +1358,7 @@ sub dump_desc_panel_note {
             q{This workshop is full.}
             );
     } ## end if ( $panel->get_is_full...)
-    if ( defined $panel->get_difficulty() && $opt{ $OPT_SHOW_DIFFICULTY } ) {
+    if ( defined $panel->get_difficulty() && $options->show_difficulty() ) {
         push @note, $h->span(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_DIFFICULTY
@@ -1433,11 +1402,10 @@ sub should_panel_desc_be_dumped {
         }
     } ## end if ( defined $filter_panelist)
 
-    return 1 if $opt{    #
-        defined $panel->get_cost()
-        ? $OPT_SHOW_COST_PREMIUM
-        : $OPT_SHOW_COST_FREE
-    };
+    return 1
+        if defined $panel->get_cost()
+        ? $options->show_cost_premium()
+        : $options->show_cost_free();
 
     return;
 } ## end sub should_panel_desc_be_dumped
@@ -1446,7 +1414,7 @@ sub dump_desc_panel_body {
     my ( $filter, $time_slot, $panel_state, @extra_classes ) = @_;
 
     if ( !defined $panel_state ) {
-        return if $opt{ $OPT_DESC_ALT_FORM };
+        return if $options->is_desc_form_div();
         out_line $h->td(
             { out_class( @extra_classes, $CLASS_KIOSK_DESC_CELL_EMPTY ) } );
         return;
@@ -1477,7 +1445,7 @@ sub dump_desc_panel_body {
     }
 
     my $desc_element
-        = $opt{ $OPT_DESC_ALT_FORM } ? $HTML_DIV : $HTML_TABLE_DATA;
+        = $options->is_desc_form_div() ? $HTML_DIV : $HTML_TABLE_DATA;
 
     out_open $desc_element,
         {
@@ -1487,7 +1455,7 @@ sub dump_desc_panel_body {
             map { join_subclass( $CLASS_DESC_BASE, $_ ) } @subclasses
         )
         };
-    out_open $HTML_DIV if $opt{ $OPT_MODE_KIOSK };
+    out_open $HTML_DIV if $options->is_mode_kiosk();
     out_line $h->div(
         {   out_class(
                 join_subclass( $CLASS_DESC_BASE, $SUBCLASS_PIECE_ID )
@@ -1495,7 +1463,7 @@ sub dump_desc_panel_body {
         },
         $panel->get_uniq_id()
     );
-    if ( $opt{ $OPT_SHOW_GRID } ) {
+    if ( $options->show_sect_grid() ) {
         out_line $h->a(
             {   href => q{#} . $panel->get_href_anchor() . q{Grid},
                 out_class( join_subclass(
@@ -1503,7 +1471,7 @@ sub dump_desc_panel_body {
             },
             $name
         );
-    } ## end if ( $opt{ $OPT_SHOW_GRID...})
+    } ## end if ( $options->show_sect_grid...)
     else {
         out_line $h->div(
             {   out_class( join_subclass(
@@ -1511,7 +1479,7 @@ sub dump_desc_panel_body {
             },
             $name
         );
-    } ## end else [ if ( $opt{ $OPT_SHOW_GRID...})]
+    } ## end else [ if ( $options->show_sect_grid...)]
 
     my $cost = $panel->get_cost_part_one();
     if ( defined $cost ) {
@@ -1525,7 +1493,7 @@ sub dump_desc_panel_body {
             $cost
         );
     } ## end if ( defined $cost )
-    if ( $opt{ $OPT_MODE_KIOSK } ) {
+    if ( $options->is_mode_kiosk() ) {
         out_line $h->p(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_START
@@ -1533,7 +1501,7 @@ sub dump_desc_panel_body {
             },
             datetime_to_text( $panel->get_start_seconds(), qw{ both } )
         );
-    } ## end if ( $opt{ $OPT_MODE_KIOSK...})
+    } ## end if ( $options->is_mode_kiosk...)
     else {
         out_line $h->p(
             {   out_class( join_subclass(
@@ -1541,7 +1509,7 @@ sub dump_desc_panel_body {
             },
             $room->get_long_room_name()
         );
-    } ## end else [ if ( $opt{ $OPT_MODE_KIOSK...})]
+    } ## end else [ if ( $options->is_mode_kiosk...)]
     if ( defined $credited_presenter ) {
         out_line $h->p(
             {   out_class( join_subclass(
@@ -1562,7 +1530,7 @@ sub dump_desc_panel_body {
 
     dump_desc_panel_note( $panel, $conflict );
 
-    out_close $HTML_DIV if $opt{ $OPT_MODE_KIOSK };
+    out_close $HTML_DIV if $options->is_mode_kiosk();
     out_close $desc_element;
 
     return;
@@ -1608,12 +1576,12 @@ sub dump_desc_body {
                 dump_desc_time_start( $time, @hdr_extra );
             } ## end if ( !defined $time_header_seen)
 
-            if ( !$opt{ $OPT_DESC_ALT_FORM } ) {
+            if ( $options->is_desc_form_table() ) {
                 out_open $HTML_TABLE_ROW,
                     { out_class( $CLASS_DESC_PANEL_ROW ) };
             }
             dump_desc_panel_body( $filter, $time_slot, $panel_state );
-            if ( !$opt{ $OPT_DESC_ALT_FORM } ) {
+            if ( $options->is_desc_form_table() ) {
                 out_close $HTML_TABLE_ROW;
             }
         } ## end foreach my $panel_state ( @panel_states)
@@ -1653,8 +1621,8 @@ sub dump_desc_timeslice {
 
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(
-        $opt{ $OPT_DESC_BY_GUEST },
-        $opt{ $OPT_DESC_BY_PRESENTER },
+        $options->is_desc_by_guest(),
+        $options->is_desc_by_panelist(),
         1,
         @filters
     );
@@ -1672,9 +1640,8 @@ sub dump_desc_timeslice {
         $header_dumped = undef;
 
         if (   exists $desc_filter->{ $FILTER_PRESENTER }
-            && !$opt{ $OPT_JUST_PRESENTER }
-            && !$opt{ $OPT_DESC_BY_GUEST }
-            && !$opt{ $OPT_DESC_BY_PRESENTER } ) {
+            && $options->is_just_everyone()
+            && $options->is_desc_everyone_together() ) {
             dump_desc_body_regions( $desc_filter, $region, 1, $on_dump );
             dump_desc_footer( $desc_filter, $region, 1 )
                 if $header_dumped;
@@ -1704,7 +1671,7 @@ sub open_dump_file {
     my ( $filter, $def_name ) = @_;
     $def_name //= q{index};
 
-    if ( $opt{ $OPT_OUTPUT } eq q{-} ) {
+    if ( $options->is_output_stdio() ) {
         $output_file_handle = \*STDOUT;
         $output_file_name   = q{<STDOUT>};
         return;
@@ -1713,7 +1680,7 @@ sub open_dump_file {
     my @subnames
         = map { canonical_header $_ } @{ $filter->{ $FILTER_OUTPUT_NAME } };
 
-    my $ofname = $opt{ $OPT_OUTPUT };
+    my $ofname = $options->get_output_file();
     if ( -d $ofname ) {
         push @subnames, $def_name unless @subnames;
         $ofname = File::Spec->catfile(
@@ -1744,7 +1711,7 @@ sub open_dump_file {
 } ## end sub open_dump_file
 
 sub close_dump_file {
-    if ( $opt{ $OPT_OUTPUT } ne q{-} && defined $output_file_handle ) {
+    if ( !$options->is_output_stdio() && defined $output_file_handle ) {
         $output_file_handle->close
             or die qq{Unable to close ${output_file_name}: ${ERRNO}\n};
     }
@@ -1816,9 +1783,7 @@ sub close_html_style {
 sub dump_styles {
     my %state;
 
-    return unless defined $opt{ $OPT_STYLE };
-
-    foreach my $style ( @{ $opt{ $OPT_STYLE } } ) {
+    foreach my $style ( $options->get_styles() ) {
         my $is_html = $style =~ m{.html?\z}xms;
         my $fname   = $style;
         my $media;
@@ -1862,7 +1827,7 @@ sub dump_styles {
                 out_css_close;
             } ## end foreach my $prefix ( sort keys...)
         } ## end elsif ( $fname =~ m{\A [+] (?:panel_)?color }xmsi)
-        elsif ( $opt{ $OPT_EMBED_CSS } ) {
+        elsif ( $options->is_css_loc_embedded() ) {
             my $lines = cache_inline_style( $fname );
             my $line_seen;
 
@@ -1876,7 +1841,7 @@ sub dump_styles {
                 $line_seen = 1;
                 out_line $line;
             } ## end foreach my $line ( @{ $lines...})
-        } ## end elsif ( $opt{ $OPT_EMBED_CSS...})
+        } ## end elsif ( $options->is_css_loc_embedded...)
         else {
             close_html_style \%state;
 
@@ -1887,7 +1852,7 @@ sub dump_styles {
                 ( defined $media ? ( media => $media ) : () )
             } );
         } ## end else [ if ( $is_html ) ]
-    } ## end foreach my $style ( @{ $opt...})
+    } ## end foreach my $style ( $options...)
     close_media_style \%state;
     close_html_style \%state;
 
@@ -1907,7 +1872,7 @@ sub dump_file_header {
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
 
     my @subnames = @{ $filter->{ $FILTER_OUTPUT_NAME } };
-    my $title    = $opt{ $OPT_TITLE };
+    my $title    = $options->get_title();
     if ( @subnames ) {
         $title .= q{: } . join q{, }, @subnames;
     }
@@ -1935,18 +1900,18 @@ sub dump_file_footer {
 sub dump_table_one_region {
     my ( $filter ) = @_;
 
-    if ( $opt{ $OPT_SHOW_GRID } ) {
+    if ( $options->show_sect_grid() ) {
         dump_grid_timeslice(
             $filter,
             $filter->{ $FILTER_SPLIT_TIMESTAMP }
         );
-    } ## end if ( $opt{ $OPT_SHOW_GRID...})
-    if ( $opt{ $OPT_SHOW_DESCRIPTIONS } ) {
+    } ## end if ( $options->show_sect_grid...)
+    if ( $options->show_sect_descriptions() ) {
         dump_desc_timeslice(
             $filter,
             $filter->{ $FILTER_SPLIT_TIMESTAMP }
         );
-    } ## end if ( $opt{ $OPT_SHOW_DESCRIPTIONS...})
+    } ## end if ( $options->show_sect_descriptions...)
 
     return;
 } ## end sub dump_table_one_region
@@ -1954,22 +1919,20 @@ sub dump_table_one_region {
 sub dump_table_all_regions {
     my ( $filter ) = @_;
 
-    my $need_all_desc = $opt{ $OPT_SHOW_DESCRIPTIONS };
+    my $need_all_desc = $options->show_sect_descriptions();
 
-    if ( $opt{ $OPT_SHOW_GRID } ) {
+    if ( $options->show_sect_grid() ) {
         foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
             my $region = $time_region{ $region_time };
             dump_grid_timeslice( $filter, $region );
-            next unless $opt{ $OPT_SHOW_DESCRIPTIONS };
-            next if $opt{ $OPT_DESC_AT_END };
+            next unless $options->show_sect_descriptions();
+            next if $options->is_desc_loc_last();
 
             dump_desc_timeslice( $filter, $region );
             undef $need_all_desc;
         } ## end foreach my $region_time ( sort...)
-        if ( !$opt{ $OPT_DESC_AT_END } ) {
-            return;
-        }
-    } ## end if ( $opt{ $OPT_SHOW_GRID...})
+        return if $options->is_desc_loc_mixed();
+    } ## end if ( $options->show_sect_grid...)
 
     if ( $need_all_desc ) {
         dump_desc_timeslice( $filter, undef );
@@ -2102,7 +2065,7 @@ sub dump_kiosk {
     out_line $h->meta( { charset => q{UTF-8} } );
     out_line $h->meta(
         { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
-    out_line $h->title( $opt{ $OPT_TITLE } );
+    out_line $h->title( $options->get_title() );
     out_line $h->link( {
         href => q{css/kiosk.css},
         rel  => q{stylesheet},
@@ -2151,7 +2114,7 @@ sub dump_kiosk {
 sub split_filter_by_timestamp {
     my ( @filters ) = @_;
 
-    return @filters unless $opt{ $OPT_FILE_BY_DAY };
+    return @filters unless $options->is_file_by_day();
 
     my @res;
     foreach my $filter ( @filters ) {
@@ -2218,7 +2181,7 @@ sub split_filter_by_panelist {
 sub split_filter_by_room {
     my ( @filters ) = @_;
 
-    return @filters unless $opt{ $OPT_FILE_BY_ROOM };
+    return @filters unless $options->is_file_by_room();
 
     my @res;
     foreach my $filter ( @filters ) {
@@ -2241,137 +2204,21 @@ sub split_filter_by_room {
 sub main {
     my ( @args ) = @_;
 
-    my $mode  = $OPT_MODE_FLYER;
-    my $split = $OPT_SPLIT_PER_TIMEREGION;
+    $options = Options->options_from( @args );
 
-    GetOptionsFromArray(
-        \@args,
-        \%opt,
-
-        q{desc-alt-form},
-        q{desc-by-columns!},
-        q{desc-by-guest!},
-        q{desc-by-presenter!},
-        q{embed-css|inline-css!},
-        q{end-time=s},
-        q{file-by-day},
-        q{file-by-guest!},
-        q{file-by-presenter!},
-        q{file-by-room},
-        q{input=s},
-        q{just-presenter|just-guest!},
-        q{output=s},
-        q{room=s@},
-        q{separate!},
-        q{show-all-rooms|show-unused-rooms},
-        q{show-av},
-        q{show-day},
-        q{show-descriptions|descriptions},
-        q{show-difficulty},
-        q{show-free},
-        q{show-grid|grid},
-        q{show-premium},
-        q{start-time=s},
-        q{style=s@},
-        q{title=s},
-
-        # Modes
-        q{mode-flyer|flyer}       => sub { $mode = $OPT_MODE_FLYER; },
-        q{mode-kiosk|kiosk}       => sub { $mode = $OPT_MODE_KIOSK; },
-        q{mode-postcard|postcard} => sub { $mode = $OPT_MODE_POSTCARD; },
-
-        # Splitting grid
-        q{split-day}         => sub { $split = $OPT_SPLIT_PER_DAY; },
-        q{split-half-day}    => sub { $split = $OPT_SPLIT_PER_TIMEREGION; },
-        q{split-time-region} => sub { $split = $OPT_SPLIT_PER_TIMEREGION; },
-        q{unified|no-split}  => sub { $split = $OPT_SPLIT_NONE; },
-        q{split}             => sub {
-            $split = $OPT_SPLIT_PER_TIMEREGION if $split eq $OPT_SPLIT_NONE;
-        },
-
-        # Negations
-        q{file-all-days}     => sub { $opt{ $OPT_FILE_BY_DAY }       = 0; },
-        q{file-all-rooms}    => sub { $opt{ $OPT_FILE_BY_ROOM }      = 0; },
-        q{desc-table-form}   => sub { $opt{ $OPT_DESC_ALT_FORM }     = 0; },
-        q{hide-av}           => sub { $opt{ $OPT_SHOW_AV }           = 0; },
-        q{hide-day}          => sub { $opt{ $OPT_SHOW_DAY_COLUMN }   = 0; },
-        q{hide-descriptions} => sub { $opt{ $OPT_SHOW_DESCRIPTIONS } = 0; },
-        q{hide-difficulty}   => sub { $opt{ $OPT_SHOW_DIFFICULTY }   = 0; },
-        q{hide-free}         => sub { $opt{ $OPT_SHOW_COST_FREE }    = 0; },
-        q{hide-grid}         => sub { $opt{ $OPT_SHOW_GRID }         = 0; },
-        q{hide-premium}      => sub { $opt{ $OPT_SHOW_COST_PREMIUM } = 0; },
-        q{hide-unused-rooms} => sub { $opt{ $OPT_SHOW_ALL_ROOMS }    = 0; },
-        q{just-free}         => sub { $opt{ $OPT_SHOW_COST_PREMIUM } = 0; },
-        q{just-premium}      => sub { $opt{ $OPT_SHOW_COST_FREE }    = 0; },
-    ) or die qq{Usage: desc_tbl -input [file] -output [file]\n};
-
-    $opt{ $OPT_INPUT }  //= shift @args;
-    $opt{ $OPT_OUTPUT } //= shift @args;
-    $opt{ $OPT_OUTPUT } //= q{-};
-    $opt{ $mode }  = 1;
-    $opt{ $split } = 1;
-
-    $opt{ $OPT_EMBED_CSS }         //= 1 if defined $opt{ $OPT_STYLE };
-    $opt{ $OPT_DESC_BY_GUEST }     //= 1 if $opt{ $OPT_DESC_BY_PRESENTER };
-    $opt{ $OPT_FILE_BY_GUEST }     //= 1 if $opt{ $OPT_FILE_BY_PRESENTER };
-    $opt{ $OPT_FILE_BY_GUEST }     //= 1 if $opt{ $OPT_JUST_PRESENTER };
-    $opt{ $OPT_SHOW_COST_FREE }    //= 0 if $opt{ $OPT_SHOW_COST_PREMIUM };
-    $opt{ $OPT_SHOW_COST_PREMIUM } //= 0 if $opt{ $OPT_SHOW_COST_FREE };
-    $opt{ $OPT_SHOW_DESCRIPTIONS } //= 0 if $opt{ $OPT_SHOW_GRID };
-    $opt{ $OPT_SHOW_GRID }         //= 0 if $opt{ $OPT_SHOW_DESCRIPTIONS };
-
-    $opt{ $OPT_SHOW_COST_FREE }    //= 1;
-    $opt{ $OPT_SHOW_COST_PREMIUM } //= 1;
-    $opt{ $OPT_SHOW_DESCRIPTIONS } //= 1;
-    $opt{ $OPT_SHOW_DIFFICULTY }   //= 1;
-    $opt{ $OPT_SHOW_GRID }         //= 1;
-    $opt{ $OPT_STYLE }             //= [ qw{ index.css } ];
-    $opt{ $OPT_TITLE }             //= q{Cosplay America 2023 Schedule};
-
-    die qq{Both free and premium panels hidden\n}
-        unless ( $opt{ $OPT_SHOW_COST_FREE }
-        || $opt{ $OPT_SHOW_COST_PREMIUM } );
-
-    if ( $opt{ $OPT_MODE_KIOSK } ) {
-        $opt{ $OPT_STYLE }             = [ qw{+color} ];
-        $opt{ $OPT_DESC_AT_END }       = undef;
-        $opt{ $OPT_SHOW_DESCRIPTIONS } = 1;
-        $opt{ $OPT_SHOW_GRID }         = 1;
-        $opt{ $OPT_SPLIT_NONE }        = 1;
-        delete @opt{
-            $OPT_DESC_BY_GUEST,
-            $OPT_DESC_BY_PRESENTER,
-            $OPT_EMBED_CSS,
-            $OPT_FILE_BY_DAY,
-            $OPT_FILE_BY_GUEST,
-            $OPT_FILE_BY_PRESENTER,
-            $OPT_FILE_BY_ROOM,
-            $OPT_JUST_PRESENTER,
-            $OPT_MODE_POSTCARD,
-            $OPT_ROOM,
-            $OPT_SHOW_DAY_COLUMN,
-            $OPT_SPLIT_PER_TIMEREGION,
-            $OPT_SPLIT_PER_DAY,
-        };
-    } ## end if ( $opt{ $OPT_MODE_KIOSK...})
-
-    use Data::Dumper;
-    $Data::Dumper::Sortkeys = 1;
-    say Data::Dumper->Dump( [ \%opt ], [ qw{opt } ] ) or 0;
-
-    read_spreadsheet_file( $opt{ $OPT_INPUT } );
+    read_spreadsheet_file( $options->get_input_file() );
 
     make_time_ranges;
 
-    if ( $opt{ $OPT_MODE_KIOSK } ) {
+    if ( $options->is_mode_kiosk() ) {
         dump_kiosk;
         return;
     }
 
     my @filters = ( $DEFAULT_FILTER );
     @filters = split_filter_by_panelist(
-        $opt{ $OPT_FILE_BY_GUEST },
-        $opt{ $OPT_FILE_BY_PRESENTER },
+        $options->is_file_by_guest(),
+        $options->is_file_by_panelist(),
         undef,
         @filters
     );

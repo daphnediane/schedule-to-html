@@ -19,3 +19,12 @@ done
     --split-day \
     --separate \
     --hide-unused-rooms "$@"
+
+./schedule_html \
+    --style print:landscape_wide.css \
+    --input input/Test.xlsx \
+    --output output/flyers/wide.html \
+    --split-day \
+    --show-grid \
+    --hide-descriptions \
+    --hide-unused-rooms "$@"

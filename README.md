@@ -13,13 +13,14 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 
 | Option                    | Meaning                                                                |
 | ------------------------- | ---------------------------------------------------------------------- |
-| --desc-alt-form           | Change how descriptions are output _Needs CSS work_                    |
-| --desc-by-columns         | _Reserved for future_                                                  |
 | --desc-by-guest           | Arrange descriptions by guest, showing just guest                      |
-| --desc-by-presenter       | Arrange descriptions by presenter, implies --desc-by-guest             |
-| --desc-table-form         | Do not change how descriptions are output, default                     |
-| --descriptions            | _Alias for --descriptions_                                             |
-| --embed-css               | Embed any CSS files in the generated HTML, default                     |
+| --desc-by-presenter       | Arrange descriptions by presenters, implies --desc-by-guest            |
+| --desc-everyone-together  | Do not sort descriptions by guest or presenters, default               |
+| --desc-form-div           | Change how descriptions are output _Needs CSS work_                    |
+| --desc-form-table         | Do not change how descriptions are output, default                     |
+| --desc-loc-last           | Put descriptions after all grids instead of after each grid            |
+| --desc-loc-mixed          | Descriptions follow each grid, default.                                |
+| --embed-css               | Embed any CSS files in the generated HTML, default if --style          |
 | --end-time _time_         | Exclude any panels after _time_                                        |
 | --file-all-days           | Do not generate a file for each day, default                           |
 | --file-all-room           | Do not generate a file for each room                                   |
@@ -27,9 +28,8 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --file-by-guest           | Generate a file for each guest                                         |
 | --file-by-presenter       | Generate a file for each presenter, implies --file-by-guest            |
 | --file-by-room            | Generate a file for each room                                          |
-| --flyer                   | _Alias for --mode-flier_                                               |
-| --grid                    | _Alias for --show-grid_                                                |
-| --hide-av                 | Do not include notes for Audio Visual                                  |
+| --file-everyone-together  | Do not generate a file for each guest or presenters, default           |
+| --hide-av                 | Do not include notes for Audio Visual, default                         |
 | --hide-day                | Does not include a column for week day, default                        |
 | --hide-descriptions       | Does not include description, implies --show-grid                      |
 | --hide-difficulty         | Hide difficulty information                                            |
@@ -37,32 +37,22 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --hide-grid               | Does not includes the grid, implies --show-description                 |
 | --hide-premium            | Hide descriptions for panels that are premium                          |
 | --hide-unused-rooms       | Only include rooms that have events scheduled                          |
-| --inline-css              | _Alias for --embed-css_                                                |
+| --inline-css              | Link to CSS files in the generated HTML, default unless --style        |
 | --input _file_.txt        | Source data for schedule, UTF-16 spreadsheet                           |
 | --input _file_.xlsx       | Source data for schedule, xlsx file                                    |
 | --input _file_.xlsx:_num_ | May have a _num_ suffix to select a sheet by index                     |
-| --just-free               | _Alias for --hide-premium_                                             |
-| --just-guest              | _Alias for --just-guest_                                               |
-| --just-premium            | _Alias for --hide-free_                                                |
-| --just-presenter          | Hide descriptions for other presenters, implies --file-by-guest        |
-| --kiosk                   | _Alias for --mode-kiosk_                                               |
+| --just-everyone           | Show descriptions for all presenters, default                          |
+| --just-guest              | Hide descriptions for other presenters, implies --file-by-guest        |
+| --just-presenter          | Hide descriptions for other presenters, implies --file-by-presenter    |
 | --mode-flyer              | Default generation mode                                                |
 | --mode-kiosk              | Generate files for use in a realtime kiosk                             |
 | --mode-postcard           | Output for use in schedule postcards                                   |
-| --no-desc-by-columns      | _Reserved for future_                                                  |
 | --no-desc-by-guest        | Do not arrange by guest, exclude guest if --desc-by-presenter is given |
 | --no-desc-by-presenter    | Do not arrange descriptions by presenter                               |
-| --no-embed-css            | Link to CSS files in the generated HTML                                |
 | --no-file-by-guest        | Do not generate a file for each guest                                  |
 | --no-file-by-presenter    | Do not generate a file for each presenter                              |
-| --no-inline-css           | _Alias for --no-embed-css_                                             |
-| --no-postcard             | _Alias for --no-mode-postcard_                                         |
-| --no-separate             | Do not change the placement of descriptions between grids              |
-| --no-split                | _Alias for unified_                                                    |
 | --output _name_           | Output filename or directory if any --file-by-... used                 |
-| --postcard                | _Alias for --mode-postcard_                                            |
 | --room _room_             | Focus on matching room, may be given more than once                    |
-| --separate                | Put descriptions after all grids instead of after each grid            |
 | --show-all-rooms          | Show rooms even if they have no events scheduled                       |
 | --show-av                 | Include notes for Audio Visual                                         |
 | --show-day                | Include a column for week day                                          |
@@ -71,15 +61,34 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --show-free               | Show descriptions for panels that are free, implies --hide-premium     |
 | --show-grid               | Includes the grid, implies --hide-description                          |
 | --show-premium            | Show descriptions for panels that are premium, implies --hide-free     |
-| --show-unused-rooms       | _Alias for --show-all-rooms_                                           |
-| --split                   | Implies --split-time-region, unless --split-day                        |
 | --split-day               | Only split once per day                                                |
-| --split-half-day          | _Alias for --split-time-region_                                        |
 | --split-time-region       | Split the grids by SPLIT time segments, default                        |
 | --start-time _time_       | Exclude any panels before _time_                                       |
 | --style _file_            | CSS file to include, may be given multiple times, implies --embed-css  |
 | --title _name_            | Sets the page titles                                                   |
 | --unified                 | Do not split table by SPLIT time segments or days                      |
+
+### Aliases
+
+| Alias               | Equivalent to option                            |
+| ------------------- | ----------------------------------------------- |
+| --descriptions      | --show-descriptions                             |
+| --flyer             | --mode-flyer                                    |
+| --grid              | --show-grid                                     |
+| --just-free         | --show-free --hide-premium                      |
+| --just-premium      | --show-premium --hide-free                      |
+| --kiosk             | --mode-kiosk                                    |
+| --no-embed-css      | --inline-css                                    |
+| --no-file-by-day    | --file-all-days                                 |
+| --no-file-by-room   | --file-all-rooms                                |
+| --no-inline-css     | --embed-css                                     |
+| --no-separate       | --desc-loc-mixed                                |
+| --no-split          | --unified                                       |
+| --postcard          | --mode-postcard                                 |
+| --separate          | --desc-loc-last                                 |
+| --show-unused-rooms | --show-all-rooms                                |
+| --split             | Implies --split-time-region, unless --split-day |
+| --split-half-day    | --split-time-region                             |
 
 If no option is specified for either grids or descriptions both are included.
 
