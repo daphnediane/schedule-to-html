@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use common::sense;
-use Carp        qw{verbose};
+use Carp        qw{verbose croak};
 use Date::Parse qw{ str2time };
 use English     qw( -no_match_vars );
 use FindBin     qw{};
@@ -1621,9 +1621,10 @@ sub dump_desc_timeslice {
 
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(
-        $options->is_desc_by_guest(),
-        $options->is_desc_by_panelist(),
-        1,
+        {   by_guest    => $options->is_desc_by_guest()    ? 1 : 0,
+            by_panelist => $options->is_desc_by_panelist() ? 1 : 0,
+            is_by_desc  => 1
+        },
         @filters
     );
 
@@ -2136,7 +2137,13 @@ sub split_filter_by_timestamp {
 } ## end sub split_filter_by_timestamp
 
 sub split_filter_by_panelist {
-    my ( $by_guest, $by_presenters, $is_by_desc, @filters ) = @_;
+    my ( $flags, @filters ) = @_;
+    my $by_guest      = delete $flags->{ by_guest };
+    my $by_presenters = delete $flags->{ by_panelist };
+    my $is_by_desc    = delete $flags->{ is_by_desc };
+    use Data::Dumper;
+    croak q{Unrecognized parameter: },
+        join q{, }, keys %{ $flags } if %{ $flags };
 
     return @filters
         unless ( $by_guest
@@ -2217,9 +2224,10 @@ sub main {
 
     my @filters = ( $DEFAULT_FILTER );
     @filters = split_filter_by_panelist(
-        $options->is_file_by_guest(),
-        $options->is_file_by_panelist(),
-        undef,
+        {   by_guest    => $options->is_file_by_guest()    ? 1 : 0,
+            by_panelist => $options->is_file_by_panelist() ? 1 : 0,
+            is_by_desc  => undef
+        },
         @filters
     );
     @filters = split_filter_by_room( @filters );
