@@ -525,6 +525,10 @@ sub has_rooms {
 ##     Include notes for Audio Visual
 ## --hide-av
 ##     Do not include notes for Audio Visual, default
+## --show-breaks
+##     Includes descriptions for breaks
+## --hide-breaks
+##     Hide descriptions for breaks, default
 ## --show-free
 ##     Show descriptions for panels that are free, implies --hide-premium
 ## --hide-free
@@ -553,6 +557,7 @@ sub has_rooms {
 Readonly our $OPT_SHOW               => q{show/hide};
 Readonly our $VAL_SHOW_ALL_ROOMS_    => q{all-rooms};
 Readonly our $VAL_SHOW_AV_           => q{av};
+Readonly our $VAL_SHOW_BREAKS_       => q{breaks};
 Readonly our $VAL_SHOW_COST_FREE_    => q{free};
 Readonly our $VAL_SHOW_COST_PREMIUM_ => q{premium};
 Readonly our $VAL_SHOW_DAY_COLUMN_   => q{day};
@@ -566,10 +571,12 @@ push @opt_parse,
     $OPT_SHOW, [ qw{ -all-rooms -unused-rooms} ], q{%},
     $VAL_SHOW_ALL_ROOMS_ => 1
     ],
-    [ $OPT_SHOW, [ qw{ -!av } ],   q{%}, $VAL_SHOW_AV_        => 0 ],
-    [ $OPT_SHOW, [ qw{ -av } ],    q{%}, $VAL_SHOW_AV_        => 1 ],
-    [ $OPT_SHOW, [ qw{ -!free } ], q{%}, $VAL_SHOW_COST_FREE_ => 0 ],
-    [ $OPT_SHOW, [ qw{ -free } ],  q{%}, $VAL_SHOW_COST_FREE_ => 1 ],
+    [ $OPT_SHOW, [ qw{ -!av } ],     q{%}, $VAL_SHOW_AV_        => 0 ],
+    [ $OPT_SHOW, [ qw{ -av } ],      q{%}, $VAL_SHOW_AV_        => 1 ],
+    [ $OPT_SHOW, [ qw{ -!breaks } ], q{%}, $VAL_SHOW_BREAKS_    => 0 ],
+    [ $OPT_SHOW, [ qw{ -breaks } ],  q{%}, $VAL_SHOW_BREAKS_    => 1 ],
+    [ $OPT_SHOW, [ qw{ -!free } ],   q{%}, $VAL_SHOW_COST_FREE_ => 0 ],
+    [ $OPT_SHOW, [ qw{ -free } ],    q{%}, $VAL_SHOW_COST_FREE_ => 1 ],
     [
     $OPT_SHOW, [ qw{ just-free } ], q{%}, $VAL_SHOW_COST_FREE_ => 1,
     $VAL_SHOW_COST_PREMIUM_ => 0
@@ -602,12 +609,12 @@ push @opt_parse,
     ;
 
 push @opt_on_kiosk,
+    [ $OPT_SHOW, q{%}, $VAL_SHOW_BREAKS_       => 1 ],
     [ $OPT_SHOW, q{%}, $VAL_SHOW_COST_FREE_    => 1 ],
     [ $OPT_SHOW, q{%}, $VAL_SHOW_COST_PREMIUM_ => 1 ],
     [ $OPT_SHOW, q{%}, $VAL_SHOW_DAY_COLUMN_   => undef ],
     [ $OPT_SHOW, q{%}, $VAL_SHOW_SECT_DESC_    => 1 ],
     [ $OPT_SHOW, q{%}, $VAL_SHOW_SECT_GRID_    => 1 ],
-
     ;
 
 sub show_all_rooms {
@@ -631,6 +638,18 @@ sub show_av {
 sub hide_av {
     my ( $self ) = @_;
     return 1 unless $self->{ $OPT_SHOW }->{ $VAL_SHOW_AV_ };
+    return;
+}
+
+sub show_break {
+    my ( $self ) = @_;
+    return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_BREAKS_ };
+    return;
+}
+
+sub hide_breaks {
+    my ( $self ) = @_;
+    return 1 unless $self->{ $OPT_SHOW }->{ $VAL_SHOW_BREAKS_ };
     return;
 }
 

@@ -30,6 +30,7 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --file-by-room            | Generate a file for each room                                          |
 | --file-everyone-together  | Do not generate a file for each guest or presenters, default           |
 | --hide-av                 | Do not include notes for Audio Visual, default                         |
+| --hide-breaks             | Hide descriptions for breaks, default                                  |
 | --hide-day                | Does not include a column for week day, default                        |
 | --hide-descriptions       | Does not include description, implies --show-grid                      |
 | --hide-difficulty         | Hide difficulty information                                            |
@@ -55,6 +56,7 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --room _room_             | Focus on matching room, may be given more than once                    |
 | --show-all-rooms          | Show rooms even if they have no events scheduled                       |
 | --show-av                 | Include notes for Audio Visual                                         |
+| --show-breaks             | Show descriptions for breaks                                           |
 | --show-day                | Include a column for week day                                          |
 | --show-descriptions       | Includes panel descriptions, implies --hide-grid                       |
 | --show-difficulty         | Show difficulty information, default                                   |
@@ -122,7 +124,7 @@ Normal Columns:
 | Uniq ID       | Yes                    | Two letter unique id, plus 3 digit panel id, UNIQUE ID must match PanelTypes, SPLIT is special, ZZ for unlisted time                           | ZZ123                             |
 | Changed       | After first draft      | Timestamp of change                                                                                                                            | 6/25/22 6:00 PM                   |
 | Name          | Yes                    | Name of the panel as will appear in the program                                                                                                | A Sample Panel                    |
-| Room          | If Scheduled           | Name of the room, must match the Rooms sheet if used                                                                                           | Programming 1                     |
+| Room          | If Scheduled           | Name of the room, must match the Rooms sheet if used. Multiple rooms may be given separated by commas                                          | Programming 1                     |
 | Original Time | If moved               | If the time of the panel was changed, original time so that I can find it in program to remove old copy                                        | 6/25/22 6:00 PM                   |
 | Start Time    | If Scheduled           | Start time of panel, make blank to "unschedule" a panel instead of just deleting it                                                            | 6/25/22 6:00 PM                   |
 | Duration      | If Scheduled           | Duration of the panel                                                                                                                          | 1:00                              |

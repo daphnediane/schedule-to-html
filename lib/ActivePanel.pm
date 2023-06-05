@@ -1,6 +1,6 @@
 package ActivePanel;
 
-use Object::InsideOut qw{TimeRange RoomHandle};
+use Object::InsideOut qw{TimeRange};
 
 use strict;
 use warnings;
@@ -27,6 +27,12 @@ my @is_break
     :Field
     :Type(scalar)
     :Std_All(is_break);
+
+my @room
+    :Field
+    :Type(RoomInfo)
+    :Arg(Name => q{room}, Mand => 1)
+    :Get(Name => q{get_room});
 
 ## use critic
 

@@ -1,6 +1,6 @@
 package PanelInfo;
 
-use Object::InsideOut qw{TimeRange RoomHandle};
+use Object::InsideOut qw{TimeRange};
 
 use strict;
 use warnings;
@@ -116,28 +116,30 @@ my @name
     :Field
     :Type(scalar)
     :Arg(Name => q{name}, Pre => \&PanelInfo::pre_init_text_)
-    :Set(Name => q{set_name}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_name);
+
+my @rooms
+    :Field
+    :Type(list(RoomInfo))
+    :Arg(Name => q{rooms}, Mand => 1)
+    :Get(Name => q{get_rooms_}, Restricted => 1 );
 
 my @desc
     :Field
     :Type(scalar)
     :Arg(Name => q{description}, Pre => \&PanelInfo::pre_init_text_)
-    :Set(Name => q{set_description}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_description);
 
 my @note
     :Field
     :Type(scalar)
     :Arg(Name => q{note}, Pre => \&PanelInfo::pre_init_text_)
-    :Set(Name => q{set_note}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_note);
 
 my @av_note
     :Field
     :Type(scalar)
     :Arg(Name => q{av_note}, Pre => \&PanelInfo::pre_init_text_)
-    :Set(Name => q{set_av_note}, Pre => \&PanelInfo::pre_set_text_)
     :Get(get_av_note);
 
 my @difficulty
@@ -156,7 +158,6 @@ my @cost
     :Field
     :Type(scalar)
     :Arg(Name => q{cost}, Pre => \&PanelInfo::pre_init_cost_)
-    :Set(Name => q{set_cost}, Pre => \&PanelInfo::pre_set_cost_)
     :Get(Name => q{_get_cost}, Private => 1 );
 
 my @full
@@ -201,6 +202,11 @@ sub get_uniq_id_prefix {
     return $prefix;
 } ## end sub get_uniq_id_prefix
 
+sub get_panel_internal_id {
+    my ( $self ) = @_;
+    return ${ $self };
+}
+
 sub get_href_anchor {
     my ( $self ) = @_;
     my $anchor = $self->get_anchor_();
@@ -231,11 +237,12 @@ sub get_panel_is_cafe {
     return $self->get_panel_kind() eq $CAFE;
 }
 
-sub get_is_break {
+sub get_rooms {
     my ( $self ) = @_;
-    return 1 if $self->get_room_is_break();
-    return $self->get_panel_is_break();
-}
+    my $res = $self->get_rooms_();
+    return unless defined $res;
+    return @{ $res };
+} ## end sub get_rooms
 
 sub get_is_full {
     my ( $self ) = @_;

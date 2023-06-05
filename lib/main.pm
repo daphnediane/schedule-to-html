@@ -1,14 +1,15 @@
 #!/usr/bin/perl
 
 use common::sense;
-use Carp        qw{verbose croak};
-use Date::Parse qw{ str2time };
-use English     qw( -no_match_vars );
-use FindBin     qw{};
-use File::Slurp qw{read_file};
-use File::Spec;
+use Carp         qw{verbose croak};
+use Date::Parse  qw{ str2time };
+use English      qw( -no_match_vars );
+use File::Slurp  qw{read_file};
+use File::Spec   qw{};
+use FindBin      qw{};
 use Getopt::Long qw{GetOptionsFromArray};
 use HTML::Tiny   qw{};
+use List::Util   qw{any};
 use Readonly;
 use strict;
 use utf8;
@@ -20,7 +21,6 @@ use PanelField      qw{};
 use PanelInfo       qw{};
 use Presenter       qw{};
 use RoomField       qw{};
-use RoomHandle      qw{};
 use RoomInfo        qw{};
 use TimeDecoder     qw{ :from_text :to_text :timepoints};
 use TimeRange       qw{};
@@ -445,15 +445,17 @@ sub process_spreadsheet_workshop {
     return @subclasses;
 } ## end sub process_spreadsheet_workshop
 
-sub get_room_from_panel_data {
-    my ( $panel_data ) = @_;
+sub lookup_room_from_name {
+    my ( $panel_data, $room_name ) = @_;
 
-    my $room;
-    my $short_name = $panel_data->{ $PanelField::ROOM_NAME };
-    if ( defined $short_name ) {
-        $room = $room_by_name{ lc $short_name };
-        return $room if defined $room;
-    }
+    return unless defined $room_name;
+    return if $room_name eq q{};
+
+    my $room = $room_by_name{ lc $room_name };
+    return $room if defined $room;
+
+    # Create room, this only works well if there is but a single room
+    my $short_name = $room_name;
 
     my $sort_key  = $panel_data->{ $PanelField::ROOM_SORT_KEY };
     my $long_name = $panel_data->{ $PanelField::ROOM_REAL_ROOM };
@@ -472,12 +474,24 @@ sub get_room_from_panel_data {
 
     return unless defined $short_name;
 
+    my $uniq_id = $panel_data->{ $PanelField::UNIQUE_ID };
+    if ( !defined $sort_key ) {
+        $sort_key //= $RoomInfo::HIDDEN_SORT_KEY
+            if uc $short_name eq $RoomInfo::BREAK
+            || $uniq_id =~ m{\A (?: br | split ) }xmsi;
+    }
+    if ( !defined $sort_key ) {
+        state $new_sort_key = 0;
+        $sort_key = $new_sort_key++;
+    }
     $room = RoomInfo->new(
         sort_key   => $sort_key,
         short_name => $short_name,
         long_name  => $long_name,
         hotel_room => $hotel,
     );
+    warn q{Creating room: }, $long_name, qq{\n};
+
     push @all_rooms, $room;
 
     $room_by_name{ lc $short_name } //= $room;
@@ -485,7 +499,29 @@ sub get_room_from_panel_data {
     $room_by_name{ lc $hotel }      //= $room if defined $hotel;
 
     return $room;
-} ## end sub get_room_from_panel_data
+} ## end sub lookup_room_from_name
+
+sub get_rooms_from_panel_data {
+    my ( $panel_data ) = @_;
+
+    my $rooms = $panel_data->{ $PanelField::ROOM_NAME };
+    return unless defined $rooms;
+    my %seen;
+    my @rooms;
+
+    foreach my $room (
+        map { lookup_room_from_name( $panel_data, $_ ) }
+        split m{\s*[,/;]+\s*}xms,
+        $rooms
+    ) {
+        my $id = $room->get_room_id();
+        next if $seen{ $id };
+        $seen{ $id } = 1;
+        push @rooms, $room;
+    } ## end foreach my $room ( map { lookup_room_from_name...})
+
+    return @rooms;
+} ## end sub get_rooms_from_panel_data
 
 sub process_spreadsheet_row {
     my ( $header, $san_header, $presenters_by_column, $raw ) = @_;
@@ -519,8 +555,8 @@ sub process_spreadsheet_row {
     $presenter_set->set_override_credits(
         $panel_data{ $PanelField::PANELIST_ALT } );
 
-    my $room = get_room_from_panel_data( \%panel_data );
-    return unless defined $room;
+    my @rooms = get_rooms_from_panel_data( \%panel_data );
+    return unless @rooms;
 
     my $panel = PanelInfo->new(
         uniq_id       => $panel_data{ $PanelField::UNIQUE_ID },
@@ -534,7 +570,7 @@ sub process_spreadsheet_row {
         note          => $panel_data{ $PanelField::NOTE },
         av_note       => $panel_data{ $PanelField::AV_NOTE },
         panel_kind    => $panel_data{ $PanelField::PANEL_KIND },
-        room          => $room,
+        rooms         => \@rooms,
         start_time    => $panel_data{ $PanelField::START_TIME },
         presenter_set => $presenter_set,
     );
@@ -550,7 +586,7 @@ sub process_spreadsheet_row {
             $panel_types{ $short_kind_id }->{ $PANELTYPE_TABLE_KIND } );
     }
 
-    if ( $room->get_is_split() ) {
+    if ( any { $_->get_is_split() } @rooms ) {
         register_time_split $panel->get_start_seconds(), $panel->get_name();
         return;
     }
@@ -613,34 +649,40 @@ sub read_spreadsheet_file {
     return;
 } ## end sub read_spreadsheet_file
 
-sub mtr_process_time {
-    my ( $state, $time ) = @_;
+sub mtr_process_time_panel_start {
+    my ( $state, $time, $panel ) = @_;
 
-    # Add new panels
-    foreach my $panel ( @{ $panels_by_start{ $time } } ) {
+    foreach my $room ( $panel->get_rooms() ) {
+        next unless defined $room;
 
-        if ( $panel->get_room_is_hidden() ) {
-            if ($panel->get_is_break()
-                && ( !exists $state->{ $MTR_ACTIVE_BREAK }
+        if ( $room->get_room_is_hidden() ) {
+            if ( $room->get_room_is_break() || $panel->get_panel_is_break() )
+            {
+                if ( !exists $state->{ $MTR_ACTIVE_BREAK }
                     || $panel->get_end_seconds()
-                    > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() )
-            ) {
-                $state->{ $MTR_ACTIVE_BREAK } = $panel;
-            } ## end if ( $panel->get_is_break...)
+                    > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() ) {
+                    $state->{ $MTR_ACTIVE_BREAK } = $panel;
+                }
+            } ## end if ( $room->get_room_is_break...)
             next;
-        } ## end if ( $panel->get_room_is_hidden...)
+        } ## end if ( $room->get_room_is_hidden...)
 
         my $panel_state = ActivePanel->new(
             active_panel => $panel,
             rows         => 0,
             start_time   => $time,
             end_time     => $panel->get_end_seconds(),
-            room         => $panel->get_room(),
+            room         => $room,
         );
 
-        $state->{ $MTR_PANEL_STATES }->{ $panel->get_room_id() }
+        $state->{ $MTR_PANEL_STATES }->{ $room->get_room_id() }
             = $panel_state;
-    } ## end foreach my $panel ( @{ $panels_by_start...})
+    } ## end foreach my $room ( $panel->...)
+    return;
+} ## end sub mtr_process_time_panel_start
+
+sub mtr_process_time_ongoing {
+    my ( $state, $time ) = @_;
 
     if ( exists $state->{ $MTR_ACTIVE_BREAK }
         && $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() <= $time ) {
@@ -671,6 +713,19 @@ sub mtr_process_time {
         );
         $state->{ $MTR_PANEL_STATES }->{ $room_id } = $panel_state;
     } ## end foreach my $room ( @all_rooms)
+
+    return;
+} ## end sub mtr_process_time_ongoing
+
+sub mtr_process_time {
+    my ( $state, $time ) = @_;
+
+    # Add new panels
+    foreach my $panel ( @{ $panels_by_start{ $time } } ) {
+        mtr_process_time_panel_start( $state, $time, $panel );
+    }
+
+    mtr_process_time_ongoing( $state, $time );
 
     my %timeslot_info;
     while ( my ( $room_id, $panel_state )
@@ -1010,22 +1065,29 @@ sub dump_grid_header {
     return;
 } ## end sub dump_grid_header
 
-sub dump_grid_cell_room {
-    my ( $filter, $region, $room_focus_map, $time_slot, $room ) = @_;
+sub dump_grid_row_cell_group {
+    my ( $filter, $room_focus_map, $time_slot, $panel_state, @rooms ) = @_;
 
-    my $panel_state = $time_slot->get_current()->{ $room->get_room_id() };
+    return unless @rooms;
+
     if ( !defined $panel_state ) {
-        out_line $h->td( { out_class( $CLASS_GRID_CELL_EMPTY ) } );
+        foreach ( @rooms ) {
+            out_line $h->td( { out_class( $CLASS_GRID_CELL_EMPTY ) } );
+        }
         return;
-    }
+    } ## end if ( !defined $panel_state)
 
     my $time  = $time_slot->get_start_seconds();
     my $panel = $panel_state->get_active_panel();
 
     if ( $panel_state->get_start_seconds() != $time ) {
-        out_line q{<!--}, $panel->get_uniq_id(), q{ continued-->};
+        foreach ( @rooms ) {
+            out_line q{<!--}, $panel->get_uniq_id(), q{ continued-->};
+        }
         return;
-    }
+    } ## end if ( $panel_state->get_start_seconds...)
+
+    my $first_room = $rooms[ 0 ];
 
     my $name               = $panel->get_name();
     my $credited_presenter = $panel->get_credits();
@@ -1047,13 +1109,19 @@ sub dump_grid_cell_room {
     } ## end if ( exists $filter->{...})
 
     push @subclasses,
-        @{ $room_focus_map->{ $room->get_room_id() }->{ $FILTER_ROOM_CLASSES }
-        };
+        @{ $room_focus_map->{ $first_room->get_room_id() }
+            ->{ $FILTER_ROOM_CLASSES } };
+
+    my $row_span = $panel_state->get_rows() // 1;
+    my $col_span = scalar @rooms            // 1;
+    my @spans;
+    push @spans, colspan => $col_span if $col_span > 1;
 
     out_open $HTML_TABLE_DATA,
         {
         id      => $panel->get_href_anchor() . q{Grid},
-        rowspan => $panel_state->get_rows() // 1,
+        rowspan => $row_span,
+        @spans,
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
             map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } @subclasses
@@ -1113,8 +1181,58 @@ sub dump_grid_cell_room {
     out_close $HTML_ANCHOR if $options->show_sect_descriptions();
     out_close $HTML_TABLE_DATA;
 
+    shift @rooms;
+    foreach ( @rooms ) {
+        out_line q{<!--}, $panel->get_uniq_id(), q{ continued-->};
+    }
+
     return;
-} ## end sub dump_grid_cell_room
+} ## end sub dump_grid_row_cell_group
+
+sub dump_grid_row_make_cell_groups {
+    my ( $filter, $region, $room_focus_map, $time_slot ) = @_;
+
+    my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
+        keys %{ $room_focus_map };
+
+    my $current = $time_slot->get_current();
+
+    my @room_queue;
+    my $last_room;
+    my $last_state;
+    foreach my $room ( @rooms ) {
+        next unless defined $room;
+        my $state = $current->{ $room->get_room_id() };
+        if (   scalar @room_queue
+            && defined $state
+            && defined $last_state
+            && $state->get_active_panel() == $last_state->get_active_panel()
+            && $state->get_start_seconds() == $last_state->get_start_seconds()
+            && $state->get_end_seconds() == $last_state->get_end_seconds()
+            && $last_state->get_rows() == $state->get_rows()
+            && $room_focus_map->{ $last_room->get_room_id() }
+            == $room_focus_map->{ $room->get_room_id() } ) {
+            push @room_queue, $room;
+            next;
+        } ## end if ( scalar @room_queue...)
+
+        dump_grid_row_cell_group(
+            $filter,     $room_focus_map, $time_slot,
+            $last_state, @room_queue
+        ) if @room_queue;
+
+        @room_queue = ( $room );
+        $last_room  = $room;
+        $last_state = $state;
+    } ## end foreach my $room ( @rooms )
+
+    dump_grid_row_cell_group(
+        $filter,     $room_focus_map, $time_slot,
+        $last_state, @room_queue
+    ) if @room_queue;
+
+    return;
+} ## end sub dump_grid_row_make_cell_groups
 
 sub dump_grid_row_time {
     my ( $filter, $region, $room_focus_map, $time_slot ) = @_;
@@ -1167,15 +1285,11 @@ sub dump_grid_row_time {
         );
     } ## end else [ if ( $options->show_day_column...)]
 
-    my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
-        keys %{ $room_focus_map };
+    dump_grid_row_make_cell_groups(
+        $filter, $region, $room_focus_map,
+        $time_slot
+    );
 
-    foreach my $room ( @rooms ) {
-        dump_grid_cell_room(
-            $filter, $region, $room_focus_map, $time_slot,
-            $room
-        );
-    } ## end foreach my $room ( @rooms )
     out_close $HTML_TABLE_ROW;
 
     return;
@@ -1383,14 +1497,17 @@ sub should_panel_desc_be_dumped {
     my ( $filter, $room_focus_map, $panel_state, $show_unbusy_panels, $time )
         = @_;
 
-    my $id = $panel_state->get_room_id();
+    my $room = $panel_state->get_room();
+    return unless defined $room;
+    my $id = $room->get_room_id();
     return if $room_focus_map->{ $id }->{ $FILTER_ROOM_DESC_HIDE };
 
     my $panel = $panel_state->get_active_panel();
 
     return unless $panel->get_start_seconds() == $time;
 
-    return if ( $panel->get_room_is_hidden() );
+    return if $options->hide_breaks() && $panel_state->get_is_break();
+    return if $room->get_room_is_hidden();
 
     my $filter_panelist = $filter->{ $FILTER_PRESENTER };
     if ( defined $filter_panelist ) {
@@ -1438,7 +1555,6 @@ sub dump_desc_panel_body {
 
     my $name               = $panel->get_name();
     my $credited_presenter = $panel->get_credits();
-    my $room               = $panel->get_room();
 
     if ( $panel->get_panel_is_cafe() ) {
         $name = q{Cosplay Café Featuring } . $name;
@@ -1507,7 +1623,8 @@ sub dump_desc_panel_body {
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_ROOM ) )
             },
-            $room->get_long_room_name()
+            join q{, },
+            map { $_->get_long_room_name() } $panel->get_rooms()
         );
     } ## end else [ if ( $options->is_mode_kiosk...)]
     if ( defined $credited_presenter ) {
@@ -1554,6 +1671,8 @@ sub dump_desc_body {
         @panel_states
             = sort { $a->get_room() <=> $b->get_room() } @panel_states;
 
+        my %panel_dumped;
+
         foreach my $panel_state ( @panel_states ) {
             next
                 unless should_panel_desc_be_dumped(
@@ -1561,6 +1680,11 @@ sub dump_desc_body {
                 $show_unbusy_panels,
                 $time
                 );
+
+            my $panel_uid
+                = $panel_state->get_active_panel()->get_panel_internal_id();
+            next if $panel_dumped{ $panel_uid };
+            $panel_dumped{ $panel_uid } = 1;
 
             if ( !defined $time_header_seen ) {
                 $time_header_seen = 1;

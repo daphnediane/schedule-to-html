@@ -61,7 +61,7 @@ sub add_active_room {
     return              unless defined $room;
     croak q{Not a room} unless $room->isa( q{RoomInfo} );
     my $map = $self->get_active_rooms_();
-    $map->{ ${ $room } } = $room;
+    $map->{ $room->get_room_id() } = $room;
     return;
 } ## end sub add_active_room
 
@@ -71,7 +71,7 @@ sub is_room_active {
     croak q{Not a room} unless $room->isa( q{RoomInfo} );
     my $map = $self->get_active_rooms_();
     return unless defined $map;
-    return 1 if exists $map->{ ${ $room } };
+    return 1 if exists $map->{ $room->get_room_id() };
     return;
 } ## end sub is_room_active
 
