@@ -69,7 +69,7 @@ sub read_room_ {
     return unless needed_( $long_name, $short_name, $hotel );
 
     my $room = Data::Room->new(
-        sort_key   => $room_data{ $Field::Room::SORT_KEY },
+        sort_key   => $room_data{ $Field::Room::SORT_KEY } // -1,
         short_name => $short_name,
         long_name  => $long_name,
         hotel_room => $hotel,

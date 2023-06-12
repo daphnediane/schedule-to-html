@@ -23,7 +23,9 @@ Readonly our $UNKNOWN_SORT_KEY => 999;
 my @sort_key
     :Field
     :Type(scalar)
-    :Std_All(sort_key);
+    :Arg(sort_key)
+    :Get(Name => q{get_sort_key_}, Restricted => 1)
+    :Set(Name => q{set_sort_key_}, Restricted => 1);
 
 my @short_name
     :Field
@@ -45,7 +47,8 @@ my @hotel
 
 ## use critic
 
-my @uid_map;
+my @uid_map_;
+my @sort_key_used_;
 
 sub get_room_id {
     my ( $self ) = @_;
@@ -55,7 +58,7 @@ sub get_room_id {
 sub find_by_room_id {
     my ( $class, $uid ) = @_;
 
-    my $value = $uid_map[ $uid ];
+    my $value = $uid_map_[ $uid ];
     return $value if defined $value;
     return;
 } ## end sub find_by_room_id
@@ -63,14 +66,25 @@ sub find_by_room_id {
 sub init_ :Init {
     my ( $self, $args ) = @_;
     my $uid = $self->get_room_id();
-    $uid_map[ $uid ] = $self;
+    $uid_map_[ $uid ] = $self;
+    my $key = $self->get_sort_key_();
+    if ( defined $key && $key >= 0 && $key < $HIDDEN_SORT_KEY ) {
+        ++$sort_key_used_[ $key ];
+    }
     return;
 } ## end sub init_
 
 sub destroy_ :Destroy {
     my ( $self ) = @_;
     my $uid = $self->get_room_id();
-    $uid_map[ $uid ] = undef;
+    $uid_map_[ $uid ] = undef;
+    my $key = $self->get_sort_key_();
+    if (   defined $key
+        && $key >= 0
+        && $key < $HIDDEN_SORT_KEY
+        && $sort_key_used_[ $key ] >= 0 ) {
+        --$sort_key_used_[ $key ];
+    } ## end if ( defined $key && $key...)
     return;
 } ## end sub destroy_
 
@@ -84,6 +98,32 @@ sub has_prefix {
     return 1 if $prefix eq uc substr $self->get_long_room_name(),  0, $len;
     return;
 } ## end sub has_prefix
+
+sub get_sort_key {
+    my ( $self ) = @_;
+    my $key = $self->get_sort_key_();
+    return $key if defined $key && $key >= 0;
+
+    if ( $self->get_is_split() || $self->get_is_break() ) {
+        $key = $HIDDEN_SORT_KEY;
+        $self->set_sort_key_( $key );
+        return $key;
+    }
+
+    foreach my $try_key ( 0 .. $HIDDEN_SORT_KEY - 1 ) {
+        my $value = $sort_key_used_[ $try_key ] //= 0;
+        if ( $value == 0 ) {
+            $self->set_sort_key_( $try_key );
+            ++$sort_key_used_[ $try_key ];
+            return $try_key;
+        }
+    } ## end foreach my $try_key ( 0 .. ...)
+
+    $key = $HIDDEN_SORT_KEY - 1;
+    $self->set_sort_key_( $key );
+    ++$sort_key_used_[ $key ];
+    return $key;
+} ## end sub get_sort_key
 
 sub get_is_split {
     my ( $self ) = @_;

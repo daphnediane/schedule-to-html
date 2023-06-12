@@ -100,10 +100,6 @@ my @uniq_id
     :Arg(Name => q{uniq_id}, Mand => 1, Pre => \&Data::Panel::pre_init_text_)
     :Get(get_uniq_id);
 
-my @id_prefix
-    :Field
-    :Std(Name => q{id_prefix_}, Restricted => 1 );
-
 my @id_suffix
     :Field
     :Std(Name => q{id_suffix_}, Restricted => 1 );
@@ -208,17 +204,6 @@ sub init_ :Init {
     return;
 } ## end sub init_
 
-sub get_uniq_id_prefix {
-    my ( $self ) = @_;
-    my $prefix = $self->get_id_prefix_();
-    return $prefix if defined $prefix;
-    $prefix = $self->get_uniq_id();
-    $prefix =~ s{\d+[[:alpha:]]?(?:Dup\d+)?\z}{}xms;
-    $prefix = substr $prefix, 0, 2;
-    $self->set_id_prefix_( $prefix );
-    return $prefix;
-} ## end sub get_uniq_id_prefix
-
 sub get_uniq_id_suffix {
     my ( $self ) = @_;
     my $suffix = $self->get_id_suffix_();
@@ -309,7 +294,11 @@ sub get_panel_type {
     my ( $self ) = @_;
     my $type = $self->get_panel_type_();
     return $type if defined $type;
-    my $prefix = $self->get_uniq_id_prefix();
+
+    my $prefix = $self->get_uniq_id();
+    $prefix =~ s{\d+[[:alpha:]]?(?:Dup\d+)?\z}{}xms;
+    $prefix = substr $prefix, 0, 2;
+
     $type = Table::PanelType::lookup( $prefix );
     if ( !defined $type ) {
         $type = Data::PanelType->new(

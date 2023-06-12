@@ -327,15 +327,10 @@ sub lookup_room_from_name {
     return unless defined $short_name;
 
     my $uniq_id = $panel_data->{ $Field::Panel::UNIQUE_ID };
-    if ( !defined $sort_key ) {
-        $sort_key //= $Data::Room::HIDDEN_SORT_KEY
-            if uc $short_name eq $Data::Room::BREAK
-            || $uniq_id =~ m{\A (?: br | split ) }xmsi;
-    }
-    if ( !defined $sort_key ) {
-        state $new_sort_key = 0;
-        $sort_key = $new_sort_key++;
-    }
+    $sort_key //= $Data::Room::HIDDEN_SORT_KEY
+        if $uniq_id =~ m{\A (?: br | split ) }xmsi;
+    $sort_key //= -1;
+
     $room = Data::Room->new(
         sort_key   => $sort_key,
         short_name => $short_name,
