@@ -117,12 +117,12 @@ specified by number with an :# after the file name.
 
 Spaces or underscores may be used to separate words in field names.
 
-Normal Columns:
+### Field summary
 
 | Field Name    | Required               | Contents                                                                                                                                       | Example                           |
 | ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Uniq ID       | Yes                    | Two letter unique id, plus 3 digit panel id, UNIQUE ID must match PanelTypes, SPLIT is special, ZZ for unlisted time                           | ZZ123                             |
-| Changed       | After first draft      | Timestamp of change                                                                                                                            | 6/25/22 6:00 PM                   |
+| Uniq ID       | Yes                    | Two letter unique id, plus 3 digit panel id, plus optional suffix, UNIQUE ID must match PanelTypes, SPLIT is special, ZZ for unlisted time     | ZZ123                             |
+| Changed       |                        | Timestamp of change                                                                                                                            | 6/25/22 6:00 PM                   |
 | Name          | Yes                    | Name of the panel as will appear in the program                                                                                                | A Sample Panel                    |
 | Room          | If Scheduled           | Name of the room, must match the Rooms sheet if used. Multiple rooms may be given separated by commas                                          | Programming 1                     |
 | Original Time | If moved               | If the time of the panel was changed, original time so that I can find it in program to remove old copy                                        | 6/25/22 6:00 PM                   |
@@ -154,9 +154,163 @@ Normal Columns:
 | Room Idx      | If no Rooms sheet      | Id of room, used for sorting, 100+ are hidden                                                                                                  |                                   |
 | Real Room     | If no Rooms sheet      | Hotel Room name                                                                                                                                |                                   |
 
-Panelist Columns
+### Uniq Id
 
-The syntax for panelist columns is _Kind_:_Name_=_Group_, _Kind_:_Name_, or _Kind_:Other
+This is the ID of the panel, typical it should be unique, though the system
+will still work if IDs are shared. The first two characters of the unique id
+are used to determine the panel type. Note that the id is consider based on
+all the characters so GW032 and FP032 are different panels even if both have
+the number 32.
+
+Examples
+
+* GP032 - This is a guest panel 32.
+* FP032 - This is fan panel 32.
+* GW019A - This is part 1 of GW019
+* GW019B - This is part 2 of GW019
+* SPLIT01 - Special panel used to indicate when to split the grid
+* BREAK01 - Special panel used to indicate a convention wide break
+
+### Changed
+
+The optional changed column is used to track updates.
+
+Example: 3/05/2023 1:59 PM
+
+### Name
+
+The name of the panel
+
+Examples
+
+* The Grand Gala
+* Closing Ceremonies
+* Affixing Sans Glue
+
+### Room
+
+The room name, should match the name used in room sheet. Can be the "Room Name", "Hotel Room" or "Long Name".
+
+Example:
+
+* Main - A panel that occurs in the main room
+* Programming 1 - A panel that occurs in programming 1.
+* Candlewood - A panel that occurs in candlewood.
+* Main, Progamming 1 - A panel that is split between main and programing 1.
+
+### Original Time
+
+For record keeping if a panel was moved, this option field can be used to
+note the original time that the panel was schedule to make it easier to find.
+
+### Start Time
+
+The time at which a panel starts. For excel sheets this should be a time/date
+stamp. Internally tracked as seconds since the epoch.
+
+Examples:
+
+* 6/23/2023 7:00 PM
+* 6/26/2023 9:00 PM
+
+### Duration
+
+How long the panel last, in hours and minutes.
+
+Examples:
+
+* 0:30 - A thirty minute panel
+* 1:00 - A one hour panel
+* 2:30 - A two and half hour panel
+
+### Description
+
+Description of the panel, will appear in the descriptions output.
+
+Example:
+
+* Learn how to fix broken props with gum, and duck tape. Ann E Mouse will
+  show you several useful tricks for last minute costume repairs.
+
+### Note
+
+Additional note to display before the description. Highlighted.
+
+Example:
+
+* You will need to bring glue to this panel.
+
+### AV Notes
+
+Notes for audio / visual or behind the scenes. Will only be output if the 
+--show-av option is used.
+
+Example:
+
+* Mic: 1 Table, 2 Wireless. Document projector to show needle work.
+
+### Difficulty
+
+Difficulty for the panel, normally used for workshops. Will be displayed
+as part of the description. No pre-defined values, so can use 1-5, or
+Easy, etc.
+
+Example:
+* 1
+* 5
+* Easy
+* Beginning
+* Intermediate
+* Challenging
+
+### Cost
+
+How much does this panel cost to attend. May be left blank
+
+### Seats sold
+
+How many seats for a limited panel have sold / been reserved. Currently unused.
+
+### Capacity
+
+How many totals seats are their for this panel. Currently unused.
+
+### Full
+
+Marks a panel as full, will apply special styling to full panels. Future: May be implied if Seats Sold >= Capacity.
+
+### Hide Panelist
+
+If this field is set for a panel, no panelist information will be displayed.
+
+Allows a custom form for the panelist to be specified.
+
+### Panelist
+
+#### Hide Panelist
+The "Hide Panelist" field is used to prevent the panelists from being shown
+in the grid and description if it is not blank. Using an "*" is another way
+to hide panelist.
+
+Example:
+
+* YES
+* 
+
+### Alt Panelist
+
+The "Alt Panelist" field is used to include text to display as the panelist
+instead of computing from the other fields. If you have a panelist that only
+does one or two panels it is better to use the _Kind_:Other fields.
+
+Example:
+
+* Mystery Guest
+
+### Other panelist columns: _Kind_:_Name_=_Group_
+
+The syntax for panelist field name is _Kind_:_Name_=_Group_, _Kind_:_Name_,
+or _Kind_:Other
 
 The following kinds are currently supported
 
@@ -176,18 +330,34 @@ they will be displayed in parenthesis.
 For each of these columns, if the contents are not blank, the panelist is
 attending, use asterisk "*" to have some one present but not listed.
 
+### Kind
+
+See the PanelTypes sheet. This should only be used if a PanelTypes sheet is
+not used, and other way to specify panel kind.
+
+### Room Idx
+
+See the Rooms Sheet. This should only be used if a Rooms sheet is not used,
+and other way to specify the "Sort Key".
+
+### Real Room
+
+See the Rooms Sheet. This should be only used if a Rooms sheet is not used,
+and other way to specify the "Hotel Room".
+
 ## Rooms Sheet
 
 A sheet named "Rooms" can be used to make the room name to hotel room name, and
 event room name and control sorting
 
-* Room_Name - Name of the room, should make the name in the schedule sheet
-* Hotel_Room - Name of the hotel room, shown if different then long name
-* Long_Name - Name of the room to show above the hotel name
-* Sort_Key - The order panels will appear in the output. Numbers 100 or
-  greater are special and not known.
+| Field      | Meaning                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| Room Name  | Name of the room, should make the name in the schedule sheet                                  |
+| Hotel Room | Name of the hotel room, shown if different then long name                                     |
+| Long Name  | Name of the room to show above the hotel name                                                 |
+| Sort Key   | The order panels will appear in the output. Numbers 100 or greater are special and not known. |
 
-If Hotel_Room and Long_Name are the same only one is shown.
+If "Hotel Room" and "Long Name" are the same only one is shown.
 
 # Splitting the grid
 
