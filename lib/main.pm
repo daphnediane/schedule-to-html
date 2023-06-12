@@ -1115,12 +1115,12 @@ sub dump_grid_row_cell_group {
     my $row_span = $panel_state->get_rows() // 1;
     my $col_span = scalar @rooms            // 1;
     my @spans;
+    push @spans, rowspan => $row_span if $row_span > 1;
     push @spans, colspan => $col_span if $col_span > 1;
 
     out_open $HTML_TABLE_DATA,
         {
-        id      => $panel->get_href_anchor() . q{Grid},
-        rowspan => $row_span,
+        id => $panel->get_href_anchor() . q{Grid},
         @spans,
         out_class(
             $CLASS_GRID_COLUMN_ROOM,

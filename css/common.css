@@ -4,6 +4,7 @@ html {
 
 .desc a {
     text-decoration: none;
+    display: block;
     color: inherit
 }
 
@@ -110,6 +111,7 @@ html {
 
 .panel a {
     text-decoration: none;
+    display: block;
     color: inherit
 }
 

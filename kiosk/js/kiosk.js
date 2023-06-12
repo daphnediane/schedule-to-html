@@ -50,7 +50,7 @@ function cos_set_current(time_slot) {
     return;
   }
   if (cos_prior_time != null &&
-      (cos_active_time == null || time_slot < cos_next_time)) {
+    (cos_active_time == null || time_slot < cos_next_time)) {
     return;
   }
   const idToken = lowerBound(cos_time_slots, time_slot);
@@ -58,7 +58,7 @@ function cos_set_current(time_slot) {
   cos_prior_time = cos_time_slots[idToken < 4 ? 0 : idToken - 4];
   cos_active_time = cos_time_slots[idToken < 1 ? 0 : idToken - 1];
   cos_next_time =
-      idToken < cos_time_slots.length ? cos_time_slots[idToken] : null;
+    idToken < cos_time_slots.length ? cos_time_slots[idToken] : null;
 
   if (cos_active_row != null) {
     cos_active_row.classList.remove('activeRow');
@@ -90,13 +90,13 @@ function cos_clock_callback() {
 
   const timeOfDay = (numHour < 12) ? 'AM' : 'PM';
   const stringHour =
-      '' + (numHour == 0 ? 12 : numHour > 12 ? numHour - 12 : numHour);
+    '' + (numHour == 0 ? 12 : numHour > 12 ? numHour - 12 : numHour);
   const stringMinutes = (numMinutes < 10 ? '0' : '') + numMinutes;
   const stringSeconds = (numSeconds < 10 ? '0' : '') + numSeconds;
 
   // Compose the string for display
   const currentTimeString = cos_weekday[numDay] + ' ' + stringHour + ':' +
-      stringMinutes + ':' + stringSeconds + ' ' + timeOfDay;
+    stringMinutes + ':' + stringSeconds + ' ' + timeOfDay;
 
   // Get the index
   const relDay = (numDay < 5 ? numDay + 2 : numDay - 5);
@@ -129,7 +129,7 @@ function cos_loaded() {
       cos_time_slots.push(1 * time_txt);
     }
   }
-  cos_time_slots.sort(function(a, b) {
+  cos_time_slots.sort(function (a, b) {
     return a - b
   });
 
