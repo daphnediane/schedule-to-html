@@ -309,22 +309,23 @@ sub lookup {
         );
     } ## end if ( lc $name eq q{other})
 
-    my $info = Presenter->new(
-        name        => $name,
-        rank        => $rank,
-        index_array => $index,
-    );
-
-    if ( $group ) {
+    my $ginfo;
+    if ( defined $group && $group ne q{} ) {
         my $always_shown = $group =~ s{\A =}{}xms;
-        my $ginfo        = Presenter->new(
+        $ginfo = Presenter->new(
             name        => $group,
             rank        => $rank,
             index_array => $index,
         );
         $ginfo->set_is_always_shown( 1 ) if $always_shown;
-        $ginfo->add_members( $info );
-    } ## end if ( $group )
+    } ## end if ( defined $group &&...)
+
+    my $info = Presenter->new(
+        name        => $name,
+        rank        => $rank,
+        index_array => $index,
+    );
+    $ginfo->add_members( $info ) if defined $ginfo;
 
     return $info;
 } ## end sub lookup

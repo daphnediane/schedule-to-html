@@ -248,26 +248,11 @@ sub process_spreadsheet_add_presenter {
 
     my @presenters = to_presenter( $per_info_index, $raw_text );
 
-    my $guest_seen;
-
-    foreach my $per_info ( @presenters ) {
-        if ( $unlisted ) {
-            $presenter_set->add_unlisted_presenters( $per_info );
-        }
-        else {
-            $presenter_set->add_credited_presenters( $per_info );
-        }
-
-        foreach my $grp_info ( $per_info->get_groups() ) {
-            $presenter_set->add_unlisted_presenters( $grp_info );
-        }
-
-        $guest_seen //= 1
-            if $per_info->get_presenter_rank() <= $Presenter::RANK_GUEST;
-    } ## end foreach my $per_info ( @presenters)
-
-    if ( $guest_seen ) {
-        $presenter_set->add_unlisted_presenters( Presenter->any_guest() );
+    if ( $unlisted ) {
+        $presenter_set->add_unlisted_presenters( @presenters );
+    }
+    else {
+        $presenter_set->add_credited_presenters( @presenters );
     }
 
     return;

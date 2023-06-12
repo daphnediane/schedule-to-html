@@ -37,17 +37,53 @@ my @credits
     :Std(Name => q{credits_}, Private => 1);
 ## use critic
 
+sub add_presenters_ {
+    my ( $self, $level, @presenters ) = @_;
+
+    return unless @presenters;
+
+    push @presenters, $UNLISTED if $level >= $LISTED;
+
+    my $p_set = $self->get_set_();
+    my $any_seen;
+    my $guest_seen;
+
+    while ( @presenters ) {
+        my $presenter = shift @presenters;
+        next unless defined $presenter;
+        if ( !ref $presenter ) {
+            $level = $presenter;
+            next;
+        }
+
+        next if $level < $UNLISTED;
+
+        my $pid       = $presenter->get_pid();
+        my $old_level = $p_set->{ $pid } || 0;
+        if ( $old_level < $level ) {
+            $self->set_credits_( undef ) unless $any_seen;
+            $any_seen = 1;
+
+            $p_set->{ $pid } = $level;
+
+            push @presenters, $presenter->get_groups();
+            if (  !$guest_seen
+                && $presenter->get_presenter_rank()
+                <= $Presenter::RANK_GUEST ) {
+                $guest_seen = 1;
+                push @presenters, Presenter->any_guest();
+            } ## end if ( !$guest_seen && $presenter...)
+        } ## end if ( $old_level < $level)
+    } ## end while ( @presenters )
+
+    return;
+} ## end sub add_presenters_
+
 sub add_credited_presenters {
     my ( $self, @presenters ) = @_;
     return unless @presenters;
 
-    $self->set_credits_( undef );
-
-    my $p_set = $self->get_set_();
-    foreach my $presenter ( @presenters ) {
-        next unless defined $presenter;
-        $p_set->{ $presenter->get_pid() } = $LISTED;
-    }
+    $self->add_presenters_( $LISTED, @presenters );
     return;
 } ## end sub add_credited_presenters
 
@@ -55,14 +91,7 @@ sub add_unlisted_presenters {
     my ( $self, @presenters ) = @_;
     return unless @presenters;
 
-    $self->set_credits_( undef );
-
-    my $p_set = $self->get_set_();
-    foreach my $presenter ( @presenters ) {
-        next unless defined $presenter;
-        my $pid     = $presenter->get_pid();
-        my $current = $p_set->{ $pid } //= $UNLISTED;
-    }
+    $self->add_presenters_( $UNLISTED, @presenters );
     return;
 } ## end sub add_unlisted_presenters
 
@@ -102,7 +131,7 @@ PRESENTER:
         my $presenter = Presenter->find_by_pid( $pid );
         next unless defined $presenter;
 
-        next if $shown{ $pid };
+        next if defined $shown{ $pid };
 
         # Check if group should be shown instead
         # Groups will be should if either
@@ -111,9 +140,10 @@ PRESENTER:
     GROUP:
         foreach my $group ( $presenter->get_groups() ) {
             my $gid = $group->get_pid();
-            next if $shown{ $gid };
+            next PRESENTER if defined $shown{ $gid };
+
             if ( $group->get_is_always_shown() ) {
-                $shown{ $group->get_pid() } = $group;
+                $shown{ $gid } = $group;
                 next PRESENTER;
             }
             foreach my $member ( $group->get_members() ) {
