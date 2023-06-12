@@ -13,11 +13,10 @@ use utf8;
 use RoomInfo;
 use PresenterSet;
 
-Readonly our $CAFE          => q{Café};
-Readonly our $COST_FREE     => q{$} . q{0};
-Readonly our $COST_TBD      => q{$} . q{TBD};
-Readonly our $COST_PART_TWO => q{part};
-Readonly our $COST_MODEL    => q{model};
+Readonly our $CAFE       => q{Café};
+Readonly our $COST_FREE  => q{$} . q{0};
+Readonly our $COST_TBD   => q{$} . q{TBD};
+Readonly our $COST_MODEL => q{model};
 
 ## no critic(ProhibitComplexRegexes)
 Readonly our $RE_FREE => qr{
@@ -28,21 +27,19 @@ Readonly our $RE_FREE => qr{
     ) \z
     }xmsi;
 Readonly our $RE_TBD         => qr{ \A [\$]? T [.]? B [.]? D[.]? \z }xmsi;
-Readonly our $RE_PART_TWO    => qr{ \A part }xmsi;
 Readonly our $RE_MODEL       => qr{ model }xmsi;
 Readonly our $RE_ID_WORKSHOP => qr{ \A . W \z}xmsi;
 ## use critic
 
-q{free}        =~ $RE_FREE     or croak q{Assertion fail};
-q{n/A}         =~ $RE_FREE     or croak q{Assertion fail};
-q{nothing}     =~ $RE_FREE     or croak q{Assertion fail};
-q{$} . q{0.00} =~ $RE_FREE     or croak q{Assertion fail};
-q{$} . q{0.01} !~ $RE_FREE     or croak q{Assertion fail};
-q{$} . q{0}    =~ $RE_FREE     or croak q{Assertion fail};
-q{$} . q{00}   =~ $RE_FREE     or croak q{Assertion fail};
-q{T.B.D.}      =~ $RE_TBD      or croak q{Assertion fail};
-q{part two}    =~ $RE_PART_TWO or croak q{Assertion fail};
-q{model}       =~ $RE_MODEL    or croak q{Assertion fail};
+q{free}        =~ $RE_FREE  or croak q{Assertion fail};
+q{n/A}         =~ $RE_FREE  or croak q{Assertion fail};
+q{nothing}     =~ $RE_FREE  or croak q{Assertion fail};
+q{$} . q{0.00} =~ $RE_FREE  or croak q{Assertion fail};
+q{$} . q{0.01} !~ $RE_FREE  or croak q{Assertion fail};
+q{$} . q{0}    =~ $RE_FREE  or croak q{Assertion fail};
+q{$} . q{00}   =~ $RE_FREE  or croak q{Assertion fail};
+q{T.B.D.}      =~ $RE_TBD   or croak q{Assertion fail};
+q{model}       =~ $RE_MODEL or croak q{Assertion fail};
 
 sub norm_text_ {
     my ( @values ) = @_;
@@ -69,11 +66,10 @@ sub norm_cost_ {
     my ( @values ) = @_;
     my $value = norm_text_( @values );
     return unless defined $value;
-    return                if $value eq q{};
-    return $COST_FREE     if $value =~ $RE_FREE;
-    return $COST_TBD      if $value =~ $RE_TBD;
-    return $COST_PART_TWO if $value =~ $RE_PART_TWO;
-    return $COST_MODEL    if $value =~ $RE_MODEL;
+    return             if $value eq q{};
+    return $COST_FREE  if $value =~ $RE_FREE;
+    return $COST_TBD   if $value =~ $RE_TBD;
+    return $COST_MODEL if $value =~ $RE_MODEL;
     return $value;
 } ## end sub norm_cost_
 
@@ -107,6 +103,22 @@ my @uniq_id
 my @id_prefix
     :Field
     :Std(Name => q{id_prefix_}, Restricted => 1 );
+
+my @id_suffix
+    :Field
+    :Std(Name => q{id_suffix_}, Restricted => 1 );
+
+my @id_base
+    :Field
+    :Std(Name => q{id_base_}, Restricted => 1 );
+
+my @id_part
+    :Field
+    :Std(Name => q{id_part_}, Restricted => 1 );
+
+my @id_instance
+    :Field
+    :Std(Name => q{id_instance_}, Restricted => 1 );
 
 my @anchor :Field
     :Type(scalar)
@@ -202,6 +214,68 @@ sub get_uniq_id_prefix {
     return $prefix;
 } ## end sub get_uniq_id_prefix
 
+sub get_uniq_id_suffix {
+    my ( $self ) = @_;
+    my $suffix = $self->get_id_suffix_();
+    return $suffix if defined $suffix;
+    $suffix = $self->get_uniq_id();
+    $suffix =~ s{\d+[[:alpha:]]?\K(?:Dup\d+)?\z}{}xms;
+    if ( length $suffix < 2 ) {
+        $self->set_id_suffix_( q{} );
+        return q{};
+    }
+    $suffix =~ s{ \A [[:alpha:]]{3,} \d{2,}}{}xms
+        or $suffix =~ s{ \A [[:alpha:]]{2,} \d{3,}}{}xms;
+    $self->set_id_suffix_( $suffix );
+    return $suffix;
+
+} ## end sub get_uniq_id_suffix
+
+sub get_uniq_id_base {
+    my ( $self ) = @_;
+    my $base = $self->get_id_base_();
+    return $base if defined $base;
+    $base = $self->get_uniq_id();
+    $base =~ s{\d+[[:alpha:]]?\K(?:Dup\d+)?\z}{}xms;
+    my $suffix = $self->get_uniq_id_suffix();
+    $base =~ s{\Q$suffix\E\z}{}xms;
+    $self->set_id_base_( $base );
+    return $base;
+} ## end sub get_uniq_id_base
+
+sub get_uniq_id_part {
+    my ( $self ) = @_;
+    my $part = $self->get_id_part_();
+    return $part if defined $part;
+    my $id = $self->get_uniq_id_suffix();
+    if ( $id =~ m{ P (\d+) [[:alpha:]]? \z }xms ) {
+        $part = 0 + $1;
+    }
+    else {
+        $part = 1;
+    }
+    $self->set_id_part_( $part );
+    return $part;
+} ## end sub get_uniq_id_part
+
+sub get_uniq_id_instance {
+    my ( $self ) = @_;
+    my $instance = $self->get_id_instance_();
+    return $instance if defined $instance;
+    my $id = $self->get_uniq_id_suffix();
+    if ( $id =~ m{ ([[:alpha:]]) P \d+ \z }xms ) {
+        $instance = uc $1;
+    }
+    elsif ( $id =~ m{ \d ([[:alpha:]]) \z }xms ) {
+        $instance = uc $1;
+    }
+    else {
+        $instance = q{};
+    }
+    $self->set_id_instance_( $instance );
+    return $instance;
+} ## end sub get_uniq_id_instance
+
 sub get_panel_internal_id {
     my ( $self ) = @_;
     return ${ $self };
@@ -278,13 +352,5 @@ sub get_cost_is_missing {
     return 1 if $self->get_uniq_id_prefix() =~ $RE_ID_WORKSHOP;
     return;
 } ## end sub get_cost_is_missing
-
-sub get_cost_part_one {
-    my ( $self ) = @_;
-    my $cost = $self->get_cost();
-    return unless defined $cost;
-    return if $cost eq $COST_PART_TWO;
-    return $cost;
-} ## end sub get_cost_part_one
 
 1;

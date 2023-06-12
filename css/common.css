@@ -45,6 +45,11 @@ html {
     padding-left: 0
 }
 
+.descListParts {
+    list-style-type: none;
+    padding-left: 0
+}
+
 .descriptions {
     margin-top: .5em;
     margin-bottom: .5em;

@@ -166,8 +166,11 @@ Examples
 
 * GP032 - This is a guest panel 32.
 * FP032 - This is fan panel 32.
-* GW019A - This is part 1 of GW019
-* GW019B - This is part 2 of GW019
+* GW019A - This is the first offering of GW019
+* GW019B - This is the second offering of GW019
+* GW020P1 - This is part 1 of GW020
+* GW020P2 - This is part 2 of GW020
+* GW020P3 - This is part 3 of GW020
 * SPLIT01 - Special panel used to indicate when to split the grid
 * BREAK01 - Special panel used to indicate a convention wide break
 
@@ -196,7 +199,7 @@ Example:
 * Main - A panel that occurs in the main room
 * Programming 1 - A panel that occurs in programming 1.
 * Candlewood - A panel that occurs in candlewood.
-* Main, Progamming 1 - A panel that is split between main and programing 1.
+* Main, Programming 1 - A panel that is split between main and programming 1.
 
 ### Original Time
 

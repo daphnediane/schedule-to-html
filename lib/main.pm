@@ -106,16 +106,20 @@ Readonly our $SUBCLASS_FMT_TYPE          => q{Type%s};
 Readonly our $SUBCLASS_FULL              => q{Full};
 Readonly our $SUBCLASS_GUEST_PANEL       => q{SelectedGuest};
 Readonly our $SUBCLASS_NEED_COST         => q{NeedCost};
+Readonly our $SUBCLASS_PIECE_COST        => q{Cost};
 Readonly our $SUBCLASS_PIECE_DESCRIPTION => q{Description};
 Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
 Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
 Readonly our $SUBCLASS_PIECE_ID          => q{ID};
 Readonly our $SUBCLASS_PIECE_NAME        => q{Name};
 Readonly our $SUBCLASS_PIECE_NOTE        => q{Note};
+Readonly our $SUBCLASS_PIECE_PARTS_LINE  => q{PartsLine};
+Readonly our $SUBCLASS_PIECE_PARTS_LIST  => q{ListParts};
+Readonly our $SUBCLASS_PIECE_PARTS_NUM   => q{PartsNum};
+Readonly our $SUBCLASS_PIECE_PARTS_TIME  => q{PartsTime};
 Readonly our $SUBCLASS_PIECE_PRESENTER   => q{Panelist};
 Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START       => q{Start};
-Readonly our $SUBCLASS_PIECE_COST        => q{Cost};
 
 # TODO Make this a class
 # Time processing state
@@ -154,6 +158,7 @@ my @all_rooms;
 my %room_by_name;
 
 my %panels_by_start;
+my %panels_by_base;
 my %panel_types;
 
 my %time_split;
@@ -601,6 +606,7 @@ sub process_spreadsheet_row {
     mark_timepoint_seen( $panel->get_end_seconds() );
 
     push @{ $panels_by_start{ $panel->get_start_seconds() } //= [] }, $panel;
+    push @{ $panels_by_base{ $panel->get_uniq_id_base() }   //= [] }, $panel;
 
     return;
 } ## end sub process_spreadsheet_row
@@ -1155,8 +1161,8 @@ sub dump_grid_row_cell_group {
         $name
     );
 
-    my $cost = $panel->get_cost_part_one();
-    if ( defined $cost ) {
+    my $cost = $panel->get_cost();
+    if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
         out_line $h->div(
             {   out_class(
                     map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
@@ -1166,7 +1172,7 @@ sub dump_grid_row_cell_group {
             },
             $cost
         );
-    } ## end if ( defined $cost )
+    } ## end if ( defined $cost && ...)
 
     if ( defined $credited_presenter ) {
         out_line $h->span(
@@ -1493,6 +1499,52 @@ sub dump_desc_panel_note {
     return;
 } ## end sub dump_desc_panel_note
 
+sub dump_desc_panel_parts {
+    my ( $panel ) = @_;
+
+    my $part   = $panel->get_uniq_id_part();
+    my @series = sort {
+               $a->get_uniq_id_part()  <=> $b->get_uniq_id_part()
+            || $a->get_start_seconds() <=> $b->get_start_seconds()
+        }
+        grep {
+        $_->get_uniq_id_part() != $part && defined $_->get_start_seconds()
+        } @{ $panels_by_base{ $panel->get_uniq_id_base() } };
+
+    return unless @series;
+
+    out_line $h->ul(
+        {   out_class( join_subclass(
+                $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LIST
+            ) )
+        },
+        join q{ },
+        map {
+            $h->li(
+                {   out_class( join_subclass(
+                        $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LINE
+                    ) )
+                },
+                join q{ },
+                $h->span(
+                    {   out_class( join_subclass(
+                            $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_NUM
+                        ) )
+                    },
+                    q{Part } . $_->get_uniq_id_part() . q{: }
+                ),
+                $h->span(
+                    {   out_class( join_subclass(
+                            $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_TIME
+                        ) )
+                    },
+                    datetime_to_text( $_->get_start_seconds() )
+                )
+            )
+        } @series
+    );
+} ## end sub dump_desc_panel_parts
+
 sub should_panel_desc_be_dumped {
     my ( $filter, $room_focus_map, $panel_state, $show_unbusy_panels, $time )
         = @_;
@@ -1597,8 +1649,8 @@ sub dump_desc_panel_body {
         );
     } ## end else [ if ( $options->show_sect_grid...)]
 
-    my $cost = $panel->get_cost_part_one();
-    if ( defined $cost ) {
+    my $cost = $panel->get_cost();
+    if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
         out_line $h->div(
             {   out_class(
                     map { join_subclass( $CLASS_DESC_BASE, $_ ) } (
@@ -1608,7 +1660,7 @@ sub dump_desc_panel_body {
             },
             $cost
         );
-    } ## end if ( defined $cost )
+    } ## end if ( defined $cost && ...)
     if ( $options->is_mode_kiosk() ) {
         out_line $h->p(
             {   out_class( join_subclass(
@@ -1646,6 +1698,7 @@ sub dump_desc_panel_body {
     );
 
     dump_desc_panel_note( $panel, $conflict );
+    dump_desc_panel_parts( $panel );
 
     out_close $HTML_DIV if $options->is_mode_kiosk();
     out_close $desc_element;
