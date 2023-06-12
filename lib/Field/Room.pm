@@ -1,4 +1,4 @@
-package RoomField;
+package Field::Room;
 
 use strict;
 use warnings;

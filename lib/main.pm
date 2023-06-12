@@ -15,26 +15,23 @@ use strict;
 use utf8;
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel     qw{};
-use Options         qw{};
-use PanelField      qw{};
-use PanelInfo       qw{};
-use Presenter       qw{};
-use RoomField       qw{};
-use RoomInfo        qw{};
-use TimeDecoder     qw{ :from_text :to_text :timepoints};
-use TimeRange       qw{};
-use TimeRegion      qw{};
-use TimeSlot        qw{};
-use Workbook        qw{};
-use Workbook::Sheet qw{};
+use ActivePanel      qw{};
+use Field::Panel     qw{};
+use Field::PanelType qw{};
+use Field::Room      qw{};
+use Options          qw{};
+use Presenter        qw{};
+use Table::Panel     qw{};
+use Table::Room      qw{};
+use TimeDecoder      qw{ :from_text :to_text :timepoints};
+use TimeRange        qw{};
+use TimeRegion       qw{};
+use TimeSlot         qw{};
+use Workbook         qw{};
+use Workbook::Sheet  qw{};
 
 # Global variables
 Readonly our $HALF_HOUR_IN_SEC => 30 * 60;
-
-# PanelTypes fields
-Readonly our $PANELTYPE_TABLE_PREFIX => q{Prefix};
-Readonly our $PANELTYPE_TABLE_KIND   => q{Panel_Kind};
 
 # HTML Elements
 Readonly our $HTML_ANCHOR     => q{a};
@@ -276,8 +273,8 @@ sub process_spreadsheet_room_sheet {
         $room_data{ $header_alt }  = $raw_text;
     } ## end foreach my $column ( keys @...)
 
-    my $short_name = $room_data{ $RoomField::NAME };
-    my $long_name  = $room_data{ $RoomField::LONG_NAME } // $short_name;
+    my $short_name = $room_data{ $Field::Room::NAME };
+    my $long_name  = $room_data{ $Field::Room::LONG_NAME } // $short_name;
     $short_name //= $long_name;
 
     return unless defined $short_name;
@@ -285,14 +282,14 @@ sub process_spreadsheet_room_sheet {
     my $room = $room_by_name{ lc $long_name }
         // $room_by_name{ lc $short_name };
 
-    my $hotel = $room_data{ $RoomField::HOTEL };
+    my $hotel = $room_data{ $Field::Room::HOTEL };
     if ( !defined $room && defined $hotel ) {
         $room = $room_by_name{ lc $hotel };
     }
 
     if ( !defined $room ) {
-        $room = RoomInfo->new(
-            sort_key   => $room_data{ $RoomField::SORT_KEY },
+        $room = Table::Room->new(
+            sort_key   => $room_data{ $Field::Room::SORT_KEY },
             short_name => $short_name,
             long_name  => $long_name,
             hotel_room => $hotel,
@@ -352,8 +349,8 @@ sub process_spreadsheet_paneltype_sheet {
 
     } ## end foreach my $column ( keys @...)
 
-    my $prefix = $paneltype_data{ $PANELTYPE_TABLE_PREFIX } // q{};
-    my $kind   = $paneltype_data{ $PANELTYPE_TABLE_KIND };
+    my $prefix = $paneltype_data{ $Field::PanelType::PREFIX } // q{};
+    my $kind   = $paneltype_data{ $Field::PanelType::KIND };
 
     return unless defined $kind;
 
@@ -462,8 +459,8 @@ sub lookup_room_from_name {
     # Create room, this only works well if there is but a single room
     my $short_name = $room_name;
 
-    my $sort_key  = $panel_data->{ $PanelField::ROOM_SORT_KEY };
-    my $long_name = $panel_data->{ $PanelField::ROOM_REAL_ROOM };
+    my $sort_key  = $panel_data->{ $Field::Panel::ROOM_SORT_KEY };
+    my $long_name = $panel_data->{ $Field::Panel::ROOM_REAL_ROOM };
     if ( defined $long_name ) {
         $room = $room_by_name{ lc $long_name };
         return $room if defined $room;
@@ -471,7 +468,7 @@ sub lookup_room_from_name {
     $short_name //= $long_name;
     $long_name  //= $short_name;
 
-    my $hotel = $panel_data->{ $PanelField::ROOM_HOTEL_ROOM };
+    my $hotel = $panel_data->{ $Field::Panel::ROOM_HOTEL_ROOM };
     if ( defined $hotel ) {
         $room = $room_by_name{ lc $hotel };
         return $room if defined $room;
@@ -479,17 +476,17 @@ sub lookup_room_from_name {
 
     return unless defined $short_name;
 
-    my $uniq_id = $panel_data->{ $PanelField::UNIQUE_ID };
+    my $uniq_id = $panel_data->{ $Field::Panel::UNIQUE_ID };
     if ( !defined $sort_key ) {
-        $sort_key //= $RoomInfo::HIDDEN_SORT_KEY
-            if uc $short_name eq $RoomInfo::BREAK
+        $sort_key //= $Table::Room::HIDDEN_SORT_KEY
+            if uc $short_name eq $Table::Room::BREAK
             || $uniq_id =~ m{\A (?: br | split ) }xmsi;
     }
     if ( !defined $sort_key ) {
         state $new_sort_key = 0;
         $sort_key = $new_sort_key++;
     }
-    $room = RoomInfo->new(
+    $room = Table::Room->new(
         sort_key   => $sort_key,
         short_name => $short_name,
         long_name  => $long_name,
@@ -509,7 +506,7 @@ sub lookup_room_from_name {
 sub get_rooms_from_panel_data {
     my ( $panel_data ) = @_;
 
-    my $rooms = $panel_data->{ $PanelField::ROOM_NAME };
+    my $rooms = $panel_data->{ $Field::Panel::ROOM_NAME };
     return unless defined $rooms;
     my %seen;
     my @rooms;
@@ -556,27 +553,27 @@ sub process_spreadsheet_row {
     } ## end foreach my $column ( keys @...)
 
     $presenter_set->set_are_credits_hidden( 1 )
-        if defined $panel_data{ $PanelField::PANELIST_HIDE };
+        if defined $panel_data{ $Field::Panel::PANELIST_HIDE };
     $presenter_set->set_override_credits(
-        $panel_data{ $PanelField::PANELIST_ALT } );
+        $panel_data{ $Field::Panel::PANELIST_ALT } );
 
     my @rooms = get_rooms_from_panel_data( \%panel_data );
     return unless @rooms;
 
-    my $panel = PanelInfo->new(
-        uniq_id       => $panel_data{ $PanelField::UNIQUE_ID },
-        cost          => $panel_data{ $PanelField::COST },
-        description   => $panel_data{ $PanelField::DESCRIPTION },
-        difficulty    => $panel_data{ $PanelField::DIFFICULTY },
-        duration      => $panel_data{ $PanelField::DURATION },
-        end_time      => $panel_data{ $PanelField::END_TIME },
-        is_full       => $panel_data{ $PanelField::FULL },
-        name          => $panel_data{ $PanelField::PANEL_NAME },
-        note          => $panel_data{ $PanelField::NOTE },
-        av_note       => $panel_data{ $PanelField::AV_NOTE },
-        panel_kind    => $panel_data{ $PanelField::PANEL_KIND },
+    my $panel = Table::Panel->new(
+        uniq_id       => $panel_data{ $Field::Panel::UNIQUE_ID },
+        cost          => $panel_data{ $Field::Panel::COST },
+        description   => $panel_data{ $Field::Panel::DESCRIPTION },
+        difficulty    => $panel_data{ $Field::Panel::DIFFICULTY },
+        duration      => $panel_data{ $Field::Panel::DURATION },
+        end_time      => $panel_data{ $Field::Panel::END_TIME },
+        is_full       => $panel_data{ $Field::Panel::FULL },
+        name          => $panel_data{ $Field::Panel::PANEL_NAME },
+        note          => $panel_data{ $Field::Panel::NOTE },
+        av_note       => $panel_data{ $Field::Panel::AV_NOTE },
+        panel_kind    => $panel_data{ $Field::Panel::PANEL_KIND },
         rooms         => \@rooms,
-        start_time    => $panel_data{ $PanelField::START_TIME },
+        start_time    => $panel_data{ $Field::Panel::START_TIME },
         presenter_set => $presenter_set,
     );
 
@@ -588,7 +585,7 @@ sub process_spreadsheet_row {
 
     if ( !defined $panel->get_panel_kind() ) {
         $panel->set_panel_kind(
-            $panel_types{ $short_kind_id }->{ $PANELTYPE_TABLE_KIND } );
+            $panel_types{ $short_kind_id }->{ $Field::PanelType::KIND } );
     }
 
     if ( any { $_->get_is_split() } @rooms ) {
@@ -990,7 +987,7 @@ sub dump_grid_row_room_names {
         $HEADING_TIME
     );
 
-    my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
+    my @rooms = sort map { Table::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     foreach my $room ( @rooms ) {
@@ -1043,7 +1040,7 @@ sub dump_grid_header {
     }
     out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
 
-    my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
+    my @rooms = sort map { Table::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     foreach my $room ( @rooms ) {
@@ -1198,7 +1195,7 @@ sub dump_grid_row_cell_group {
 sub dump_grid_row_make_cell_groups {
     my ( $filter, $region, $room_focus_map, $time_slot ) = @_;
 
-    my @rooms = sort map { RoomInfo->find_by_room_id( $_ ) }
+    my @rooms = sort map { Table::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     my $current = $time_slot->get_current();

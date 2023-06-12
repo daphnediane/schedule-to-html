@@ -8,9 +8,9 @@ use common::sense;
 
 use Carp qw{croak};
 use Readonly;
-use utf8;
-use RoomInfo;
+use Table::Room;
 use TimeSlot;
+use utf8;
 
 ## no critic (ProhibitUnusedVariables)
 
@@ -59,7 +59,7 @@ my @time_last_output_time
 sub add_active_room {
     my ( $self, $room ) = @_;
     return              unless defined $room;
-    croak q{Not a room} unless $room->isa( q{RoomInfo} );
+    croak q{Not a room} unless $room->isa( q{Table::Room} );
     my $map = $self->get_active_rooms_();
     $map->{ $room->get_room_id() } = $room;
     return;
@@ -68,7 +68,7 @@ sub add_active_room {
 sub is_room_active {
     my ( $self, $room ) = @_;
     return              unless defined $room;
-    croak q{Not a room} unless $room->isa( q{RoomInfo} );
+    croak q{Not a room} unless $room->isa( q{Table::Room} );
     my $map = $self->get_active_rooms_();
     return unless defined $map;
     return 1 if exists $map->{ $room->get_room_id() };

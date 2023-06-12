@@ -1,4 +1,4 @@
-package RoomInfo;
+package Table::Room;
 
 use Object::InsideOut;
 
@@ -113,7 +113,7 @@ sub compare {
     }
 
     die q{Compare Room with something else:}, ( ref $other ), qq{\n}
-        unless ref $other && $other->isa( q{RoomInfo} );
+        unless ref $other && $other->isa( q{Table::Room} );
 
     ( $self, $other ) = ( $other, $self ) if $swap;
 

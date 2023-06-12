@@ -7,14 +7,14 @@ use warnings;
 use common::sense;
 
 use Readonly;
+use Table::Room;
 use utf8;
-use RoomInfo;
 
 ## no critic (ProhibitUnusedVariables)
 
 my @panel
     :Field
-    :Type(PanelInfo)
+    :Type(Table::Panel)
     :Arg(Name => q{active_panel}, Mandatory => 1)
     :Get(get_active_panel);
 
@@ -30,7 +30,7 @@ my @is_break
 
 my @room
     :Field
-    :Type(RoomInfo)
+    :Type(Table::Room)
     :Arg(Name => q{room}, Mand => 1)
     :Get(Name => q{get_room});
 

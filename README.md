@@ -362,7 +362,7 @@ event room name and control sorting
 
 If "Hotel Room" and "Long Name" are the same only one is shown.
 
-# Splitting the grid
+### Splitting the grid
 
 The special SPLIT... rooms are used to control where the grid splits
 
@@ -389,13 +389,14 @@ other splits will be ignored. In that case only the first word of the
 | SPLITDAY   | 101      | SPLIT      | SPLIT     |
 | SPLITNIGHT | 101      | SPLIT      | SPLIT     |
 
-
 ## PanelTypes sheet
 
 Mapping between UniqID prefix and panel types.
 
-* Prefix - Two letter prefix of Uniq ID
-* Panel Kind - Full name of the panel kind
+| Field      | Meaning                      |
+| ---------- | ---------------------------- |
+| Prefix     | Two letter prefix of Uniq ID |
+| Panel Kind | Full name of the panel kind  |
 
 Examples:
 

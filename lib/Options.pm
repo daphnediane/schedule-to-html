@@ -7,7 +7,6 @@ use warnings;
 use common::sense;
 
 use File::ShareDir qw{};
-use File::Slurp    qw{read_file};
 use File::Spec     qw{};
 use Getopt::Long   qw{GetOptionsFromArray};
 use Readonly;

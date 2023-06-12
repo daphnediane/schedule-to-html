@@ -28,3 +28,10 @@ done
     --show-grid \
     --hide-descriptions \
     --hide-unused-rooms "$@"
+
+./schedule_html \
+    --style print:portrait.css \
+    --input input/Test.xlsx \
+    --output output/flyers/workshop.html \
+    --just-premium \
+    --just-descriptions "$@"
