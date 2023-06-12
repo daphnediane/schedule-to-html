@@ -1525,24 +1525,29 @@ sub dump_desc_panel_parts {
                         $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LINE
                     ) )
                 },
-                join q{ },
-                $h->span(
-                    {   out_class( join_subclass(
-                            $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_NUM
-                        ) )
-                    },
-                    q{Part } . $_->get_uniq_id_part() . q{: }
-                ),
-                $h->span(
-                    {   out_class( join_subclass(
-                            $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_TIME
-                        ) )
-                    },
-                    datetime_to_text( $_->get_start_seconds() )
+                $h->a(
+                    { href => q{#} . $_->get_href_anchor() },
+                    join q{ },
+                    $h->span(
+                        {   out_class( join_subclass(
+                                $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_NUM
+                            ) )
+                        },
+                        q{Part } . $_->get_uniq_id_part() . q{: }
+                    ),
+                    $h->span(
+                        {   out_class( join_subclass(
+                                $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_TIME
+                            ) )
+                        },
+                        datetime_to_text( $_->get_start_seconds() )
+                    )
                 )
             )
         } @series
     );
+
+    return;
 } ## end sub dump_desc_panel_parts
 
 sub should_panel_desc_be_dumped {
