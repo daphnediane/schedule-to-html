@@ -427,16 +427,12 @@ sub process_spreadsheet_row {
 
     return unless defined $panel->get_name();
 
-    my $short_kind_id = lc $panel->get_uniq_id_prefix();
-
     if ( any { $_->get_is_split() } @rooms ) {
         register_time_split $panel->get_start_seconds(), $panel->get_name();
         return;
     }
 
-    my @subclasses = sprintf $SUBCLASS_FMT_TYPE, uc $short_kind_id;
-
-    push @subclasses, process_spreadsheet_workshop( $panel );
+    my @subclasses = process_spreadsheet_workshop( $panel );
 
     $panel->set_css_subclasses( \@subclasses );
 
@@ -939,12 +935,14 @@ sub dump_grid_row_cell_group {
     my $credited_presenter = $panel->get_credits();
     my $panel_type         = $panel->get_panel_type();
 
+    my $type_css = sprintf $SUBCLASS_FMT_TYPE, uc $panel_type->get_prefix();
+
     if ( $panel_type->is_cafe() ) {
         $credited_presenter = $name;
         $name               = q{Café featuring};
     }
 
-    my @subclasses = ( q{}, @{ $panel->get_css_subclasses() } );
+    my @subclasses = ( q{}, $type_css, @{ $panel->get_css_subclasses() } );
     if ( exists $filter->{ $FILTER_PRESENTER } ) {
         my $presenter = $filter->{ $FILTER_PRESENTER };
         if ( $panel->is_presenter_hosting( $presenter ) ) {
@@ -1435,9 +1433,12 @@ sub dump_desc_panel_body {
         return;
     } ## end if ( !defined $panel_state)
 
-    my $panel = $panel_state->get_active_panel();
+    my $panel      = $panel_state->get_active_panel();
+    my $panel_type = $panel->get_panel_type();
 
-    my @subclasses = ( q{}, @{ $panel->get_css_subclasses() } );
+    my $type_css = sprintf $SUBCLASS_FMT_TYPE, uc $panel_type->get_prefix();
+
+    my @subclasses = ( q{}, $type_css, @{ $panel->get_css_subclasses() } );
     my $conflict;
 
     if ( exists $filter->{ $FILTER_PRESENTER } ) {
@@ -1453,7 +1454,6 @@ sub dump_desc_panel_body {
 
     my $name               = $panel->get_name();
     my $credited_presenter = $panel->get_credits();
-    my $panel_type         = $panel->get_panel_type();
 
     if ( $panel_type->is_cafe() ) {
         $name = q{Cosplay Café Featuring } . $name;

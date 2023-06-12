@@ -63,7 +63,6 @@ sub read_panel_type_ {
 
     my $prefix = $paneltype_data{ $Field::PanelType::PREFIX } // q{};
     my $kind   = $paneltype_data{ $Field::PanelType::KIND };
-    return if $prefix eq q{};
 
     my $panel_type = lookup( $prefix );
     if ( !defined $panel_type ) {
@@ -97,7 +96,7 @@ sub all_types {
 sub lookup {
     my ( $name ) = @_;
     return unless defined $name;
-    return if $name eq q{};
+
     $name = canonical_header( $name );
     $name = lc $name;
     my $panel_type = $by_key_{ $name };

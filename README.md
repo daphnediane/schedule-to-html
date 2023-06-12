@@ -94,8 +94,14 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 
 If no option is specified for either grids or descriptions both are included.
 
-## CSS files
+### CSS files
 
+Styles default to the files in the css directory. They may be prefixed to all:,
+screen:, or print: to restrict the style to the media. The special styles
+"+color" and "+color=_type_" are used to automatically generate styles based
+on the matching field in the paneltype sheet.
+
+Example:
 * common.css -- Has default colors
 * guest4x6.css -- For printing to 4x6 cards, consider --postcard
 * landscape.css -- Printing is set to landscape mode
@@ -104,6 +110,8 @@ If no option is specified for either grids or descriptions both are included.
 * poster30x20.css -- Printing to 30x20 posters
 * poster30x20v2.css -- 30x20 with smaller font size, more columns
 * poster30x20v3.css -- 30x20 with larger font size, more columns, page breaks
+* screen:+color -- Color the panels when viewing in a browser
+* print:+color=BW -- Use black and white for panels when printing
 
 ## Important Spreadsheet contents
 
@@ -393,10 +401,15 @@ other splits will be ignored. In that case only the first word of the
 
 Mapping between UniqID prefix and panel types.
 
-| Field      | Meaning                      |
-| ---------- | ---------------------------- |
-| Prefix     | Two letter prefix of Uniq ID |
-| Panel Kind | Full name of the panel kind  |
+| Field       | Meaning                                  |
+| ----------- | ---------------------------------------- |
+| Prefix      | Two letter prefix of Uniq ID             |
+| Panel Kind  | Full name of the panel kind              |
+| Is Break    | Type is used for breaks                  |
+| Is Café     | Type is used for café panels             |
+| Is Workshop | Type is used for workshops               |
+| Color       | Color to be used for the panel           |
+| BW          | Alternate color to be used for the panel |
 
 Examples:
 
@@ -420,7 +433,7 @@ desc_tbl \
     --style screen:+color \
     --style screen:color.css \
     --style print.css \
-    --style screen:+color=BW \
+    --style print:+color=BW \
     --style print:bw.css \
     --style print:landscape_wide.css \
     --input input/Test.xlsx \
@@ -439,7 +452,7 @@ desc_tbl \
     --style screen:+color \
     --style screen:color.css \
     --style print.css \
-    --style screen:+color=BW \
+    --style print:+color=BW \
     --style print:bw.css \
     --style print:landscape.css \
     --input input/Test.xlsx \

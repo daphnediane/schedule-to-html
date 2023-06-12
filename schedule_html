@@ -8,6 +8,6 @@ perl -I "${dir}/lib" -- "${dir}/lib/main.pm" \
     --style screen:color.css \
     --style screen:+color \
     --style print.css \
-    --style screen:+color=BW \
+    --style print:+color=BW \
     --style print:bw.css \
     "$@"
