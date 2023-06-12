@@ -16,13 +16,17 @@ use utf8;
 
 use lib "${FindBin::Bin}/lib";
 use ActivePanel      qw{};
+use Canonical        qw{ :all };
+use Data::Panel      qw{};
+use Data::PanelType  qw{};
+use Data::Room       qw{};
 use Field::Panel     qw{};
 use Field::PanelType qw{};
 use Field::Room      qw{};
 use Options          qw{};
 use Presenter        qw{};
-use Table::Panel     qw{};
-use Table::Room      qw{};
+use Table::PanelType qw{ :all };
+use Table::Room      qw{ :all };
 use TimeDecoder      qw{ :from_text :to_text :timepoints};
 use TimeRange        qw{};
 use TimeRegion       qw{};
@@ -130,6 +134,10 @@ Readonly our $MTR_EMPTY_TIMES    => q{EmptyTimeSlots};
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
 
+# Color styles
+Readonly our $RE_COLOR_STYLE =>
+    qr{ \A (?: all: | print: | screen: )? [+] (?i:(?:panel_)?color) (?: = | \z ) }xms;
+
 # Grid filter
 Readonly our $FILTER_SPLIT_TIMESTAMP => q{timestamp};
 Readonly our $FILTER_PRESENTER       => q{presenter};
@@ -151,12 +159,8 @@ Readonly our $FILTER_SET_DEFAULT => {};
 
 my $options;
 
-my @all_rooms;
-my %room_by_name;
-
 my %panels_by_start;
 my %panels_by_base;
-my %panel_types;
 
 my %time_split;
 my %time_region;
@@ -203,23 +207,6 @@ sub check_if_new_region {
     return $region;
 } ## end sub check_if_new_region
 
-sub canonical_header {
-    my ( $hdr ) = @_;
-    $hdr =~ s{\s+}{_}xmsg;
-    $hdr =~ s{[/:().,]}{_}xmsg;
-    $hdr =~ s{_+}{_}xmsg;
-    $hdr =~ s{\A_}{}xmsg;
-    $hdr =~ s{_\z}{}xmsg;
-    return $hdr;
-} ## end sub canonical_header
-
-sub canonical_class {
-    my ( $class ) = @_;
-    $class = canonical_header( $class );
-    $class =~ s{_(\w)}{\u$1}xmsg;
-    return $class;
-} ## end sub canonical_class
-
 sub join_subclass {
     my ( $base, @subclasses ) = @_;
 
@@ -251,143 +238,6 @@ sub to_presenter {
         }
         split m{\s*,\s*}xms, $names;
 } ## end sub to_presenter
-
-sub process_spreadsheet_room_sheet {
-    my ( $header, $san_header, $raw ) = @_;
-
-    my %room_data;
-
-    foreach my $column ( keys @{ $raw } ) {
-        my $header_text = $header->[ $column ];
-        my $header_alt  = $san_header->[ $column ];
-
-        my $raw_text = $raw->[ $column ];
-        if ( defined $raw_text ) {
-            if ( $raw_text =~ m{\s}xms ) {
-                $raw_text =~ s{\A \s*}{}xms;
-                $raw_text =~ s{\s* \z}{}xms;
-            }
-            undef $raw_text if $raw_text eq q{};
-        } ## end if ( defined $raw_text)
-        $room_data{ $header_text } = $raw_text;
-        $room_data{ $header_alt }  = $raw_text;
-    } ## end foreach my $column ( keys @...)
-
-    my $short_name = $room_data{ $Field::Room::NAME };
-    my $long_name  = $room_data{ $Field::Room::LONG_NAME } // $short_name;
-    $short_name //= $long_name;
-
-    return unless defined $short_name;
-
-    my $room = $room_by_name{ lc $long_name }
-        // $room_by_name{ lc $short_name };
-
-    my $hotel = $room_data{ $Field::Room::HOTEL };
-    if ( !defined $room && defined $hotel ) {
-        $room = $room_by_name{ lc $hotel };
-    }
-
-    if ( !defined $room ) {
-        $room = Table::Room->new(
-            sort_key   => $room_data{ $Field::Room::SORT_KEY },
-            short_name => $short_name,
-            long_name  => $long_name,
-            hotel_room => $hotel,
-        );
-        push @all_rooms, $room;
-    } ## end if ( !defined $room )
-
-    $room_by_name{ lc $short_name } //= $room;
-    $room_by_name{ lc $long_name }  //= $room;
-    $room_by_name{ lc $hotel }      //= $room if defined $hotel;
-
-    return;
-} ## end sub process_spreadsheet_room_sheet
-
-sub read_spreadsheet_rooms {
-    my ( $wb ) = @_;
-
-    my $sheet = $wb->sheet( q{Rooms} );
-    return unless defined $sheet;
-    return unless $sheet->get_is_open();
-
-    my $header = $sheet->get_next_line();
-    return unless defined $header;
-    my @san_header = map { canonical_header( $_ ) } @{ $header };
-
-    while ( my $raw = $sheet->get_next_line() ) {
-        last unless defined $raw;
-
-        process_spreadsheet_room_sheet( $header, \@san_header, $raw );
-    }
-
-    $sheet->release() if defined $sheet;
-    undef $sheet;
-
-    return;
-} ## end sub read_spreadsheet_rooms
-
-sub process_spreadsheet_paneltype_sheet {
-    my ( $header, $san_header, $raw ) = @_;
-
-    my %paneltype_data;
-
-    foreach my $column ( keys @{ $raw } ) {
-        my $header_text = $header->[ $column ];
-        my $header_alt  = $san_header->[ $column ];
-
-        my $raw_text = $raw->[ $column ];
-        if ( defined $raw_text ) {
-            if ( $raw_text =~ m{\s}xms ) {
-                $raw_text =~ s{\A \s*}{}xms;
-                $raw_text =~ s{\s* \z}{}xms;
-            }
-            undef $raw_text if $raw_text eq q{};
-        } ## end if ( defined $raw_text)
-        $paneltype_data{ $header_text } = $raw_text;
-        $paneltype_data{ $header_alt }  = $raw_text;
-
-    } ## end foreach my $column ( keys @...)
-
-    my $prefix = $paneltype_data{ $Field::PanelType::PREFIX } // q{};
-    my $kind   = $paneltype_data{ $Field::PanelType::KIND };
-
-    return unless defined $kind;
-
-    if ( exists $panel_types{ lc $prefix } ) {
-        return if $prefix eq q{};
-        warn q{Panel prefix: }, $prefix, q{ for }, $kind,
-            qq{ defined twice\n};
-        return;
-    } ## end if ( exists $panel_types...)
-
-    $panel_types{ lc $prefix } = \%paneltype_data;
-
-    return;
-} ## end sub process_spreadsheet_paneltype_sheet
-
-sub read_spreadsheet_panel_types {
-    my ( $wb ) = @_;
-
-    my $sheet = $wb->sheet( q{PanelTypes} );
-    return unless defined $sheet;
-    return unless $sheet->get_is_open();
-
-    my $header = $sheet->get_next_line();
-    return unless defined $header;
-    my @san_header = map { canonical_header( $_ ) } @{ $header };
-
-    while ( my $raw = $sheet->get_next_line() ) {
-        last unless defined $raw;
-
-        process_spreadsheet_paneltype_sheet( $header, \@san_header, $raw );
-    }
-
-    $sheet->release() if defined $sheet;
-    undef $sheet;
-
-    return;
-} ## end sub read_spreadsheet_panel_types
 
 sub process_spreadsheet_add_presenter {
     my ( $presenter_set, $per_info_index, $raw_text ) = @_;
@@ -453,7 +303,7 @@ sub lookup_room_from_name {
     return unless defined $room_name;
     return if $room_name eq q{};
 
-    my $room = $room_by_name{ lc $room_name };
+    my $room = Table::Room::lookup( $room_name );
     return $room if defined $room;
 
     # Create room, this only works well if there is but a single room
@@ -462,7 +312,7 @@ sub lookup_room_from_name {
     my $sort_key  = $panel_data->{ $Field::Panel::ROOM_SORT_KEY };
     my $long_name = $panel_data->{ $Field::Panel::ROOM_REAL_ROOM };
     if ( defined $long_name ) {
-        $room = $room_by_name{ lc $long_name };
+        $room = Table::Room::lookup( $long_name );
         return $room if defined $room;
     }
     $short_name //= $long_name;
@@ -470,7 +320,7 @@ sub lookup_room_from_name {
 
     my $hotel = $panel_data->{ $Field::Panel::ROOM_HOTEL_ROOM };
     if ( defined $hotel ) {
-        $room = $room_by_name{ lc $hotel };
+        $room = Table::Room::lookup( $hotel );
         return $room if defined $room;
     }
 
@@ -478,15 +328,15 @@ sub lookup_room_from_name {
 
     my $uniq_id = $panel_data->{ $Field::Panel::UNIQUE_ID };
     if ( !defined $sort_key ) {
-        $sort_key //= $Table::Room::HIDDEN_SORT_KEY
-            if uc $short_name eq $Table::Room::BREAK
+        $sort_key //= $Data::Room::HIDDEN_SORT_KEY
+            if uc $short_name eq $Data::Room::BREAK
             || $uniq_id =~ m{\A (?: br | split ) }xmsi;
     }
     if ( !defined $sort_key ) {
         state $new_sort_key = 0;
         $sort_key = $new_sort_key++;
     }
-    $room = Table::Room->new(
+    $room = Data::Room->new(
         sort_key   => $sort_key,
         short_name => $short_name,
         long_name  => $long_name,
@@ -494,11 +344,7 @@ sub lookup_room_from_name {
     );
     warn q{Creating room: }, $long_name, qq{\n};
 
-    push @all_rooms, $room;
-
-    $room_by_name{ lc $short_name } //= $room;
-    $room_by_name{ lc $long_name }  //= $room;
-    $room_by_name{ lc $hotel }      //= $room if defined $hotel;
+    Table::Room::register( $room );
 
     return $room;
 } ## end sub lookup_room_from_name
@@ -560,7 +406,7 @@ sub process_spreadsheet_row {
     my @rooms = get_rooms_from_panel_data( \%panel_data );
     return unless @rooms;
 
-    my $panel = Table::Panel->new(
+    my $panel = Data::Panel->new(
         uniq_id       => $panel_data{ $Field::Panel::UNIQUE_ID },
         cost          => $panel_data{ $Field::Panel::COST },
         description   => $panel_data{ $Field::Panel::DESCRIPTION },
@@ -582,11 +428,6 @@ sub process_spreadsheet_row {
     return unless defined $panel->get_name();
 
     my $short_kind_id = lc $panel->get_uniq_id_prefix();
-
-    if ( !defined $panel->get_panel_kind() ) {
-        $panel->set_panel_kind(
-            $panel_types{ $short_kind_id }->{ $Field::PanelType::KIND } );
-    }
 
     if ( any { $_->get_is_split() } @rooms ) {
         register_time_split $panel->get_start_seconds(), $panel->get_name();
@@ -614,8 +455,8 @@ sub read_spreadsheet_file {
         die q{Unable to read }, $options->get_input_file(), qq{\n};
     }
 
-    read_spreadsheet_rooms( $wb );
-    read_spreadsheet_panel_types( $wb );
+    Table::Room::read_from( $wb );
+    Table::PanelType::read_from( $wb );
 
     my $main_sheet = $wb->sheet();
     if ( !defined $main_sheet || !$main_sheet->get_is_open() ) {
@@ -655,12 +496,14 @@ sub read_spreadsheet_file {
 sub mtr_process_time_panel_start {
     my ( $state, $time, $panel ) = @_;
 
+    return unless defined $panel;
+
     foreach my $room ( $panel->get_rooms() ) {
         next unless defined $room;
+        my $panel_type = $panel->get_panel_type();
 
         if ( $room->get_room_is_hidden() ) {
-            if ( $room->get_room_is_break() || $panel->get_panel_is_break() )
-            {
+            if ( $room->get_room_is_break() || $panel_type->is_break() ) {
                 if ( !exists $state->{ $MTR_ACTIVE_BREAK }
                     || $panel->get_end_seconds()
                     > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() ) {
@@ -691,7 +534,7 @@ sub mtr_process_time_ongoing {
         && $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() <= $time ) {
         delete $state->{ $MTR_ACTIVE_BREAK };
     }
-    foreach my $room ( @all_rooms ) {
+    foreach my $room ( Table::Room::all_rooms() ) {
         next if $room->get_room_is_hidden();
         my $room_id = $room->get_room_id();
 
@@ -715,7 +558,7 @@ sub mtr_process_time_ongoing {
             is_break     => 1,
         );
         $state->{ $MTR_PANEL_STATES }->{ $room_id } = $panel_state;
-    } ## end foreach my $room ( @all_rooms)
+    } ## end foreach my $room ( Table::Room::all_rooms...)
 
     return;
 } ## end sub mtr_process_time_ongoing
@@ -922,7 +765,7 @@ sub out_class {
 sub get_rooms_for_region {
     my ( $region ) = @_;
 
-    my @rooms = grep { !$_->get_room_is_hidden() } @all_rooms;
+    my @rooms = grep { !$_->get_room_is_hidden() } Table::Room::all_rooms();
 
     return @rooms if $options->show_all_rooms();
     return @rooms if !defined $region;
@@ -987,7 +830,7 @@ sub dump_grid_row_room_names {
         $HEADING_TIME
     );
 
-    my @rooms = sort map { Table::Room->find_by_room_id( $_ ) }
+    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     foreach my $room ( @rooms ) {
@@ -1007,7 +850,7 @@ sub dump_grid_row_room_names {
                     },
                     $kind eq $HTML_TABLE_HEAD
                     ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
-                        $room->get_room_id()
+                        $room->get_sort_key()
                         )
                     : (),
                 )
@@ -1040,14 +883,14 @@ sub dump_grid_header {
     }
     out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
 
-    my @rooms = sort map { Table::Room->find_by_room_id( $_ ) }
+    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     foreach my $room ( @rooms ) {
         out_line $h->col( {
             out_class(
                 sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
-                $room->get_room_id()
+                $room->get_sort_key()
             )
         } );
     } ## end foreach my $room ( @rooms )
@@ -1094,8 +937,9 @@ sub dump_grid_row_cell_group {
 
     my $name               = $panel->get_name();
     my $credited_presenter = $panel->get_credits();
+    my $panel_type         = $panel->get_panel_type();
 
-    if ( $panel->get_panel_is_cafe() ) {
+    if ( $panel_type->is_cafe() ) {
         $credited_presenter = $name;
         $name               = q{Café featuring};
     }
@@ -1195,7 +1039,7 @@ sub dump_grid_row_cell_group {
 sub dump_grid_row_make_cell_groups {
     my ( $filter, $region, $room_focus_map, $time_slot ) = @_;
 
-    my @rooms = sort map { Table::Room->find_by_room_id( $_ ) }
+    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     my $current = $time_slot->get_current();
@@ -1609,8 +1453,9 @@ sub dump_desc_panel_body {
 
     my $name               = $panel->get_name();
     my $credited_presenter = $panel->get_credits();
+    my $panel_type         = $panel->get_panel_type();
 
-    if ( $panel->get_panel_is_cafe() ) {
+    if ( $panel_type->is_cafe() ) {
         $name = q{Cosplay Café Featuring } . $name;
     }
 
@@ -1982,15 +1827,20 @@ sub dump_styles {
                 out_line $line;
             }
         } ## end if ( $is_html )
-        elsif ( $fname =~ m{\A [+] (?:panel_)?color }xmsi ) {
-            my ( $unused, $field ) = split m{=}xms, $fname, 2;
-            $field //= q{Color};
+        elsif ( $fname =~ $RE_COLOR_STYLE ) {
+            my ( $unused, $color_set ) = split m{=}xms, $fname, 2;
+            $color_set //= q{Color};
+            $color_set = canonical_header( $color_set );
 
             my $line_seen;
 
-            foreach my $prefix ( sort keys %panel_types ) {
+            foreach my $panel_type (
+                sort { $a->get_prefix() cmp $b->get_prefix() }
+                Table::PanelType::all_types() ) {
+                my $prefix = $panel_type->get_prefix();
                 next unless $prefix =~ m{\S}xms;
-                my $color = $panel_types{ $prefix }->{ $field };
+                my $color = $panel_type->get_color( $color_set );
+                next unless defined $color;
                 next
                     unless $color
                     =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [\(] .* ) \z}xms;
@@ -2005,8 +1855,8 @@ sub dump_styles {
                 out_css_open q{.panelType}, uc $prefix;
                 out_line q{background-color: }, $color;
                 out_css_close;
-            } ## end foreach my $prefix ( sort keys...)
-        } ## end elsif ( $fname =~ m{\A [+] (?:panel_)?color }xmsi)
+            } ## end foreach my $panel_type ( sort...)
+        } ## end elsif ( $fname =~ $RE_COLOR_STYLE)
         elsif ( $options->is_css_loc_embedded() ) {
             my $lines = cache_inline_style( $fname );
             my $line_seen;
@@ -2391,6 +2241,13 @@ sub main {
     my ( @args ) = @_;
 
     $options = Options->options_from( @args );
+
+    foreach my $style ( $options->get_styles() ) {
+        next unless $style =~ $RE_COLOR_STYLE;
+        my ( $unused, $color_set ) = split m{=}xms, $style, 2;
+        $color_set //= q{Color};
+        Table::PanelType::add_color_set( $color_set );
+    } ## end foreach my $style ( $options...)
 
     read_spreadsheet_file( $options->get_input_file() );
 

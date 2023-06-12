@@ -1,4 +1,4 @@
-package Table::Panel;
+package Data::Panel;
 
 use Object::InsideOut qw{TimeRange};
 
@@ -10,15 +10,16 @@ use Carp qw{croak};
 use Readonly;
 use utf8;
 
-use Table::Room;
+use Data::PanelType;
+use Data::Room;
 use PresenterSet;
+use Table::PanelType qw{};
 
 Readonly our $COST_FREE  => q{$} . q{0};
 Readonly our $COST_TBD   => q{$} . q{TBD};
 Readonly our $COST_MODEL => q{model};
 
 ## no critic(ProhibitComplexRegexes)
-Readonly our $RE_CAFE => qr{ \A caf[eé] \z }xmsi;
 Readonly our $RE_FREE => qr{
     \A (?:  free
     | (?=n) (?: nothing
@@ -26,14 +27,10 @@ Readonly our $RE_FREE => qr{
     | [\$]? (?: 0+ (?: [.] 0+ )? | [.] 0+ )
     ) \z
     }xmsi;
-Readonly our $RE_TBD         => qr{ \A [\$]? T [.]? B [.]? D[.]? \z }xmsi;
-Readonly our $RE_MODEL       => qr{ model }xmsi;
-Readonly our $RE_ID_WORKSHOP => qr{ \A . W \z}xmsi;
+Readonly our $RE_TBD   => qr{ \A [\$]? T [.]? B [.]? D[.]? \z }xmsi;
+Readonly our $RE_MODEL => qr{ model }xmsi;
 ## use critic
 
-q{Café}        =~ $RE_CAFE  or croak q{Assertion fail};
-q{CAFE}        =~ $RE_CAFE  or croak q{Assertion fail};
-q{CAFET}       !~ $RE_CAFE  or croak q{Assertion fail};
 q{free}        =~ $RE_FREE  or croak q{Assertion fail};
 q{n/A}         =~ $RE_FREE  or croak q{Assertion fail};
 q{nothing}     =~ $RE_FREE  or croak q{Assertion fail};
@@ -100,7 +97,7 @@ sub pre_is_full_ {
 my @uniq_id
     :Field
     :Type(scalar)
-    :Arg(Name => q{uniq_id}, Mand => 1, Pre => \&Table::Panel::pre_init_text_)
+    :Arg(Name => q{uniq_id}, Mand => 1, Pre => \&Data::Panel::pre_init_text_)
     :Get(get_uniq_id);
 
 my @id_prefix
@@ -130,31 +127,31 @@ my @anchor :Field
 my @name
     :Field
     :Type(scalar)
-    :Arg(Name => q{name}, Pre => \&Table::Panel::pre_init_text_)
+    :Arg(Name => q{name}, Pre => \&Data::Panel::pre_init_text_)
     :Get(get_name);
 
 my @rooms
     :Field
-    :Type(list(Table::Room))
+    :Type(list(Data::Room))
     :Arg(Name => q{rooms}, Mand => 1)
     :Get(Name => q{get_rooms_}, Restricted => 1 );
 
 my @desc
     :Field
     :Type(scalar)
-    :Arg(Name => q{description}, Pre => \&Table::Panel::pre_init_text_)
+    :Arg(Name => q{description}, Pre => \&Data::Panel::pre_init_text_)
     :Get(get_description);
 
 my @note
     :Field
     :Type(scalar)
-    :Arg(Name => q{note}, Pre => \&Table::Panel::pre_init_text_)
+    :Arg(Name => q{note}, Pre => \&Data::Panel::pre_init_text_)
     :Get(get_note);
 
 my @av_note
     :Field
     :Type(scalar)
-    :Arg(Name => q{av_note}, Pre => \&Table::Panel::pre_init_text_)
+    :Arg(Name => q{av_note}, Pre => \&Data::Panel::pre_init_text_)
     :Get(get_av_note);
 
 my @difficulty
@@ -165,20 +162,25 @@ my @difficulty
 my @panel_kind
     :Field
     :Type(scalar)
-    :Arg(Name => q{panel_kind}, Pre => \&Table::Panel::pre_init_text_)
-    :Set(Name => q{set_panel_kind}, Pre => \&Table::Panel::pre_set_text_)
-    :Get(get_panel_kind);
+    :Arg(Name => q{panel_kind}, Pre => \&Data::Panel::pre_init_text_)
+    :Get(Name => q{get_panel_kind_}, Restricted => 1);
+
+my @panel_type
+    :Field
+    :Type(Data::PanelType)
+    :Set(Name => q{set_panel_type_}, Restricted => 1)
+    :Get(Name => q{get_panel_type_}, Restricted => 1);
 
 my @cost
     :Field
     :Type(scalar)
-    :Arg(Name => q{cost}, Pre => \&Table::Panel::pre_init_cost_)
+    :Arg(Name => q{cost}, Pre => \&Data::Panel::pre_init_cost_)
     :Get(Name => q{_get_cost}, Private => 1 );
 
 my @full
     :Field
     :Type(scalar)
-    :Arg(Name => q{is_full}, Pre => \&Table::Panel::pre_is_full_)
+    :Arg(Name => q{is_full}, Pre => \&Data::Panel::pre_is_full_)
     :Get(Name => q{get_is_full_}, Private => 1);
 
 my @css_subclasses
@@ -303,16 +305,22 @@ sub get_href_anchor {
 
 } ## end sub get_href_anchor
 
-sub get_panel_is_break {
+sub get_panel_type {
     my ( $self ) = @_;
-    return 1 if uc $self->get_uniq_id_prefix() eq q{BR};
-    return;
-}
-
-sub get_panel_is_cafe {
-    my ( $self ) = @_;
-    return $self->get_panel_kind() =~ $RE_CAFE;
-}
+    my $type = $self->get_panel_type_();
+    return $type if defined $type;
+    my $prefix = $self->get_uniq_id_prefix();
+    $type = Table::PanelType::lookup( $prefix );
+    if ( !defined $type ) {
+        $type = Data::PanelType->new(
+            prefix => uc $prefix,
+            kind   => $self->get_panel_kind_() // $prefix . q{ Panel}
+        );
+        Table::PanelType::register( $type );
+    } ## end if ( !defined $type )
+    $self->set_panel_type_( $type );
+    return $type;
+} ## end sub get_panel_type
 
 sub get_rooms {
     my ( $self ) = @_;
@@ -338,7 +346,7 @@ sub get_cost {
         return $cost;
     }
 
-    return $COST_TBD if $self->get_uniq_id_prefix() =~ $RE_ID_WORKSHOP;
+    return $COST_TBD if $self->get_panel_type()->is_workshop();
 
     return;
 } ## end sub get_cost
@@ -352,7 +360,7 @@ sub get_cost_is_model {
 sub get_cost_is_missing {
     my ( $self ) = @_;
     return   if defined $self->_get_cost();
-    return 1 if $self->get_uniq_id_prefix() =~ $RE_ID_WORKSHOP;
+    return 1 if $self->get_panel_type()->is_workshop();
     return;
 } ## end sub get_cost_is_missing
 

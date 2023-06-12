@@ -1,125 +1,142 @@
 package Table::Room;
 
-use Object::InsideOut;
+use base qw{Exporter};
 
 use strict;
 use warnings;
 use common::sense;
 
-use Readonly;
-use utf8;
+use Canonical   qw{ :all };
+use Data::Room  qw{};
+use Field::Room qw{};
+use Workbook    qw{};
 
-use overload
-    q{<=>} => q{compare},
-    q{cmp} => q{compare};
+our @EXPORT_OK = qw {
+    all_rooms
+    lookup
+    register
+    read_from
+};
 
-Readonly our $SPLIT_PREFIX     => q{SPLIT};
-Readonly our $BREAK            => q{BREAK};
-Readonly our $HIDDEN_SORT_KEY  => 100;
-Readonly our $UNKNOWN_SORT_KEY => 999;
+our %EXPORT_TAGS = (
+    all => [ @EXPORT_OK ],
+);
 
-## no critic (ProhibitUnusedVariables)
+my @rooms_;
+my %by_key_;
 
-my @sort_key
-    :Field
-    :Type(scalar)
-    :Std_All(sort_key);
+sub needed_ {
+    my ( @names ) = @_;
 
-my @short_name
-    :Field
-    :Type(scalar)
-    :Arg(short_name)
-    :Std(short_room_name);
+    foreach my $name ( @names ) {
+        next unless defined $name;
+        next if $name eq q{};
+        next if defined lookup( $name );
+        return 1;
+    } ## end foreach my $name ( @names )
+    return;
+} ## end sub needed_
 
-my @long_name
-    :Field
-    :Type(scalar)
-    :Arg(long_name)
-    :Std(long_room_name);
+sub read_room_ {
+    my ( $header, $san_header, $raw ) = @_;
 
-my @hotel
-    :Field
-    :Type(scalar)
-    :Std_All(hotel_room);
+    my %room_data;
 
-## use critic
+    foreach my $column ( keys @{ $raw } ) {
+        my $header_text = $header->[ $column ];
+        my $header_alt  = $san_header->[ $column ];
 
-my @uid_map;
+        my $raw_text = $raw->[ $column ];
+        if ( defined $raw_text ) {
+            if ( $raw_text =~ m{\s}xms ) {
+                $raw_text =~ s{\A \s*}{}xms;
+                $raw_text =~ s{\s* \z}{}xms;
+            }
+            undef $raw_text if $raw_text eq q{};
+        } ## end if ( defined $raw_text)
+        $room_data{ $header_text } = $raw_text;
+        $room_data{ $header_alt }  = $raw_text;
+    } ## end foreach my $column ( keys @...)
 
-sub get_room_id {
-    my ( $self ) = @_;
-    return ${ $self };
+    my $short_name = $room_data{ $Field::Room::NAME };
+    my $long_name  = $room_data{ $Field::Room::LONG_NAME } // $short_name;
+    $short_name //= $long_name;
+
+    return unless defined $short_name;
+
+    my $hotel = $room_data{ $Field::Room::HOTEL };
+
+    return unless needed_( $long_name, $short_name, $hotel );
+
+    my $room = Data::Room->new(
+        sort_key   => $room_data{ $Field::Room::SORT_KEY },
+        short_name => $short_name,
+        long_name  => $long_name,
+        hotel_room => $hotel,
+    );
+    register( $room );
+
+    return;
+} ## end sub read_room_
+
+sub all_rooms {
+    return @rooms_;
 }
 
-sub find_by_room_id {
-    my ( $class, $uid ) = @_;
-
-    my $value = $uid_map[ $uid ];
-    return $value if defined $value;
+sub lookup {
+    my ( $name ) = @_;
+    return unless defined $name;
+    return if $name eq q{};
+    $name = canonical_header( $name );
+    $name = lc $name;
+    my $room = $by_key_{ $name };
+    return $room if defined $room;
     return;
-} ## end sub find_by_room_id
+} ## end sub lookup
 
-sub init_ :Init {
-    my ( $self, $args ) = @_;
-    my $uid = $self->get_room_id();
-    $uid_map[ $uid ] = $self;
+sub register {
+    my ( @rooms ) = @_;
+
+    foreach my $room ( @rooms ) {
+        foreach my $key (
+            $room->get_short_room_name(),
+            $room->get_long_room_name(),
+            $room->get_hotel_room()
+        ) {
+            next unless defined $key;
+            $key = canonical_header( $key );
+            $key = lc $key;
+            $by_key_{ $key } //= $room;
+        } ## end foreach my $key ( $room->get_short_room_name...)
+
+        push @rooms_, $room;
+    } ## end foreach my $room ( @rooms )
+
     return;
-} ## end sub init_
+} ## end sub register
 
-sub destroy_ :Destroy {
-    my ( $self ) = @_;
-    my $uid = $self->get_room_id();
-    $uid_map[ $uid ] = undef;
-    return;
-} ## end sub destroy_
+sub read_from {
+    my ( $wb ) = @_;
+    return unless defined $wb;
 
-sub has_prefix {
-    my ( $self, $prefix ) = @_;
-    return unless defined $prefix;
-    my $len = length $prefix;
-    $prefix = uc $prefix;
+    my $sheet = $wb->sheet( q{Rooms} );
+    return unless defined $sheet;
+    return unless $sheet->get_is_open();
 
-    return 1 if $prefix eq uc substr $self->get_short_room_name(), 0, $len;
-    return 1 if $prefix eq uc substr $self->get_long_room_name(),  0, $len;
-    return;
-} ## end sub has_prefix
+    my $header = $sheet->get_next_line();
+    return unless defined $header;
+    my @san_header = map { canonical_header( $_ ) } @{ $header };
 
-sub get_is_split {
-    my ( $self ) = @_;
-    return $self->has_prefix( $SPLIT_PREFIX );
-}
+    while ( my $raw = $sheet->get_next_line() ) {
+        last unless defined $raw;
 
-sub get_room_is_hidden {
-    my ( $self ) = @_;
-    my $sort_key = $self->get_sort_key();
-    return 1 unless defined $sort_key;
-    return 1 unless $sort_key =~ m{ \A \d+ \z }xms;
-    return 1 if $sort_key >= $HIDDEN_SORT_KEY;
-    return;
-} ## end sub get_room_is_hidden
-
-sub get_room_is_break {
-    my ( $self ) = @_;
-    return 1 if $BREAK eq uc $self->get_short_room_name();
-    return 1 if $BREAK eq uc $self->get_long_room_name();
-    return;
-} ## end sub get_room_is_break
-
-sub compare {
-    my ( $self, $other, $swap ) = @_;
-    if ( !defined $other ) {
-        my $before = $swap ? 1 : -1;
-        return $self <= $UNKNOWN_SORT_KEY ? $before : -$before;
+        read_room_( $header, \@san_header, $raw );
     }
 
-    die q{Compare Room with something else:}, ( ref $other ), qq{\n}
-        unless ref $other && $other->isa( q{Table::Room} );
+    $sheet->release() if defined $sheet;
+    undef $sheet;
 
-    ( $self, $other ) = ( $other, $self ) if $swap;
+    return;
+} ## end sub read_from
 
-    return
-           $self->get_sort_key() <=> $other->get_sort_key()
-        || $self->get_long_room_name() cmp $other->get_long_room_name()
-        || $self->get_room_id() <=> $other->get_room_id();
-} ## end sub compare
 1;

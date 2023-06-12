@@ -7,11 +7,12 @@ use warnings;
 use common::sense;
 
 use Carp qw{croak};
-use ActivePanel;
-use PresenterSet;
 use Readonly;
-use Table::Panel;
 use utf8;
+
+use ActivePanel;
+use Data::Panel;
+use PresenterSet;
 
 ## no critic (ProhibitUnusedVariables)
 
