@@ -58,9 +58,9 @@ sub def_option_ {
 } ## end sub def_option_
 
 sub sub_option_ {
-    my ( $self, $opt_name, $value ) = @_;
+    my ( $self, $opt_name, $value, @args ) = @_;
 
-    $self->$value();
+    $self->$value( @args );
     return;
 } ## end sub sub_option_
 
@@ -85,6 +85,26 @@ sub hash_option_ {
     return;
 } ## end sub hash_option_
 
+sub rev_hash_option_ {
+    my ( $self, $opt_name, $value, @keys ) = @_;
+
+    my $deleted;
+    foreach my $key ( @keys ) {
+        $value = undef if $value eq q{};
+        if ( defined $value ) {
+            $self->{ $opt_name }->{ $key } = $value;
+        }
+        else {
+            delete $self->{ $opt_name }->{ $key };
+            $deleted = 1;
+        }
+    } ## end foreach my $key ( @keys )
+    if ( $deleted && !%{ $self->{ $opt_name } } ) {
+        delete $self->{ $opt_name };
+    }
+    return;
+} ## end sub rev_hash_option_
+
 sub get_method_ {
     my ( $self, $mod, @parms ) = @_;
 
@@ -94,6 +114,10 @@ sub get_method_ {
     return
         sub { shift; $self->increment_option_( @parms, to_str_ @_ ); return; }
         if $mod =~ m{\+\z}xms;
+
+    return
+        sub { shift; $self->rev_hash_option_( @parms, to_str_ @_ ); return; }
+        if $mod =~ m{\%\%\z}xms;
 
     return sub { shift; $self->hash_option_( @parms, to_str_ @_ ); return; }
         if $mod =~ m{\%\z}xms;
@@ -133,7 +157,7 @@ sub get_getopt_flag_ {
     } ## end for ( @flags )
     $flag = join q{|}, @flags;
     $flag .= $flag_mod;
-    $flag =~ s{[\%/&]\z}{}xms;
+    $flag =~ s{[\%/&]+\z}{}xms;
     return $flag => $self->get_method_( $flag_mod, $opt_name, @values );
 } ## end sub get_getopt_flag_
 
@@ -515,6 +539,53 @@ sub has_rooms {
     return 1 if defined $rooms;
     return;
 } ## end sub has_rooms
+
+## --show-room _room_
+##     Show room, even if normally hidden
+## --hide-room _room_
+##     Hide room, even if normally shown
+## --show-paneltype _paneltype_
+##     Show paneltype even if normally hidden
+## --hide-paneltype _paneltype_
+##     Hide paneltype even if normally shown
+
+Readonly our $OPT_ROOM_VIS      => q{room-vis};
+Readonly our $OPT_PANELTYPE_VIS => q{panel-vis};
+
+push @opt_parse,
+    [ $OPT_ROOM_VIS,      [ qw{ show-room } ],      q{=s%%}, 1, ],
+    [ $OPT_ROOM_VIS,      [ qw{ hide-room } ],      q{=s%%}, 0, ],
+    [ $OPT_PANELTYPE_VIS, [ qw{ show-paneltype } ], q{=s%%}, 1, ],
+    [ $OPT_PANELTYPE_VIS, [ qw{ hide-paneltype } ], q{=s%%}, 0, ],
+    ;
+
+sub get_rooms_shown {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_ROOM_VIS };
+    return unless defined $hash;
+    return grep { $hash->{ $_ } } keys %{ $hash };
+} ## end sub get_rooms_shown
+
+sub get_rooms_hidden {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_ROOM_VIS };
+    return unless defined $hash;
+    return grep { !$hash->{ $_ } } keys %{ $hash };
+} ## end sub get_rooms_hidden
+
+sub get_paneltypes_shown {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_PANELTYPE_VIS };
+    return unless defined $hash;
+    return grep { $hash->{ $_ } } keys %{ $hash };
+} ## end sub get_paneltypes_shown
+
+sub get_paneltypes_hidden {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_PANELTYPE_VIS };
+    return unless defined $hash;
+    return grep { !$hash->{ $_ } } keys %{ $hash };
+} ## end sub get_paneltypes_hidden
 
 ## --show-all-rooms
 ##     Show rooms even if they have no events scheduled

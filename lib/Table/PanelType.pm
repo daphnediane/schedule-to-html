@@ -28,6 +28,7 @@ my %by_key_;
 my %known_color_sets_ = ( color => 1 );
 
 our %IS_MAP_ => (
+    $Field::PanelType::HIDDEN      => q{is_hidden},
     $Field::PanelType::IS_BREAK    => q{is_break},
     $Field::PanelType::IS_CAFE     => q{is_cafe},
     $Field::PanelType::IS_CAFE2    => q{is_cafe},

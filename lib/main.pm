@@ -432,7 +432,30 @@ sub read_spreadsheet_file {
     }
 
     Table::Room::read_from( $wb );
+
+    foreach my $room_name ( $options->get_rooms_shown() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_shown();
+    }
+    foreach my $room_name ( $options->get_rooms_hidden() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_hidden();
+    }
+
     Table::PanelType::read_from( $wb );
+
+    foreach my $paneltype_name ( $options->get_paneltypes_shown() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_shown();
+    }
+    foreach my $paneltype_name ( $options->get_paneltypes_hidden() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_hidden();
+    }
 
     my $main_sheet = $wb->sheet();
     if ( !defined $main_sheet || !$main_sheet->get_is_open() ) {
@@ -473,10 +496,12 @@ sub mtr_process_time_panel_start {
     my ( $state, $time, $panel ) = @_;
 
     return unless defined $panel;
+    my $panel_type = $panel->get_panel_type();
+    return unless defined $panel_type;
+    return if $panel_type->get_is_hidden();
 
     foreach my $room ( $panel->get_rooms() ) {
         next unless defined $room;
-        my $panel_type = $panel->get_panel_type();
 
         if ( $room->get_room_is_hidden() ) {
             if ( $room->get_room_is_break() || $panel_type->is_break() ) {

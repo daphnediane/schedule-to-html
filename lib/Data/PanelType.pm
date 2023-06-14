@@ -48,6 +48,14 @@ my @is_cafe_key
     :Set(Name => q{set_is_cafe_}, Restricted => 1)
     :Get(Name => q{get_is_cafe_}, Restricted => 1);
 
+my @is_hidden_key
+    :Field
+    :Type(scalar)
+    :Default(0)
+    :Arg(Name => q{is_hidden})
+    :Set(Name => q{set_is_hidden_}, Restricted => 1)
+    :Get(Name => q{get_is_hidden});
+
 my @is_workshop_key
     :Field
     :Type(scalar)
@@ -88,6 +96,18 @@ sub is_cafe {
     $self->set_is_cafe_( 0 );
     return;
 } ## end sub is_cafe
+
+sub make_shown {
+    my ( $self ) = @_;
+    $self->set_is_hidden_( 0 );
+    return;
+}
+
+sub make_hidden {
+    my ( $self ) = @_;
+    $self->set_is_hidden_( 1 );
+    return;
+}
 
 sub is_workshop {
     my ( $self ) = @_;

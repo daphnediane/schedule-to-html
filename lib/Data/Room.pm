@@ -6,6 +6,7 @@ use strict;
 use warnings;
 use common::sense;
 
+use Carp qw{ confess };
 use Readonly;
 use utf8;
 
@@ -44,6 +45,12 @@ my @hotel
     :Type(scalar)
     :Arg(Name => q{hotel_room})
     :Get(Name => q{get_hotel_room});
+
+my @hide_room
+    :Field
+    :Type(scalar)
+    :Set(Name => q{set_room_is_hidden_}, Restricted => 1, Ret => q{New})
+    :Get(Name => q{get_room_is_hidden_}, Restricted => 1);
 
 ## use critic
 
@@ -130,12 +137,38 @@ sub get_is_split {
     return $self->has_prefix( $SPLIT_PREFIX );
 }
 
+sub set_room_is_hidden {
+    my ( $self ) = @_;
+    my $hidden = $self->get_room_is_hidden_();
+    return                           if $hidden;
+    confess q{Room is already shown} if defined $hidden;
+    $self->set_room_is_hidden_( 1 );
+    return;
+} ## end sub set_room_is_hidden
+
+sub set_room_is_shown {
+    my ( $self ) = @_;
+    my $hidden = $self->get_room_is_hidden_();
+    if ( defined $hidden ) {
+        return unless $hidden;
+        confess q{Room is already hidden};
+    }
+    $self->set_room_is_hidden_( 0 );
+    return;
+} ## end sub set_room_is_shown
+
 sub get_room_is_hidden {
     my ( $self ) = @_;
+    my $hidden = $self->get_room_is_hidden_();
+    return 1 if $hidden;
+    return   if defined $hidden;
+
     my $sort_key = $self->get_sort_key();
-    return 1 unless defined $sort_key;
-    return 1 unless $sort_key =~ m{ \A \d+ \z }xms;
-    return 1 if $sort_key >= $HIDDEN_SORT_KEY;
+    return $self->set_room_is_hidden_( 1 ) unless defined $sort_key;
+    return $self->set_room_is_hidden_( 1 )
+        unless $sort_key =~ m{ \A \d+ \z }xms;
+    return $self->set_room_is_hidden_( 1 ) if $sort_key >= $HIDDEN_SORT_KEY;
+    $self->set_room_is_hidden_( 0 );
     return;
 } ## end sub get_room_is_hidden
 
