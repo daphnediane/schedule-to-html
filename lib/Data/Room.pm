@@ -23,27 +23,27 @@ Readonly our $UNKNOWN_SORT_KEY => 999;
 my @sort_key
     :Field
     :Type(scalar)
-    :Arg(sort_key)
-    :Get(Name => q{get_sort_key_}, Restricted => 1)
-    :Set(Name => q{set_sort_key_}, Restricted => 1);
+    :Arg(Name => q{sort_key})
+    :Set(Name => q{set_sort_key_}, Restricted => 1)
+    :Get(Name => q{get_sort_key_}, Restricted => 1);
 
 my @short_name
     :Field
     :Type(scalar)
-    :Arg(short_name)
-    :Get(get_short_room_name);
+    :Arg(Name => q{short_name})
+    :Get(Name => q{get_short_room_name});
 
 my @long_name
     :Field
     :Type(scalar)
-    :Arg(long_name)
-    :Get(get_long_room_name);
+    :Arg(Name => q{long_name})
+    :Get(Name => q{get_long_room_name});
 
 my @hotel
     :Field
     :Type(scalar)
-    :Arg(hotel_room)
-    :Get(get_hotel_room);
+    :Arg(Name => q{hotel_room})
+    :Get(Name => q{get_hotel_room});
 
 ## use critic
 

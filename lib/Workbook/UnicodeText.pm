@@ -15,7 +15,8 @@ use utf8;
 my @cache
     :Field
     :Default([])
-    :Std(Name => q{line_cache_}, Restricted => 1);
+    :Set(Name => q{set_line_cache_}, Restricted => 1)
+    :Get(Name => q{get_line_cache_}, Restricted => 1);
 
 ## use critic
 

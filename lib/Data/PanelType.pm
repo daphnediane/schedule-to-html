@@ -25,41 +25,41 @@ q{CAFET} !~ $RE_CAFE or croak q{Assertion fail};
 my @prefix_key
     :Field
     :Type(scalar)
-    :Arg(Name => q{prefix}, Mand => 1 )
-    :Get(get_prefix);
+    :Arg(Name => q{prefix}, Mand => 1)
+    :Get(Name => q{get_prefix});
 
 my @kind_key
     :Field
     :Type(scalar)
-    :Arg(Name => q{kind}, Mand => 1 )
-    :Get(get_kind);
+    :Arg(Name => q{kind}, Mand => 1)
+    :Get(Name => q{get_kind});
 
 my @is_break_key
     :Field
     :Type(scalar)
-    :Arg(Name => q{is_break} )
-    :Set(Name => q{set_is_break_}, Restricted => 1 )
-    :Get(Name => q{get_is_break_}, Restricted => 1 );
+    :Arg(Name => q{is_break})
+    :Set(Name => q{set_is_break_}, Restricted => 1)
+    :Get(Name => q{get_is_break_}, Restricted => 1);
 
 my @is_cafe_key
     :Field
     :Type(scalar)
-    :Arg(Name => q{is_cafe} )
-    :Set(Name => q{set_is_cafe_}, Restricted => 1 )
-    :Get(Name => q{get_is_cafe_}, Restricted => 1 );
+    :Arg(Name => q{is_cafe})
+    :Set(Name => q{set_is_cafe_}, Restricted => 1)
+    :Get(Name => q{get_is_cafe_}, Restricted => 1);
 
 my @is_workshop_key
     :Field
     :Type(scalar)
-    :Arg(Name => q{is_workshop} )
-    :Set(Name => q{set_is_workshop_}, Restricted => 1 )
-    :Get(Name => q{get_is_workshop_}, Restricted => 1 );
+    :Arg(Name => q{is_workshop})
+    :Set(Name => q{set_is_workshop_}, Restricted => 1)
+    :Get(Name => q{get_is_workshop_}, Restricted => 1);
 
 my @color_sets_key
     :Field
     :Type(scalar)
     :Default({})
-    :Get(Name => q{get_color_sets_}, Restricted => 1 );
+    :Get(Name => q{get_color_sets_}, Restricted => 1);
 
 ## use critic
 

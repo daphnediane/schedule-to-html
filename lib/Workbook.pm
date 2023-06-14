@@ -12,20 +12,21 @@ use utf8;
 ## no critic (ProhibitUnusedVariables)
 
 my @filename
-    :Field
-    :Arg(Name => q{filename}, Mandatory => 1 )
-    :Get(get_filename);
+    :Field Arg(Name => q{filename}, Mandatory => 1)
+    :Get(Name => q{get_filename});
 
 my @default_sheet
     :Field
     :Type(scalar)
-    :Std_All(default_sheet);
+    :Arg(Name => q{default_sheet})
+    :Set(Name => q{set_default_sheet})
+    :Get(Name => q{get_default_sheet});
 
 my @is_open
     :Field
     :Type(scalar)
-    :Get(get_is_open)
-    :Set(Name => q{set_is_open_}, Restricted => 1);
+    :Set(Name => q{set_is_open_}, Restricted => 1)
+    :Get(Name => q{get_is_open});
 
 ## use critic
 

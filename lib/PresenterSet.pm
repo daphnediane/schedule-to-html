@@ -26,15 +26,20 @@ my @presenter_set
 
 my @hide_credits
     :Field
-    :Std_All(are_credits_hidden);
+    :Arg(Name => q{are_credits_hidden})
+    :Set(Name => q{set_are_credits_hidden})
+    :Get(Name => q{get_are_credits_hidden});
 
 my @override_credits
     :Field
-    :Std_All(override_credits);
+    :Arg(Name => q{override_credits})
+    :Set(Name => q{set_override_credits})
+    :Get(Name => q{get_override_credits});
 
 my @credits
     :Field
-    :Std(Name => q{credits_}, Private => 1);
+    :Set(Name => q{set_credits_}, Private => 1)
+    :Get(Name => q{get_credits_}, Private => 1);
 ## use critic
 
 sub add_presenters_ {

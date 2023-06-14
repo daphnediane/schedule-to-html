@@ -98,62 +98,64 @@ my @uniq_id
     :Field
     :Type(scalar)
     :Arg(Name => q{uniq_id}, Mand => 1, Pre => \&Data::Panel::pre_init_text_)
-    :Get(get_uniq_id);
+    :Get(Name => q{get_uniq_id});
 
 my @id_suffix
-    :Field
-    :Std(Name => q{id_suffix_}, Restricted => 1 );
+    :Field Set(Name => q{set_id_suffix_}, Restricted => 1)
+    :Get(Name => q{get_id_suffix_}, Restricted => 1);
 
 my @id_base
-    :Field
-    :Std(Name => q{id_base_}, Restricted => 1 );
+    :Field Set(Name => q{set_id_base_}, Restricted => 1)
+    :Get(Name => q{get_id_base_}, Restricted => 1);
 
 my @id_part
-    :Field
-    :Std(Name => q{id_part_}, Restricted => 1 );
+    :Field Set(Name => q{set_id_part_}, Restricted => 1)
+    :Get(Name => q{get_id_part_}, Restricted => 1);
 
 my @id_instance
-    :Field
-    :Std(Name => q{id_instance_}, Restricted => 1 );
+    :Field Set(Name => q{set_id_instance_}, Restricted => 1)
+    :Get(Name => q{get_id_instance_}, Restricted => 1);
 
 my @anchor :Field
-    :Type(scalar)
-    :Std(Name => q{anchor_}, Restricted => 1 );
+    :Type(scalar) Set(Name => q{set_anchor_}, Restricted => 1)
+    :Get(Name => q{get_anchor_}, Restricted => 1);
 
 my @name
     :Field
     :Type(scalar)
     :Arg(Name => q{name}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(get_name);
+    :Get(Name => q{get_name});
 
 my @rooms
     :Field
     :Type(list(Data::Room))
     :Arg(Name => q{rooms}, Mand => 1)
-    :Get(Name => q{get_rooms_}, Restricted => 1 );
+    :Get(Name => q{get_rooms_}, Restricted => 1);
 
 my @desc
     :Field
     :Type(scalar)
     :Arg(Name => q{description}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(get_description);
+    :Get(Name => q{get_description});
 
 my @note
     :Field
     :Type(scalar)
     :Arg(Name => q{note}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(get_note);
+    :Get(Name => q{get_note});
 
 my @av_note
     :Field
     :Type(scalar)
     :Arg(Name => q{av_note}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(get_av_note);
+    :Get(Name => q{get_av_note});
 
 my @difficulty
     :Field
     :Type(scalar)
-    :Std_All(difficulty);
+    :Arg(Name => q{difficulty})
+    :Set(Name => q{set_difficulty})
+    :Get(Name => q{get_difficulty});
 
 my @panel_kind
     :Field
@@ -171,7 +173,7 @@ my @cost
     :Field
     :Type(scalar)
     :Arg(Name => q{cost}, Pre => \&Data::Panel::pre_init_cost_)
-    :Get(Name => q{_get_cost}, Private => 1 );
+    :Get(Name => q{_get_cost}, Private => 1);
 
 my @full
     :Field
@@ -182,14 +184,15 @@ my @full
 my @css_subclasses
     :Field
     :Type(ARRAY_ref(scalar))
-    :Std(css_subclasses);
+    :Set(Name => q{set_css_subclasses})
+    :Get(Name => q{get_css_subclasses});
 
 my @presenter_set
     :Field
     :Type(PresenterSet)
-    :Arg(presenter_set)
-    :Get(get_presenter_set)
+    :Arg(Name => q{presenter_set})
     :Set(Name => q{set_presenter_set_}, Private => 1)
+    :Get(Name => q{get_presenter_set})
     :Default(PresenterSet->new())
     :Handles(PresenterSet::);
 

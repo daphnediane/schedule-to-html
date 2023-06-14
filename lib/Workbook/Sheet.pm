@@ -15,36 +15,38 @@ use utf8;
 my @workbook
     :Field
     :Arg(Name => q{workbook}, Mandatory => 1)
-    :Get(get_workbook)
-    :Set(Name => q{set_workbook_}, Restricted => 1);
+    :Set(Name => q{set_workbook_}, Restricted => 1)
+    :Get(Name => q{get_workbook});
 
 my @sheet
     :Field
     :Type(scalar)
     :Default(0)
     :Arg(Name => q{sheet})
-    :Get(get_sheet);
+    :Get(Name => q{get_sheet});
 
 my @sheet_handle
     :Field
     :Set(Name => q{set_sheet_handle_}, Restricted => 1)
-    :Get(get_sheet_handle_);
+    :Get(Name => q{get_sheet_handle_});
 
 my @next_row
     :Field
     :Type(scalar)
-    :Std(Name=>q{next_row_}, Restricted => 1);
+    :Set(Name=>q{set_next_row_}, Restricted => 1)
+    :Get(Name=>q{get_next_row_}, Restricted => 1);
 
 my @last_row
     :Field
     :Type(scalar)
-    :Std(Name=>q{last_row_}, Restricted => 1);
+    :Set(Name=>q{set_last_row_}, Restricted => 1)
+    :Get(Name=>q{get_last_row_}, Restricted => 1);
 
 my @is_open
     :Field
     :Type(scalar)
-    :Get(get_is_open)
-    :Set(Name => q{set_is_open_}, Restricted => 1);
+    :Set(Name => q{set_is_open_}, Restricted => 1)
+    :Get(Name => q{get_is_open});
 
 ## use critic
 

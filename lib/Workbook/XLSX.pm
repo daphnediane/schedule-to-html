@@ -14,7 +14,8 @@ use utf8;
 
 my @wb
     :Field
-    :Std(Name => q{workbook_}, Restricted => 1);
+    :Set(Name => q{set_workbook_}, Restricted => 1)
+    :Get(Name => q{get_workbook_}, Restricted => 1);
 
 ## use critic
 

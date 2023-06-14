@@ -38,18 +38,18 @@ my @name
     :Field
     :Type(scalar)
     :Arg(Name => q{name}, Mandatory => 1)
-    :Get(get_presenter_name);
+    :Get(Name => q{get_presenter_name});
 
 my @rank
     :Field
     :Type(scalar)
     :Arg(Name => q{rank}, Mandatory => 1)
-    :Get(get_presenter_rank)
-    :Set(Name => q{set_presenter_rank_}, Restricted => 1);
+    :Set(Name => q{set_presenter_rank_}, Restricted => 1)
+    :Get(Name => q{get_presenter_rank});
 
 my @indices
     :Field
-    :Arg(index_array)
+    :Arg(Name => q{index_array})
     :Get(Name => q{get_index_array_}, Restricted => 1);
 
 # Others is not really a presenter, just a key that indicates that heading
@@ -57,27 +57,30 @@ my @indices
 my @is_other
     :Field
     :Type(scalar)
-    :Arg(is_other)
-    :Get(get_is_other);
+    :Arg(Name => q{is_other})
+    :Get(Name => q{get_is_other});
 
 my @is_meta
     :Field
     :Type(scalar)
-    :Arg(is_meta)
-    :Get(get_is_meta);
+    :Arg(Name => q{is_meta})
+    :Get(Name => q{get_is_meta});
 
 my @always_show
     :Field
     :Type(scalar)
-    :Std(is_always_shown);
+    :Set(Name => q{set_is_always_shown})
+    :Get(Name => q{get_is_always_shown});
 
 my @groups
     :Field
-    :Std(Name => q{groups_}, Restricted => 1);
+    :Set(Name => q{set_groups_}, Restricted => 1)
+    :Get(Name => q{get_groups_}, Restricted => 1);
 
 my @members
     :Field
-    :Std(Name => q{members_}, Restricted => 1);
+    :Set(Name => q{set_members_}, Restricted => 1)
+    :Get(Name => q{get_members_}, Restricted => 1);
 
 ## use critic
 

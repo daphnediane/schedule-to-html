@@ -18,11 +18,13 @@ use PresenterSet;
 
 my @current_panels
     :Field
-    :Std(Name => q{current_}, Restricted => 1);
+    :Set(Name => q{set_current_}, Restricted => 1)
+    :Get(Name => q{get_current_}, Restricted => 1);
 
 my @upcoming_panels
     :Field
-    :Std( Name => q{upcoming_}, Restricted => 1 );
+    :Set(Name => q{set_upcoming_}, Restricted => 1)
+    :Get(Name => q{get_upcoming_}, Restricted => 1);
 
 ## use critic
 

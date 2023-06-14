@@ -47,7 +47,7 @@ my @duration
     :Field
     :Type(scalar)
     :Arg(Name => q{duration}, Pre => \&TimeRange::pre_init_dur_)
-    :Set( Name => q{set_duration}, Pre => \&TimeRange::pre_set_time_ )
+    :Set(Name => q{set_duration}, Pre => \&TimeRange::pre_set_time_)
     :Get(Name => q{get_duration_}, Private => 1);
 
 sub get_start_seconds {

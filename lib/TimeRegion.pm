@@ -19,17 +19,17 @@ my @region_name
     :Field
     :Type(scalar)
     :Arg(Name => q{name}, Mandatory => 1)
-    :Get(get_region_name);
+    :Get(Name => q{get_region_name});
 
 my @active_room
     :Field
-    :Default({})
-    :Std(Name => q{active_rooms_}, Restricted => 1 );
+    :Default({}) Set(Name => q{set_active_rooms_}, Restricted => 1)
+    :Get(Name => q{get_active_rooms_}, Restricted => 1);
 
 my @presenters_at_time
     :Field
-    :Default({})
-    :Std(Name=> q{presenter_at_time_}, Restricted => 1 );
+    :Default({}) Set(Name=> q{set_presenter_at_time_}, Restricted => 1)
+    :Get(Name=> q{get_presenter_at_time_}, Restricted => 1);
 
 my @time_slots
     :Field
@@ -38,22 +38,24 @@ my @time_slots
 
 my @active_at_time
     :Field
-    :Default({})
-    :Std(Name => q{active_at_time_}, Restricted => 1 );
+    :Default({}) Set(Name => q{set_active_at_time_}, Restricted => 1)
+    :Get(Name => q{get_active_at_time_}, Restricted => 1);
 
 my @upcoming_at_time
     :Field
-    :Default({})
-    :Std(Name => q{upcoming_at_time_}, Restricted => 1 );
+    :Default({}) Set(Name => q{set_upcoming_at_time_}, Restricted => 1)
+    :Get(Name => q{get_upcoming_at_time_}, Restricted => 1);
 
 my @day_being_output
     :Field
     :Default(q{})
-    :Std(day_being_output);
+    :Set(Name => q{set_day_being_output})
+    :Get(Name => q{get_day_being_output});
 
 my @time_last_output_time
     :Field
-    :Std(last_output_time);
+    :Set(Name => q{set_last_output_time})
+    :Get(Name => q{get_last_output_time});
 
 ## use critic
 

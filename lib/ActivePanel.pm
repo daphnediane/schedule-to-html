@@ -17,17 +17,20 @@ my @panel
     :Field
     :Type(Data::Panel)
     :Arg(Name => q{active_panel}, Mandatory => 1)
-    :Get(get_active_panel);
+    :Get(Name => q{get_active_panel});
 
 my @rows
     :Field
     :Type(numeric)
-    :Std_All(Name => q{rows});
+    :Arg(Name => q{rows})
+    :Set(Name => q{set_rows})
+    :Get(Name => q{get_rows});
 
 my @is_break
     :Field
     :Type(scalar)
-    :Std_All(is_break);
+    :Arg(Name => q{is_break})
+    :Get(Name => q{get_is_break});
 
 my @room
     :Field
