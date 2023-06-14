@@ -9,7 +9,6 @@ use File::Spec   qw{};
 use FindBin      qw{};
 use Getopt::Long qw{GetOptionsFromArray};
 use HTML::Tiny   qw{};
-use List::Util   qw{any};
 use Readonly;
 use strict;
 use utf8;
@@ -20,11 +19,9 @@ use Canonical        qw{ :all };
 use Data::Panel      qw{};
 use Data::PanelType  qw{};
 use Data::Room       qw{};
-use Field::Panel     qw{};
-use Field::PanelType qw{};
-use Field::Room      qw{};
 use Options          qw{};
 use Presenter        qw{};
+use Table::Panel     qw{ :all };
 use Table::PanelType qw{ :all };
 use Table::Room      qw{ :all };
 use TimeDecoder      qw{ :from_text :to_text :timepoints};
@@ -159,9 +156,6 @@ Readonly our $FILTER_SET_DEFAULT => {};
 
 my $options;
 
-my %panels_by_start;
-my %panels_by_base;
-
 my %time_split;
 my %time_region;
 
@@ -220,211 +214,6 @@ sub join_subclass {
     return $base;
 } ## end sub join_subclass
 
-sub to_presenter {
-    my ( $per_info, $names ) = @_;
-
-    return           unless defined $per_info;
-    return $per_info unless $per_info->get_is_other();
-
-    my @indices   = $per_info->get_index_array();
-    my $sub_index = 0;
-
-    return map {
-        Presenter->lookup(
-            $_,
-            [ @indices, ++$sub_index ],
-            $per_info->get_presenter_rank()
-        )
-        }
-        split m{\s*,\s*}xms, $names;
-} ## end sub to_presenter
-
-sub process_spreadsheet_add_presenter {
-    my ( $presenter_set, $per_info_index, $raw_text ) = @_;
-
-    return unless defined $raw_text;
-
-    my $unlisted = $raw_text =~ m{\A[*]}xms || $raw_text =~ m{[*]\z}xms;
-
-    my @presenters = to_presenter( $per_info_index, $raw_text );
-
-    if ( $unlisted ) {
-        $presenter_set->add_unlisted_presenters( @presenters );
-    }
-    else {
-        $presenter_set->add_credited_presenters( @presenters );
-    }
-
-    return;
-} ## end sub process_spreadsheet_add_presenter
-
-sub process_spreadsheet_workshop {
-    my ( $panel ) = @_;
-    my @subclasses;
-
-    my $difficulty = $panel->get_difficulty();
-    if ( defined $difficulty && $difficulty =~ m{\A[?]+\z}xms ) {
-        undef $difficulty;
-        $panel->set_difficulty();
-    }
-    if ( defined $difficulty && $difficulty =~ m{\A\d+\z}xms ) {
-        push @subclasses, sprintf $SUBCLASS_FMT_DIFFICULTY, $difficulty;
-    }
-
-    if ( defined $panel->get_cost() ) {
-        push @subclasses, $SUBCLASS_NEED_COST;
-    }
-
-    if ( $panel->get_is_full() ) {
-        push @subclasses, $SUBCLASS_FULL;
-    }
-
-    return @subclasses;
-} ## end sub process_spreadsheet_workshop
-
-sub lookup_room_from_name {
-    my ( $panel_data, $room_name ) = @_;
-
-    return unless defined $room_name;
-    return if $room_name eq q{};
-
-    my $room = Table::Room::lookup( $room_name );
-    return $room if defined $room;
-
-    # Create room, this only works well if there is but a single room
-    my $short_name = $room_name;
-
-    my $sort_key  = $panel_data->{ $Field::Panel::ROOM_SORT_KEY };
-    my $long_name = $panel_data->{ $Field::Panel::ROOM_REAL_ROOM };
-    if ( defined $long_name ) {
-        $room = Table::Room::lookup( $long_name );
-        return $room if defined $room;
-    }
-    $short_name //= $long_name;
-    $long_name  //= $short_name;
-
-    my $hotel = $panel_data->{ $Field::Panel::ROOM_HOTEL_ROOM };
-    if ( defined $hotel ) {
-        $room = Table::Room::lookup( $hotel );
-        return $room if defined $room;
-    }
-
-    return unless defined $short_name;
-
-    my $uniq_id = $panel_data->{ $Field::Panel::UNIQUE_ID };
-    $sort_key //= $Data::Room::HIDDEN_SORT_KEY
-        if $uniq_id =~ m{\A (?: br | split ) }xmsi;
-    $sort_key //= -1;
-
-    $room = Data::Room->new(
-        sort_key   => $sort_key,
-        short_name => $short_name,
-        long_name  => $long_name,
-        hotel_room => $hotel,
-    );
-    warn q{Creating room: }, $long_name, qq{\n};
-
-    Table::Room::register( $room );
-
-    return $room;
-} ## end sub lookup_room_from_name
-
-sub get_rooms_from_panel_data {
-    my ( $panel_data ) = @_;
-
-    my $rooms = $panel_data->{ $Field::Panel::ROOM_NAME };
-    return unless defined $rooms;
-    my %seen;
-    my @rooms;
-
-    foreach my $room (
-        map { lookup_room_from_name( $panel_data, $_ ) }
-        split m{\s*[,/;]+\s*}xms,
-        $rooms
-    ) {
-        my $id = $room->get_room_id();
-        next if $seen{ $id };
-        $seen{ $id } = 1;
-        push @rooms, $room;
-    } ## end foreach my $room ( map { lookup_room_from_name...})
-
-    return @rooms;
-} ## end sub get_rooms_from_panel_data
-
-sub process_spreadsheet_row {
-    my ( $header, $san_header, $presenters_by_column, $raw ) = @_;
-
-    my %panel_data;
-    my $presenter_set = PresenterSet->new();
-    foreach my $column ( keys @{ $raw } ) {
-        my $header_text = $header->[ $column ];
-        my $header_alt  = $san_header->[ $column ];
-
-        my $raw_text = $raw->[ $column ];
-        if ( defined $raw_text ) {
-            $raw_text =~ s{\A \s++}{}xms;
-            $raw_text =~ s{\s++ \z}{}xms;
-            undef $raw_text if $raw_text eq q{};
-        }
-        $panel_data{ $header_text } = $raw_text;
-        $panel_data{ $header_alt }  = $raw_text;
-
-        if ( defined $presenters_by_column->[ $column ] && defined $raw_text )
-        {
-            process_spreadsheet_add_presenter(
-                $presenter_set,
-                $presenters_by_column->[ $column ], $raw_text
-            );
-        } ## end if ( defined $presenters_by_column...)
-    } ## end foreach my $column ( keys @...)
-
-    $presenter_set->set_are_credits_hidden( 1 )
-        if defined $panel_data{ $Field::Panel::PANELIST_HIDE };
-    $presenter_set->set_override_credits(
-        $panel_data{ $Field::Panel::PANELIST_ALT } );
-
-    my @rooms = get_rooms_from_panel_data( \%panel_data );
-    return unless @rooms;
-
-    my $panel = Data::Panel->new(
-        uniq_id       => $panel_data{ $Field::Panel::UNIQUE_ID },
-        cost          => $panel_data{ $Field::Panel::COST },
-        description   => $panel_data{ $Field::Panel::DESCRIPTION },
-        difficulty    => $panel_data{ $Field::Panel::DIFFICULTY },
-        duration      => $panel_data{ $Field::Panel::DURATION },
-        end_time      => $panel_data{ $Field::Panel::END_TIME },
-        is_full       => $panel_data{ $Field::Panel::FULL },
-        name          => $panel_data{ $Field::Panel::PANEL_NAME },
-        note          => $panel_data{ $Field::Panel::NOTE },
-        av_note       => $panel_data{ $Field::Panel::AV_NOTE },
-        panel_kind    => $panel_data{ $Field::Panel::PANEL_KIND },
-        rooms         => \@rooms,
-        start_time    => $panel_data{ $Field::Panel::START_TIME },
-        presenter_set => $presenter_set,
-    );
-
-    return unless defined $panel->get_start_seconds();
-
-    return unless defined $panel->get_name();
-
-    if ( any { $_->get_is_split() } @rooms ) {
-        register_time_split $panel->get_start_seconds(), $panel->get_name();
-        return;
-    }
-
-    my @subclasses = process_spreadsheet_workshop( $panel );
-
-    $panel->set_css_subclasses( \@subclasses );
-
-    mark_timepoint_seen( $panel->get_start_seconds() );
-    mark_timepoint_seen( $panel->get_end_seconds() );
-
-    push @{ $panels_by_start{ $panel->get_start_seconds() } //= [] }, $panel;
-    push @{ $panels_by_base{ $panel->get_uniq_id_base() }   //= [] }, $panel;
-
-    return;
-} ## end sub process_spreadsheet_row
-
 sub read_spreadsheet_file {
     my $wb = Workbook->new( filename => $options->get_input_file() );
     if ( !defined $wb || !$wb->get_is_open() ) {
@@ -457,36 +246,15 @@ sub read_spreadsheet_file {
         $paneltype->make_hidden();
     }
 
-    my $main_sheet = $wb->sheet();
-    if ( !defined $main_sheet || !$main_sheet->get_is_open() ) {
-        die q{Unable to find schedule sheet for },
-            $options->get_input_file(), qq{\n};
-    }
-
-    my $header = $main_sheet->get_next_line()
-        or die q{Missing header in: }, $options->get_input_file(), qq{\n};
-    my @san_header = map { canonical_header( $_ ) } @{ $header };
-
-    my @presenters_by_column = ();
-
-    foreach my $column ( keys @{ $header } ) {
-        my $header_text = $header->[ $column ];
-        my $info        = Presenter->lookup( $header_text, $column );
-        $presenters_by_column[ $column ] = $info if defined $info;
-    }
-
-    while ( my $raw = $main_sheet->get_next_line() ) {
-        last unless defined $raw;
-        process_spreadsheet_row(
-            $header, \@san_header, \@presenters_by_column,
-            $raw
+    Table::Panel::read_from( $wb );
+    foreach my $split ( get_split_panels() ) {
+        register_time_split(
+            $split->get_start_seconds(),
+            $split->get_name()
         );
-    } ## end while ( my $raw = $main_sheet...)
+    } ## end foreach my $split ( get_split_panels...)
 
-    $main_sheet->release() if defined $main_sheet;
-    $wb->release()         if defined $wb;
-
-    undef $main_sheet;
+    $wb->release() if defined $wb;
     undef $wb;
 
     return;
@@ -576,7 +344,7 @@ sub mtr_process_time {
     my ( $state, $time ) = @_;
 
     # Add new panels
-    foreach my $panel ( @{ $panels_by_start{ $time } } ) {
+    foreach my $panel ( get_panels_by_start( $time ) ) {
         mtr_process_time_panel_start( $state, $time, $panel );
     }
 
@@ -921,6 +689,33 @@ sub dump_grid_header {
     return;
 } ## end sub dump_grid_header
 
+sub css_subclasses_for_panel {
+    my ( $panel ) = @_;
+
+    return q{} unless defined $panel;
+
+    my $panel_type = $panel->get_panel_type();
+    my @subclasses = ( q{} );
+
+    push @subclasses, sprintf $SUBCLASS_FMT_TYPE,
+        uc $panel_type->get_prefix();
+
+    my $difficulty = $panel->get_difficulty();
+    if ( defined $difficulty && $difficulty =~ m{\A[[:alnum:]]+\z}xms ) {
+        push @subclasses, sprintf $SUBCLASS_FMT_DIFFICULTY, $difficulty;
+    }
+
+    if ( defined $panel->get_cost() ) {
+        push @subclasses, $SUBCLASS_NEED_COST;
+    }
+
+    if ( $panel->get_is_full() ) {
+        push @subclasses, $SUBCLASS_FULL;
+    }
+
+    return @subclasses;
+} ## end sub css_subclasses_for_panel
+
 sub dump_grid_row_cell_group {
     my ( $filter, $room_focus_map, $time_slot, $panel_state, @rooms ) = @_;
 
@@ -949,14 +744,12 @@ sub dump_grid_row_cell_group {
     my $credited_presenter = $panel->get_credits();
     my $panel_type         = $panel->get_panel_type();
 
-    my $type_css = sprintf $SUBCLASS_FMT_TYPE, uc $panel_type->get_prefix();
-
     if ( $panel_type->is_cafe() ) {
         $credited_presenter = $name;
         $name               = q{Café featuring};
     }
 
-    my @subclasses = ( q{}, $type_css, @{ $panel->get_css_subclasses() } );
+    my @subclasses = css_subclasses_for_panel( $panel );
     if ( exists $filter->{ $FILTER_PRESENTER } ) {
         my $presenter = $filter->{ $FILTER_PRESENTER };
         if ( $panel->is_presenter_hosting( $presenter ) ) {
@@ -1356,15 +1149,16 @@ sub dump_desc_panel_parts {
     my ( $panel ) = @_;
 
     my $part   = $panel->get_uniq_id_part();
-    my @series = sort {
-               $a->get_uniq_id_part()  <=> $b->get_uniq_id_part()
-            || $a->get_start_seconds() <=> $b->get_start_seconds()
-        }
-        grep {
-        $_->get_uniq_id_part() != $part && defined $_->get_start_seconds()
-        } @{ $panels_by_base{ $panel->get_uniq_id_base() } };
+    my @series = grep {
+        defined $_->get_start_seconds() && $_->get_uniq_id_part() != $part
+    } get_related_panels( $panel );
 
     return unless @series;
+
+    @series = sort {
+               $a->get_uniq_id_part()  <=> $b->get_uniq_id_part()
+            || $a->get_start_seconds() <=> $b->get_start_seconds()
+    } @series;
 
     out_line $h->ul(
         {   out_class( join_subclass(
@@ -1457,9 +1251,7 @@ sub dump_desc_panel_body {
     my $panel      = $panel_state->get_active_panel();
     my $panel_type = $panel->get_panel_type();
 
-    my $type_css = sprintf $SUBCLASS_FMT_TYPE, uc $panel_type->get_prefix();
-
-    my @subclasses = ( q{}, $type_css, @{ $panel->get_css_subclasses() } );
+    my @subclasses = css_subclasses_for_panel( $panel );
     my $conflict;
 
     if ( exists $filter->{ $FILTER_PRESENTER } ) {

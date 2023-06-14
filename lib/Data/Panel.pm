@@ -181,12 +181,6 @@ my @full
     :Arg(Name => q{is_full}, Pre => \&Data::Panel::pre_is_full_)
     :Get(Name => q{get_is_full_}, Private => 1);
 
-my @css_subclasses
-    :Field
-    :Type(ARRAY_ref(scalar))
-    :Set(Name => q{set_css_subclasses})
-    :Get(Name => q{get_css_subclasses});
-
 my @presenter_set
     :Field
     :Type(PresenterSet)
