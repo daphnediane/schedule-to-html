@@ -72,6 +72,12 @@ my @always_show
     :Set(Name => q{set_is_always_shown})
     :Get(Name => q{get_is_always_shown});
 
+my @always_as_group
+    :Field
+    :Type(scalar)
+    :Set(Name => q{set_is_always_grouped})
+    :Get(Name => q{get_is_always_grouped});
+
 my @groups
     :Field
     :Set(Name => q{set_groups_}, Restricted => 1)
@@ -323,12 +329,17 @@ sub lookup {
         $ginfo->set_is_always_shown( 1 ) if $always_shown;
     } ## end if ( defined $group &&...)
 
-    my $info = Presenter->new(
+    my $always_grouped = $name =~ s{\A <}{}xms;
+    my $info           = Presenter->new(
         name        => $name,
         rank        => $rank,
         index_array => $index,
     );
-    $ginfo->add_members( $info ) if defined $ginfo;
+
+    if ( defined $ginfo ) {
+        $ginfo->add_members( $info );
+        $info->set_is_always_grouped() if $always_grouped;
+    }
 
     return $info;
 } ## end sub lookup

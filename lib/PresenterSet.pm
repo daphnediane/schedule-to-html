@@ -164,6 +164,35 @@ PRESENTER:
     return values %shown;
 } ## end sub _get_credits_shown
 
+sub get_credited_as_ {
+    my ( $self, $presenter ) = @_;
+
+    my $p_set;
+
+    my $name = $presenter->get_presenter_name();
+    if ( $presenter->get_is_always_shown() && $presenter->is_group() ) {
+        my $count = 0;
+        my @hosting;
+        my $not_all;
+        foreach my $member ( $presenter->get_members() ) {
+            $p_set //= $self->get_set_();
+            if ( exists $p_set->{ $member->get_pid() } ) {
+                if ( $member->get_is_always_grouped() ) {
+                    return $name;
+                }
+                push @hosting, $member;
+            } ## end if ( exists $p_set->{ ...})
+            else {
+                $not_all = 1;
+            }
+        } ## end foreach my $member ( $presenter...)
+        if ( $not_all && 1 == scalar @hosting ) {
+            return $name . q{ (} . $hosting[ 0 ]->get_presenter_name() . q{)};
+        }
+    } ## end if ( $presenter->get_is_always_shown...)
+    return $name;
+} ## end sub get_credited_as_
+
 sub get_credits {
     my ( $self ) = @_;
 
@@ -177,30 +206,11 @@ sub get_credits {
     my $credits = $self->get_credits_();
     return $credits if defined $credits;
 
-    my $p_set = $self->get_set_();
-
     my @presenters;
 
     foreach my $presenter ( sort $self->_get_credits_shown() ) {
-        my $name = $presenter->get_presenter_name();
-        if ( $presenter->get_is_always_shown() && $presenter->is_group() ) {
-            my $count = 0;
-            my @hosting;
-            my $not_all;
-            foreach my $member ( $presenter->get_members() ) {
-                if ( exists $p_set->{ $member->get_pid() } ) {
-                    push @hosting, $member;
-                }
-                else {
-                    $not_all = 1;
-                }
-            } ## end foreach my $member ( $presenter...)
-            if ( $not_all && 1 == scalar @hosting ) {
-                $name .= q{ (} . $hosting[ 0 ]->get_presenter_name() . q{)};
-            }
-        } ## end if ( $presenter->get_is_always_shown...)
-        push @presenters, $name;
-    } ## end foreach my $presenter ( sort...)
+        push @presenters, $self->get_credited_as_( $presenter );
+    }
 
     # Handle long presenter names
     $credits = q{} if @presenters;
