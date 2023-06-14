@@ -500,6 +500,14 @@ sub mtr_process_time_panel_start {
     return unless defined $panel_type;
     return if $panel_type->get_is_hidden();
 
+    if ( $panel_type->is_break() ) {
+        if ( !exists $state->{ $MTR_ACTIVE_BREAK }
+            || $panel->get_end_seconds()
+            > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() ) {
+            $state->{ $MTR_ACTIVE_BREAK } = $panel;
+        }
+    } ## end if ( $panel_type->is_break...)
+
     foreach my $room ( $panel->get_rooms() ) {
         next unless defined $room;
 
@@ -838,7 +846,8 @@ sub dump_grid_row_room_names {
         my $room_id = $room->get_room_id();
         my $hotel   = $room->get_hotel_room();
         my $name    = $room->get_long_room_name();
-        if ( $hotel ne $name && !$options->is_mode_kiosk() ) {
+        if ( defined $hotel && $hotel ne $name && !$options->is_mode_kiosk() )
+        {
             $name = $name . $h->br() . $h->i( $hotel );
         }
         out_line $h->th(
@@ -1407,18 +1416,25 @@ sub should_panel_desc_be_dumped {
 
     return unless $panel->get_start_seconds() == $time;
 
-    return if $options->hide_breaks() && $panel_state->get_is_break();
-    return if $room->get_room_is_hidden();
+    return if $panel->get_panel_type()->get_is_hidden();
 
-    my $filter_panelist = $filter->{ $FILTER_PRESENTER };
-    if ( defined $filter_panelist ) {
-        if ( $panel->is_presenter_hosting( $filter_panelist ) ) {
-            return if $show_unbusy_panels;
-        }
-        else {
-            return unless $show_unbusy_panels;
-        }
-    } ## end if ( defined $filter_panelist)
+    if ( $panel_state->get_is_break() ) {
+        return if $options->hide_breaks();
+    }
+    else {
+        return if $room->get_room_is_hidden();
+
+        # Only worry about presenters for non-break panels
+        my $filter_panelist = $filter->{ $FILTER_PRESENTER };
+        if ( defined $filter_panelist ) {
+            if ( $panel->is_presenter_hosting( $filter_panelist ) ) {
+                return if $show_unbusy_panels;
+            }
+            else {
+                return unless $show_unbusy_panels;
+            }
+        } ## end if ( defined $filter_panelist)
+    } ## end else [ if ( $panel_state->get_is_break...)]
 
     return 1
         if defined $panel->get_cost()
