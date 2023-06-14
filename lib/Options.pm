@@ -6,15 +6,64 @@ use strict;
 use warnings;
 use common::sense;
 
-use File::ShareDir qw{};
-use File::Spec     qw{};
-use Getopt::Long   qw{GetOptionsFromArray};
+use File::ShareDir  qw{};
+use File::Slurp     qw{ read_file };
+use File::Spec      qw{};
+use Getopt::Long    qw{ GetOptionsFromArray };
+use List::Util      qw{ any min uniq };
+use List::MoreUtils qw{ apply before natatime };
 use Readonly;
-use TimeDecoder qw{ :from_text };
 use utf8;
+
+use TimeDecoder qw{ :from_text };
+Readonly my $OPTION_PAT => qr{^ [#][#] \s (?= - ) }xms;
 
 my @opt_parse;
 my @opt_on_kiosk;
+
+sub unindent_ {
+    my ( $chunk, $prefix ) = @_;
+    $prefix //= q{};
+
+    my $min_len;
+    while ( $chunk =~ m{ ^ (\h*) \H }xmsg ) {
+        my $len = length $1;
+        $min_len //= $len;
+        $min_len = $len if $len < $min_len;
+    }
+    $chunk =~ s{ ^ (\h*) (?= \H) }{ $prefix . substr $1, $min_len }xmsge;
+    $chunk =~ s{ ^ \h* (?= $ ) }{}xmsg;
+    return $chunk if $chunk =~ m{\S}xms;
+    return;
+} ## end sub unindent_
+
+sub parse_internal_doc_ {
+    state $option_doc;
+
+    return $option_doc if defined $option_doc;
+
+    my %option_doc;
+    $option_doc = \%option_doc;
+
+    my $text   = read_file( __FILE__ );
+    my @chunks = split m{ (?= $OPTION_PAT ) }xms, $text;
+
+    foreach my $chunk ( @chunks ) {
+        next unless $chunk =~ m{ \A $OPTION_PAT }xms;
+        $chunk             =~ s{\n[^#].*}{}xms;
+        $chunk             =~ s{^ [#][#]+ \s? }{}xmsg;
+        chomp $chunk;
+        next unless $chunk =~ m{ \A --?([[:alnum:]-]+)}xms;
+        my $opt_name = $1;
+
+        my ( $example, $doc ) = split m{\n}xms, $chunk, 2;
+        $example = join qq{\n}, $example, unindent_( $doc, q{  } );
+
+        push @{ $option_doc{ $opt_name } }, $example;
+    } ## end foreach my $chunk ( @chunks)
+
+    return $option_doc;
+} ## end sub parse_internal_doc_
 
 sub to_str_ {
     my ( @vals ) = @_;
@@ -131,8 +180,8 @@ sub get_method_ {
     return sub { shift; $self->set_option_( @parms, to_str_ @_ ); return; };
 } ## end sub get_method_
 
-sub get_getopt_flag_ {
-    my ( $self, $opt_set ) = @_;
+sub get_getopt_flag_names_ {
+    my ( $opt_set ) = @_;
     my ( $opt_name, $flag, $flag_mod, @values ) = @{ $opt_set };
     my @flags = $flag;
     @flags = @{ $flag } if ref $flag;
@@ -155,6 +204,14 @@ sub get_getopt_flag_ {
         s{--+}{-}xmsg;
         s{\A-}{}xms;
     } ## end for ( @flags )
+
+    return @flags;
+} ## end sub get_getopt_flag_names_
+
+sub get_getopt_flag_ {
+    my ( $self, $opt_set ) = @_;
+    my ( $opt_name, $flag, $flag_mod, @values ) = @{ $opt_set };
+    my @flags = get_getopt_flag_names_( $opt_set );
     $flag = join q{|}, @flags;
     $flag .= $flag_mod;
     $flag =~ s{[\%/&]+\z}{}xms;
@@ -169,8 +226,8 @@ sub on_kiosk_ {
     return;
 } ## end sub on_kiosk_
 
-## --desc-from-alt
-##     Output descriptions in paragraphs.
+## --desc-form-div
+##     Output descriptions in paragraphs. _Needs CSS work_
 ## --desc-form-table
 ##     Output descriptions in a table. Default
 Readonly our $OPT_DESC_FORM_       => q{desc-form};
@@ -194,9 +251,9 @@ sub is_desc_form_table {
 }
 
 ## --desc-loc-mixed
-##     Output descriptions between grids
+##     Output descriptions between grids. Default
 ## --desc-loc-last
-##     Output descriptions after all grids. Default
+##     Output descriptions after all grids
 Readonly our $OPT_DESC_LOC_       => q{desc-loc};
 Readonly our $VAL_DESC_LOC_MIXED_ => undef;
 Readonly our $VAL_DESC_LOC_LAST_  => 1;
@@ -230,6 +287,10 @@ sub is_desc_loc_mixed {
 ##     Do not arrange descriptions by presenter
 ## --desc-everyone-together
 ##     Do not sort descriptions by guest or presenters, default
+## --desc-by-panelist
+##     Alias of --desc-by-presenter
+## --no-desc-by-panelist
+##     Alias of --no-desc-by-presenter
 Readonly our $OPT_DESC_BY_          => q{desc-by};
 Readonly our $VAL_EVERYONE_TOGETHER => undef;
 Readonly our $VAL_BY_GUEST          => q{guest};
@@ -243,7 +304,10 @@ push @opt_parse,
     [ $OPT_DESC_BY_, [ qw{ -!guest } ],     q{%}, $VAL_BY_GUEST    => 0 ],
     [ $OPT_DESC_BY_, [ qw{ -guest } ],      q{%}, $VAL_BY_GUEST    => 1 ],
     [ $OPT_DESC_BY_, [ qw{ -!presenter } ], q{%}, $VAL_BY_PANELIST => 0 ],
-    [ $OPT_DESC_BY_, [ qw{ -presenter } ],  q{%}, $VAL_BY_PANELIST => 1 ];
+    [ $OPT_DESC_BY_, [ qw{ -!panelist } ],  q{%}, $VAL_BY_PANELIST => 0 ],
+    [ $OPT_DESC_BY_, [ qw{ -presenter } ],  q{%}, $VAL_BY_PANELIST => 1 ],
+    [ $OPT_DESC_BY_, [ qw{ -panelist } ],   q{%}, $VAL_BY_PANELIST => 1 ],
+    ;
 
 push @opt_on_kiosk,
     [ $OPT_DESC_BY_, q{}, $VAL_EVERYONE_TOGETHER ];
@@ -322,11 +386,15 @@ sub is_css_loc_linked {
 ## --no-file-by-presenter
 ##     Do not generate a file for each presenter
 ## --file-everyone-together
-##     Do not sort descriptions by guest or presenters, default
+##     Do not generate a file for each guest or presenters, default
 ## --file-by-room
 ##     Generate a file for each room
 ## --file-all-rooms
 ##     Do not generate a file for each room
+## --file-by-panelist
+##     Alias of --file-by-presenter
+## --no-file-by-panelist
+##     Alias of --no-file-by-presenter
 Readonly our $OPT_FILE_BY_ => q{file-by};
 Readonly our $VAL_BY_DAY   => q{day};
 Readonly our $VAL_BY_ROOM  => q{room};
@@ -341,9 +409,12 @@ push @opt_parse,
     [ $OPT_FILE_BY_, [ qw{ -!guest } ],          q{%}, $VAL_BY_GUEST  => 0 ],
     [ $OPT_FILE_BY_, [ qw{ -guest } ],           q{%}, $VAL_BY_GUEST  => 1 ],
     [ $OPT_FILE_BY_, [ qw{ -!presenter } ], q{%}, $VAL_BY_PANELIST    => 0 ],
+    [ $OPT_FILE_BY_, [ qw{ -!panelist } ],  q{%}, $VAL_BY_PANELIST    => 0 ],
     [ $OPT_FILE_BY_, [ qw{ -presenter } ],  q{%}, $VAL_BY_PANELIST    => 1 ],
+    [ $OPT_FILE_BY_, [ qw{ -panelist } ],   q{%}, $VAL_BY_PANELIST    => 1 ],
     [ $OPT_FILE_BY_, [ qw{ --all-rooms -!room } ], q{%}, $VAL_BY_ROOM => 0 ],
-    [ $OPT_FILE_BY_, [ qw{ -room } ],              q{%}, $VAL_BY_ROOM => 1 ];
+    [ $OPT_FILE_BY_, [ qw{ -room } ],              q{%}, $VAL_BY_ROOM => 1 ],
+    ;
 
 push @opt_on_kiosk,
     [ $OPT_FILE_BY_, q{} ];
@@ -416,14 +487,18 @@ sub get_input_file {
 ##     Hide descriptions for other presenters, implies --file-by-guest
 ## --just-presenter
 ##     Hide descriptions for other presenters, implies --file-by-presenter
-## --just-everyone
+## --just-panelist
+##     Alias of --just-presenter
+## --everyone
 ##     Show descriptions for all presenters, default
 Readonly our $OPT_JUST_ => q{just};
 
 push @opt_parse,
     [ $OPT_JUST_, [ qw{ everyone } ],   q{},  $VAL_EVERYONE_TOGETHER ],
     [ $OPT_JUST_, [ qw{ -guest } ],     q{%}, $VAL_BY_GUEST    => 1 ],
-    [ $OPT_JUST_, [ qw{ -presenter } ], q{%}, $VAL_BY_PANELIST => 1 ];
+    [ $OPT_JUST_, [ qw{ -presenter } ], q{%}, $VAL_BY_PANELIST => 1 ],
+    [ $OPT_JUST_, [ qw{ -panelist } ],  q{%}, $VAL_BY_PANELIST => 1 ],
+    ;
 
 push @opt_on_kiosk,
     [ $OPT_JUST_, q{} ];
@@ -623,6 +698,14 @@ sub get_paneltypes_hidden {
 ##     Includes the grid, implies --hide-description
 ## --hide-grid
 ##     Does not includes the grid, implies --show-description
+## --just-descriptions
+##     Alias of --show-descriptions --hide-grid
+## --just-free
+##     Alias of --show-free --hide-premium
+## --just-grid
+##     Alias of --show-grid --hide-descriptions
+## --just-premium
+##     Alias of --show-premium --hide-free
 
 Readonly our $OPT_SHOW               => q{show/hide};
 Readonly our $VAL_SHOW_ALL_ROOMS_    => q{all-rooms};
@@ -781,12 +864,16 @@ sub show_sect_grid {
     return 1;
 } ## end sub show_sect_grid
 
-## --split-none
+## --unified
 ##     Do not split table by SPLIT time segments or days
 ## --split-timeregion
 ##     Split the grids by SPLIT time segments, default
 ## --split-day
 ##     Only split once per day
+## --split
+##     Implies --split-timeregion if --split-day not set
+## --split-half-day
+##     Alias of --split-timeregion
 
 Readonly our $OPT_SPLIT_            => q{split};
 Readonly our $VAL_SPLIT_NONE_       => q{none};
@@ -836,8 +923,16 @@ sub is_split_day {
     return;
 }
 
-## --style _name_
-##     Focus on matching style, may be given more than once
+## --style _filename_
+##     CSS file to include, may be given more than once, implies --embed-css
+## --style +color[=_set_]
+##     Use colors from the panel type sheet, _set_ is "Color" if not given.
+## --style all:_style_
+##     Apply style to all media
+## --style screen:_style_
+##     Apply style to when viewing on a screen, normal web view
+## --style print:_style_
+##     Apply style to when printing, normal web view
 
 Readonly our $OPT_STYLE_ => q{style};
 
@@ -864,6 +959,8 @@ sub has_styles {
 
 ## --end-time _time_
 ##     Exclude any panels after _time_
+## --start-time _time_
+##     Exclude any panels before _time_
 
 Readonly our $OPT_TIME_       => q{time};
 Readonly our $VAL_TIME_END_   => q{end};
@@ -903,11 +1000,205 @@ sub get_title {
     return $self->{ $OPT_TITLE_ } // q{Cosplay America 2023 Schedule};
 }
 
+sub register_option_ {
+    my ( $known, @names ) = @_;
+
+    return unless @names;
+
+    my $option_doc = parse_internal_doc_();
+    my $first_known;
+
+    foreach my $opt_name ( @names ) {
+        my $detail = $option_doc->{ $opt_name };
+        next unless defined $detail;
+        $known->{ $opt_name } = $detail;
+        $first_known //= $opt_name;
+    } ## end foreach my $opt_name ( @names)
+    foreach my $opt_name ( @names ) {
+        next if defined $known->{ $opt_name };
+        if ( !defined $first_known ) {
+            $known->{ $opt_name }
+                = [ q{--} . $opt_name . qq{\n  **Unknown option**} ];
+            $first_known = $opt_name;
+        }
+        else {
+            $known->{ $opt_name }
+                = [ q{--} . $opt_name . qq{\n  Alias of --} . $first_known ];
+        }
+    } ## end foreach my $opt_name ( @names)
+
+    return;
+} ## end sub register_option_
+
+sub get_known_options_doc_ {
+    state $known_opts;
+    return $known_opts if defined $known_opts;
+
+    my %known_opts;
+    $known_opts = \%known_opts;
+
+    foreach my $opt_set ( @opt_parse ) {
+        register_option_(
+            \%known_opts,
+            get_getopt_flag_names_( $opt_set )
+        );
+    } ## end foreach my $opt_set ( @opt_parse)
+
+    ## Special options
+    register_option_( \%known_opts, qw{ help help-markdown } );
+
+    return $known_opts;
+} ## end sub get_known_options_doc_
+
+## --help
+##   Display options
+sub dump_help {
+    my ( @help ) = @_;
+    push @help, q{} unless @help;
+
+    my $option_doc = parse_internal_doc_();
+    my $known_opts = get_known_options_doc_();
+
+    my @all_options = keys %{ $known_opts };
+    if ( any { $_ eq q{} } @help ) {
+        @help = @all_options;
+    }
+    @help = uniq apply { s{\A--*}{}xmsg } @help;
+
+    foreach my $opt_name ( sort @help ) {
+        my $vals = $known_opts->{ $opt_name } // $option_doc->{ $opt_name };
+        if ( !defined $vals ) {
+            my @possible
+                = grep { $opt_name eq substr $_, 0, length $opt_name }
+                sort @all_options;
+            if ( 1 == scalar @possible ) {
+                say q{--}, $opt_name, qq{\n  Abbreviation of --}, @possible
+                    or 0;
+                next;
+            }
+            say q{--}, $opt_name, qq{\n  No such option},
+                join qq{\n    Did you mean --}, q{}, @possible
+                or 0;
+            next;
+        } ## end if ( !defined $vals )
+        say join qq{\n}, @{ $known_opts->{ $opt_name } } or 0;
+    } ## end foreach my $opt_name ( sort...)
+
+    foreach my $opt_name ( sort keys %{ $option_doc } ) {
+        next if exists $known_opts->{ $opt_name };
+        say q{Option not defined: }, $opt_name or 0;
+    }
+
+    return;
+} ## end sub dump_help
+
+sub dump_help_from_options {
+    my ( @args ) = @_;
+
+    my @help;
+    my $skip_help = 1;
+
+    foreach my $option ( @args ) {
+        if ( $option eq q{--help} && $skip_help ) {
+            undef $skip_help;
+            next;
+        }
+        next unless $option =~ s{\A --}{}xms;
+        $option =~ s{=.*}{}xms;
+        next if $option eq q{};
+        push @help, $option;
+    } ## end foreach my $option ( @args )
+
+    dump_help( @help );
+    exit 0;
+} ## end sub dump_help_from_options
+
+sub dump_table_ {
+    my ( @table ) = @_;
+
+    my @len;
+
+    foreach my $row ( @table ) {
+        my @row = @{ $row };
+        for my $index ( 0 .. $#row ) {
+            my $item_len = length $row[ $index ];
+            my $len      = $len[ $index ] // $item_len;
+            $len = $item_len if $item_len > $len;
+            $len[ $index ] = $len;
+        } ## end for my $index ( 0 .. $#row)
+    } ## end foreach my $row ( @table )
+
+    foreach my $row ( @table ) {
+        my @row = @{ $row };
+        my @output;
+        for my $index ( 0 .. $#len ) {
+            my $len = $len[ $index ];
+            my $val;
+            if ( @row ) {
+                $val = $row[ $index ] // q{};
+                my $val_len = length $val;
+                my $rem_len = $len - $val_len;
+                $val .= q{ } x $rem_len if $rem_len > 0;
+            } ## end if ( @row )
+            else {
+                $val = q{-} x $len;
+            }
+            push @output, q{ } . $val . q{ };
+        } ## end for my $index ( 0 .. $#len)
+        say join q{|}, q{}, @output, q{} or 0 if @output;
+    } ## end foreach my $row ( @table )
+
+    say q{} or 0;
+
+    return;
+} ## end sub dump_table_
+
+## --help-markdown
+##   Generate option summary for README.md
+sub dump_help_markdown {
+    my $option_doc = get_known_options_doc_();
+
+    my @main_output;
+    my @alias_output;
+
+    foreach my $opt_name ( sort keys %{ $option_doc } ) {
+        my $vals = $option_doc->{ $opt_name };
+        next unless defined $vals;
+        foreach my $val ( @{ $vals } ) {
+            my ( $example, $meaning ) = split m{\s*\n\s*}xms, $val, 2;
+            $meaning =~ s{\s*\n\s*}{}xmsg;
+            $meaning =~ s{\A \s*}{}xmsg;
+            if ( $meaning =~ s{\A Alias \s of \s }{}xms ) {
+                push @alias_output, [ $example, $meaning ];
+            }
+            else {
+                push @main_output, [ $example, $meaning ];
+            }
+        } ## end foreach my $val ( @{ $vals ...})
+    } ## end foreach my $opt_name ( sort...)
+
+    dump_table_( [ q{Option}, q{Meaning} ], [], @main_output );
+    dump_table_(
+        [ q{Alias}, q{Equivalent to option} ], [],
+        @alias_output
+    );
+
+    exit 0;
+} ## end sub dump_help_markdown
+
 sub options_from {
     my ( $class, @args ) = @_;
     $class = ref $class || $class;
 
     my $opt = bless {}, $class;
+
+    my @before_dashes = before { $_ eq q{--} } @args;
+
+    ## Special help option recognize anywhere
+    dump_help_from_options( @before_dashes )
+        if any { $_ eq q{--help} } @before_dashes;
+    dump_help_markdown( @before_dashes )
+        if any { $_ eq q{--help-markdown} } @before_dashes;
 
     GetOptionsFromArray(
         \@args,

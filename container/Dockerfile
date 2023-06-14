@@ -17,6 +17,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libfile-slurp-perl \
     libfile-spec-native-perl \
     libhtml-tiny-perl \
+    liblist-moreutils-perl \
     libobject-insideout-perl \
     libperl-critic-perl \
     libreadonly-perl \
@@ -50,6 +51,7 @@ RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
     Date::Parse \
     File::Slurp \
     HTML::Tiny \
+    List::MoreUtils \
     Object::InsideOut \
     Perl::Critic \
     Perl::Tidy \

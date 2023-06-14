@@ -12,6 +12,33 @@ for i in "" "break" "break_sm"; do
         --file-by-day "$@"
 done
 
+mkdir -p output/flyers/guests
+./schedule_html \
+    --style print:landscape.css \
+    --input input/Test.xlsx \
+    --output output/flyers/guests/ \
+    --split-day \
+    --separate \
+    --hide-paneltype BR \
+    --show-paneltype SM \
+    --show-breaks \
+    --hide-unused-rooms \
+    --file-by-guest "$@"
+
+mkdir -p output/flyers/panelists
+./schedule_html \
+    --style print:landscape.css \
+    --input input/Test.xlsx \
+    --output output/flyers/panelists/ \
+    --split-day \
+    --separate \
+    --hide-paneltype BR \
+    --show-paneltype SM \
+    --show-breaks \
+    --hide-unused-rooms \
+    --file-by-presenter \
+    --no-file-by-guest "$@"
+
 ./schedule_html \
     --style print:landscape.css \
     --input input/Test.xlsx \
@@ -21,11 +48,34 @@ done
     --hide-unused-rooms "$@"
 
 ./schedule_html \
+    --style print:landscape.css \
+    --input input/Test.xlsx \
+    --output output/flyers/single_staff.html \
+    --split-day \
+    --separate \
+    --hide-paneltype BR \
+    --show-paneltype SM \
+    --show-breaks \
+    --hide-unused-rooms "$@"
+
+./schedule_html \
     --style print:legal_grid.css \
     --input input/Test.xlsx \
     --output output/flyers/wide.html \
     --split-day \
     --show-grid \
+    --hide-descriptions \
+    --hide-unused-rooms "$@"
+
+./schedule_html \
+    --style print:legal_grid.css \
+    --input input/Test.xlsx \
+    --output output/flyers/staff.html \
+    --split-day \
+    --show-grid \
+    --hide-paneltype BR \
+    --show-paneltype SM \
+    --show-breaks \
     --hide-descriptions \
     --hide-unused-rooms "$@"
 
