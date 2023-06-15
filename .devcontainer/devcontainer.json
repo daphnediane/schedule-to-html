@@ -13,7 +13,8 @@
                 "ms-azuretools.vscode-docker",
                 "streetsidesoftware.code-spell-checker",
                 "yzhang.markdown-all-in-one",
-                "zhiyuan-lin.simple-perl"
+                "zhiyuan-lin.simple-perl",
+                "richterger.perl"
             ],
             // Set *default* container specific settings.json values on container create.
             "settings": {
@@ -38,6 +39,7 @@
                     "Pfister",
                     "POSTMATCH",
                     "PREMATCH",
+                    "richterger",
                     "sched",
                     "SPLITDAY",
                     "SPLITNIGHT",
@@ -46,6 +48,9 @@
                     "userhome",
                     "yzhang",
                     "zhiyuan"
+                ],
+                "perl.perlInc": [
+                    "/workspaces/schedule-to-html/lib"
                 ],
                 "debug.allowBreakpointsEverywhere": true,
                 "editor.formatOnSave": true

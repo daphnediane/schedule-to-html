@@ -6,6 +6,8 @@ use strict;
 use warnings;
 use common::sense;
 
+use List::Util qw{ any };
+
 use Canonical    qw{ :all };
 use Data::Room   qw{};
 use Field::Room  qw{};
@@ -14,7 +16,6 @@ use Presenter    qw{};
 use PresenterSet qw{};
 use TimeDecoder  qw{ :from_text :timepoints };
 use Workbook     qw{};
-use List::Util   qw{ any };
 
 our @EXPORT_OK = qw {
     get_split_panels

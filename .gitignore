@@ -24,6 +24,11 @@ css/index.html
 !output/flyers
 output/flyers/*
 
+# Keep some vscode files
+!.vscode
+.vscode/*
+!.vscode/launch.json
+
 # Do not include our logo
 kiosk/images/*
 

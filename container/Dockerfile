@@ -13,16 +13,26 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     diffutils  \
     git \
     less \
+    libanyevent-perl \
+    libclass-refresh-perl \
     libcommon-sense-perl \
+    libcompiler-lexer-perl \
+    libcoro-perl \
+    libdata-dump-perl \
     libfile-slurp-perl \
     libfile-spec-native-perl \
     libhtml-tiny-perl \
+    libio-aio-perl \
+    libjson-perl \
     liblist-moreutils-perl \
+    libmoose-perl \
     libobject-insideout-perl \
+    libpadwalker-perl \
     libperl-critic-perl \
     libreadonly-perl \
     libreadonlyx-perl \
     libregexp-assemble-perl \
+    libscalar-list-utils-perl \
     libspreadsheet-parseexcel-perl \
     libspreadsheet-parsexlsx-perl \
     libtext-csv-perl \
@@ -54,10 +64,15 @@ RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
     List::MoreUtils \
     Object::InsideOut \
     Perl::Critic \
+    Perl::LanguageServer \
     Perl::Tidy \
     Readonly \
     Readonly::XS \
     Spreadsheet::ParseXLSX
+
+RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
+    cpanm \
+    Devel::NYTProf
 
 ARG USER_NAME=devel
 ARG USER_ID=1000

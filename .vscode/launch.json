@@ -1,0 +1,43 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "perl",
+            "request": "launch",
+            "name": "Perl-Debug",
+            "program": "${workspaceFolder}/lib/main.pm",
+            "args": [
+                "--style",
+                "license-fonts.css",
+                "--style",
+                "common.css",
+                "--style",
+                "screen.css",
+                "--style",
+                "screen:color.css",
+                "--style",
+                "screen:+color",
+                "--style",
+                "print.css",
+                "--style",
+                "print:+color=BW",
+                "--style",
+                "print:bw.css",
+                "--style",
+                "print:landscape.css",
+                "--input",
+                "input/Test.xlsx",
+                "--output",
+                "output/flyers/single.html",
+                "--split-day",
+                "--separate",
+                "--hide-unused-rooms",
+            ],
+            "stopOnEntry": true,
+            "reloadModules": true
+        }
+    ]
+}

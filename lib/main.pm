@@ -14,25 +14,23 @@ use strict;
 use utf8;
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel      qw{};
-use Canonical        qw{ :all };
-use Data::Panel      qw{};
-use Data::PanelType  qw{};
-use Data::Room       qw{};
-use Options          qw{};
-use Presenter        qw{};
-use Table::Panel     qw{ :all };
-use Table::PanelType qw{ :all };
-use Table::Room      qw{ :all };
-use TimeDecoder      qw{ :from_text :to_text :timepoints};
-use TimeRange        qw{};
-use TimeRegion       qw{};
-use TimeSlot         qw{};
-use Workbook         qw{};
-use Workbook::Sheet  qw{};
-
-# Global variables
-Readonly our $HALF_HOUR_IN_SEC => 30 * 60;
+use ActivePanel       qw{};
+use Canonical         qw{ :all };
+use Data::Panel       qw{};
+use Data::PanelType   qw{};
+use Data::Room        qw{};
+use Options           qw{};
+use Presenter         qw{};
+use Table::Panel      qw{ :all };
+use Table::PanelType  qw{ :all };
+use Table::Room       qw{ :all };
+use Table::TimeRegion qw{ :all };
+use TimeDecoder       qw{ :from_text :to_text :timepoints};
+use TimeRange         qw{};
+use TimeRegion        qw{};
+use TimeSlot          qw{};
+use Workbook          qw{};
+use Workbook::Sheet   qw{};
 
 # HTML Elements
 Readonly our $HTML_ANCHOR     => q{a};
@@ -119,14 +117,6 @@ Readonly our $SUBCLASS_PIECE_PRESENTER   => q{Panelist};
 Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START       => q{Start};
 
-# TODO Make this a class
-# Time processing state
-Readonly our $MTR_ACTIVE_REGION  => q{Region};
-Readonly our $MTR_PANEL_STATES   => q{PanelStates};
-Readonly our $MTR_LAST_TIME_SEEN => q{LastTime};
-Readonly our $MTR_ACTIVE_BREAK   => q{ActiveBreak};
-Readonly our $MTR_EMPTY_TIMES    => q{EmptyTimeSlots};
-
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
@@ -156,50 +146,10 @@ Readonly our $FILTER_SET_DEFAULT => {};
 
 my $options;
 
-my %time_split;
-my %time_region;
-
 my $output_file_handle;
 my $output_file_name;
 my $level = 0;
 my $h     = HTML::Tiny->new( mode => q{html} );
-
-sub register_time_split {
-    my ( $time, $name ) = @_;
-    $time_split{ $time } = $name;
-    return $name;
-}
-
-sub check_if_new_region {
-    my ( $time, $prev_region ) = @_;
-    if ( defined $prev_region ) {
-        return if $options->is_split_none();
-        return unless exists $time_split{ $time };
-        if ( $options->is_split_day() ) {
-            my $prev_time = $prev_region->get_start_seconds();
-            my $prev_day  = datetime_to_text( $prev_time, qw{ day } );
-            my $new_day   = datetime_to_text( $time,      qw{ day } );
-            return if $prev_day eq $new_day;
-            $time_split{ $time } = $new_day;
-        } ## end if ( $options->is_split_day...)
-    } ## end if ( defined $prev_region)
-    elsif ( $options->is_split_none() ) {
-        $time_split{ $time } //= q{Schedule};
-    }
-    elsif ( $options->is_split_day() ) {
-        $time_split{ $time } = datetime_to_text( $time, qw{ day } );
-    }
-    else {
-        $time_split{ $time } //= q{Before Convention};
-    }
-
-    my $region = $time_region{ $time } //= TimeRegion->new(
-        name => $time_split{ $time }
-            // q{From } . datetime_to_text( $time, qw{ both } ),
-        start_time => $time,
-    );
-    return $region;
-} ## end sub check_if_new_region
 
 sub join_subclass {
     my ( $base, @subclasses ) = @_;
@@ -247,238 +197,12 @@ sub read_spreadsheet_file {
     }
 
     Table::Panel::read_from( $wb );
-    foreach my $split ( get_split_panels() ) {
-        register_time_split(
-            $split->get_start_seconds(),
-            $split->get_name()
-        );
-    } ## end foreach my $split ( get_split_panels...)
 
     $wb->release() if defined $wb;
     undef $wb;
 
     return;
 } ## end sub read_spreadsheet_file
-
-sub mtr_process_time_panel_start {
-    my ( $state, $time, $panel ) = @_;
-
-    return unless defined $panel;
-    my $panel_type = $panel->get_panel_type();
-    return unless defined $panel_type;
-    return if $panel_type->get_is_hidden();
-
-    if ( $panel_type->is_break() ) {
-        if ( !exists $state->{ $MTR_ACTIVE_BREAK }
-            || $panel->get_end_seconds()
-            > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() ) {
-            $state->{ $MTR_ACTIVE_BREAK } = $panel;
-        }
-    } ## end if ( $panel_type->is_break...)
-
-    foreach my $room ( $panel->get_rooms() ) {
-        next unless defined $room;
-
-        if ( $room->get_room_is_hidden() ) {
-            if ( $room->get_room_is_break() || $panel_type->is_break() ) {
-                if ( !exists $state->{ $MTR_ACTIVE_BREAK }
-                    || $panel->get_end_seconds()
-                    > $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() ) {
-                    $state->{ $MTR_ACTIVE_BREAK } = $panel;
-                }
-            } ## end if ( $room->get_room_is_break...)
-            next;
-        } ## end if ( $room->get_room_is_hidden...)
-
-        my $panel_state = ActivePanel->new(
-            active_panel => $panel,
-            rows         => 0,
-            start_time   => $time,
-            end_time     => $panel->get_end_seconds(),
-            room         => $room,
-        );
-
-        $state->{ $MTR_PANEL_STATES }->{ $room->get_room_id() }
-            = $panel_state;
-    } ## end foreach my $room ( $panel->...)
-    return;
-} ## end sub mtr_process_time_panel_start
-
-sub mtr_process_time_ongoing {
-    my ( $state, $time ) = @_;
-
-    if ( exists $state->{ $MTR_ACTIVE_BREAK }
-        && $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds() <= $time ) {
-        delete $state->{ $MTR_ACTIVE_BREAK };
-    }
-    foreach my $room ( Table::Room::all_rooms() ) {
-        next if $room->get_room_is_hidden();
-        my $room_id = $room->get_room_id();
-
-        my $prev_state = $state->{ $MTR_PANEL_STATES }->{ $room_id };
-        if ( defined $prev_state ) {
-            my $prev_end = $prev_state->get_end_seconds();
-            next if $prev_end > $time;
-        }
-
-        if ( !exists $state->{ $MTR_ACTIVE_BREAK } ) {
-            delete $state->{ $MTR_PANEL_STATES }->{ $room_id };
-            next;
-        }
-
-        my $panel_state = ActivePanel->new(
-            active_panel => $state->{ $MTR_ACTIVE_BREAK },
-            rows         => 0,
-            start_time   => $time,
-            end_time     => $state->{ $MTR_ACTIVE_BREAK }->get_end_seconds(),
-            room         => $room,
-            is_break     => 1,
-        );
-        $state->{ $MTR_PANEL_STATES }->{ $room_id } = $panel_state;
-    } ## end foreach my $room ( Table::Room::all_rooms...)
-
-    return;
-} ## end sub mtr_process_time_ongoing
-
-sub mtr_process_time {
-    my ( $state, $time ) = @_;
-
-    # Add new panels
-    foreach my $panel ( get_panels_by_start( $time ) ) {
-        mtr_process_time_panel_start( $state, $time, $panel );
-    }
-
-    mtr_process_time_ongoing( $state, $time );
-
-    my %timeslot_info;
-    while ( my ( $room_id, $panel_state )
-        = each %{ $state->{ $MTR_PANEL_STATES } } ) {
-        my $panel = $panel_state->get_active_panel();
-        $timeslot_info{ $room_id } = $panel_state;
-
-        $panel_state->increment_rows();
-        $state->{ $MTR_ACTIVE_REGION }
-            ->add_active_room( $panel_state->get_room() )
-            unless $panel_state->get_is_break();
-
-    } ## end while ( my ( $room_id, $panel_state...))
-
-    if ( %timeslot_info ) {
-        if ( exists $state->{ $MTR_EMPTY_TIMES } ) {
-            foreach my $empty ( keys %{ $state->{ $MTR_EMPTY_TIMES } } ) {
-                $state->{ $MTR_ACTIVE_REGION }->get_time_slot( $empty )
-                    ->init_current( {} );
-            }
-            delete $state->{ $MTR_EMPTY_TIMES };
-        } ## end if ( exists $state->{ ...})
-
-        $state->{ $MTR_ACTIVE_REGION }->get_time_slot( $time )
-            ->init_current( \%timeslot_info );
-
-        $state->{ $MTR_LAST_TIME_SEEN } = $time;
-    } ## end if ( %timeslot_info )
-    elsif ( defined $state->{ $MTR_LAST_TIME_SEEN } ) {
-        $state->{ $MTR_EMPTY_TIMES }->{ $time } = 1;
-    }
-    return;
-} ## end sub mtr_process_time
-
-sub mtr_process_half_hours_upto {
-    my ( $state, $split_time ) = @_;
-    return unless defined $state->{ $MTR_LAST_TIME_SEEN };
-
-    my $time = $state->{ $MTR_LAST_TIME_SEEN } + $HALF_HOUR_IN_SEC;
-    while ( $time < $split_time ) {
-        mtr_process_time( $state, $time );
-        $time += $HALF_HOUR_IN_SEC;
-    }
-
-    return;
-} ## end sub mtr_process_half_hours_upto
-
-sub mtr_finish_region {
-    my ( $state ) = @_;
-
-    return unless defined $state->{ $MTR_ACTIVE_REGION };
-    return unless $options->is_mode_kiosk();
-    my @times
-        = reverse sort { $a <=> $b }
-        $state->{ $MTR_ACTIVE_REGION }->get_unsorted_times();
-    my %next_panels = ();
-
-    foreach my $time ( @times ) {
-        my $time_slot
-            = $state->{ $MTR_ACTIVE_REGION }->get_time_slot( $time );
-
-        # Save current next panels
-        $time_slot->init_upcoming( { %next_panels } );
-
-        # Update next panels
-        my $current_panels = $time_slot->get_current();
-        while ( my ( $room_id, $panel_state ) = each %{ $current_panels } ) {
-            next
-                unless $panel_state->get_start_seconds() == $time;
-            $next_panels{ $room_id } = $panel_state;
-        }
-    } ## end foreach my $time ( @times )
-
-    return;
-} ## end sub mtr_finish_region
-
-sub mtr_check_for_next_region {
-    my ( $state, $split_time ) = @_;
-
-    my $next_range = check_if_new_region(
-        $split_time,
-        $state->{ $MTR_ACTIVE_REGION }
-    );
-    return unless defined $next_range;
-
-    mtr_finish_region( $state );
-    $state->{ $MTR_ACTIVE_REGION } = $next_range;
-    delete $state->{ $MTR_EMPTY_TIMES };
-    delete $state->{ $MTR_LAST_TIME_SEEN };
-
-    return unless defined $state->{ $MTR_PANEL_STATES };
-
-    my %new_active;
-    while ( my ( $room_id, $panel_state )
-        = each %{ $state->{ $MTR_PANEL_STATES } } ) {
-        my $new_state = $panel_state->clone();
-        $new_state->set_rows( 0 );
-        $new_state->set_start_time( $split_time );
-        $new_active{ $room_id } = $new_state;
-    } ## end while ( my ( $room_id, $panel_state...))
-    $state->{ $MTR_PANEL_STATES } = \%new_active;
-
-    return;
-} ## end sub mtr_check_for_next_region
-
-sub make_time_ranges {
-    my %time_points
-        = map { $_ => 1 } ( keys %time_split, get_timepoints() );
-    my $state = {};
-
-    my @time_points = keys %time_points;
-    my $first_time  = $options->get_time_start();
-    @time_points = grep { $first_time <= $_ } @time_points
-        if defined $first_time;
-    my $final_time = $options->get_time_end();
-    @time_points = grep { $final_time >= $_ } @time_points
-        if defined $final_time;
-    @time_points = sort { $a <=> $b } @time_points;
-
-    foreach my $split_time ( @time_points ) {
-        mtr_process_half_hours_upto( $state, $split_time )
-            if defined $state->{ $MTR_PANEL_STATES }
-            && %{ $state->{ $MTR_PANEL_STATES } };
-        mtr_check_for_next_region( $state, $split_time );
-        mtr_process_time( $state, $split_time );
-    } ## end foreach my $split_time ( @time_points)
-    mtr_finish_region( $state );
-
-    return;
-} ## end sub make_time_ranges
 
 sub out_line {
     my ( @content ) = @_;
@@ -1441,14 +1165,13 @@ sub dump_desc_body_regions {
         return;
     } ## end if ( defined $region )
 
-    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-        $region = $time_region{ $region_time };
+    foreach my $region ( get_time_regions() ) {
         my %room_focus_map = room_id_focus_map( $filter, $region );
         dump_desc_body(
             $filter,             $region, \%room_focus_map,
             $show_unbusy_panels, $on_dump
         );
-    } ## end foreach my $region_time ( sort...)
+    } ## end foreach my $region ( get_time_regions...)
 
     return;
 } ## end sub dump_desc_body_regions
@@ -1765,15 +1488,14 @@ sub dump_table_all_regions {
     my $need_all_desc = $options->show_sect_descriptions();
 
     if ( $options->show_sect_grid() ) {
-        foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-            my $region = $time_region{ $region_time };
+        foreach my $region ( get_time_regions() ) {
             dump_grid_timeslice( $filter, $region );
             next unless $options->show_sect_descriptions();
             next if $options->is_desc_loc_last();
 
             dump_desc_timeslice( $filter, $region );
             undef $need_all_desc;
-        } ## end foreach my $region_time ( sort...)
+        } ## end foreach my $region ( get_time_regions...)
         return if $options->is_desc_loc_mixed();
     } ## end if ( $options->show_sect_grid...)
 
@@ -1935,14 +1657,12 @@ sub dump_kiosk {
 
     out_line $h->div( { out_class( $CLASS_KIOSK_GRID_HEADERS ) } );
     out_open $HTML_DIV, { out_class( $CLASS_KIOSK_GRID_ROWS ) };
-    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-        my $region = $time_region{ $region_time };
+    foreach my $region ( get_time_regions() ) {
         dump_grid_timeslice( $DEFAULT_FILTER, $region );
     }
     out_close $HTML_DIV;
 
-    foreach my $region_time ( sort { $a <=> $b } keys %time_region ) {
-        my $region = $time_region{ $region_time };
+    foreach my $region ( get_time_regions() ) {
         dump_kiosk_desc( $region );
     }
 
@@ -1963,8 +1683,7 @@ sub split_filter_by_timestamp {
     foreach my $filter ( @filters ) {
         my %new_filter = %{ $filter };
         my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        foreach my $time ( sort { $a <=> $b } keys %time_region ) {
-            my $region = $time_region{ $time };
+        foreach my $region ( get_time_regions() ) {
             push @res,
                 {
                 %new_filter,
@@ -1972,7 +1691,7 @@ sub split_filter_by_timestamp {
                 $FILTER_OUTPUT_NAME     =>
                     [ @subname, $region->get_region_name() ],
                 };
-        } ## end foreach my $time ( sort { $a...})
+        } ## end foreach my $region ( get_time_regions...)
     } ## end foreach my $filter ( @filters)
 
     return @res;
@@ -2064,7 +1783,7 @@ sub main {
 
     read_spreadsheet_file( $options->get_input_file() );
 
-    make_time_ranges;
+    populate_time_regions( $options );
 
     if ( $options->is_mode_kiosk() ) {
         dump_kiosk;
