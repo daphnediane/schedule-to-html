@@ -79,7 +79,7 @@ sub split_active_panels {
         my $new_state = $active->clone();
         $new_state->set_rows( 0 );
         $new_state->set_start_time( $time );
-        $active->{ $room_id } = $new_state;
+        $ref->{ $room_id } = $new_state;
     } ## end foreach my $room_id ( @room_ids)
 
     return;
