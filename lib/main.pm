@@ -825,6 +825,9 @@ sub dump_desc_panel_note {
     }
     if ( defined $panel->get_cost() ) {
         push @note, $h->b( q{Premium workshop:} ),
+            ( $panel->get_capacity()
+            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
+            : () ),
             $panel->get_cost_is_model()
             ? q{ Requires a model which may be purchased separately.}
             : $panel->get_cost_is_missing()

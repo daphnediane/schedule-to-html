@@ -181,6 +181,7 @@ sub read_panel_ {
         cost          => $panel_data{ $Field::Panel::COST },
         description   => $panel_data{ $Field::Panel::DESCRIPTION },
         difficulty    => $panel_data{ $Field::Panel::DIFFICULTY },
+        capacity      => $panel_data{ $Field::Panel::CAPACITY },
         duration      => $panel_data{ $Field::Panel::DURATION },
         end_time      => $panel_data{ $Field::Panel::END_TIME },
         is_full       => $panel_data{ $Field::Panel::FULL },

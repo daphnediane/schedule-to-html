@@ -157,6 +157,12 @@ my @difficulty
     :Set(Name => q{set_difficulty})
     :Get(Name => q{get_difficulty});
 
+my @capacity
+    :Field
+    :Type(scalar)
+    :Arg(Name => q{capacity})
+    :Get(Name => q{get_capacity});
+
 my @panel_kind
     :Field
     :Type(scalar)
