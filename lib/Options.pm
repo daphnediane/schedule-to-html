@@ -119,7 +119,7 @@ sub hash_option_ {
     my $deleted;
     foreach my $key ( keys %hash_values ) {
         my $value = $hash_values{ $key };
-        $value = q{} if ref $value;
+        $value .= q{} if ref $value;
         if ( defined $value ) {
             $self->{ $opt_name }->{ $key } = $value;
         }
@@ -326,7 +326,7 @@ sub is_desc_by_guest {
     my $hash = $self->{ $OPT_DESC_BY_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_GUEST };
-    return   if defined $hash->{ VAL_BY_GUEST };
+    return   if defined $hash->{ $VAL_BY_GUEST };
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return;
 } ## end sub is_desc_by_guest
@@ -440,7 +440,7 @@ sub is_file_by_guest {
         return;
     }
     return 1 if $hash->{ $VAL_BY_GUEST };
-    return   if defined $hash->{ VAL_BY_GUEST };
+    return   if defined $hash->{ $VAL_BY_GUEST };
     return 1 if $self->is_just_guest();
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return   if defined $hash->{ $VAL_BY_PANELIST };
@@ -517,7 +517,7 @@ sub is_just_guest {
     my $hash = $self->{ $OPT_JUST_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_GUEST };
-    return   if defined $hash->{ VAL_BY_GUEST };
+    return   if defined $hash->{ $VAL_BY_GUEST };
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return;
 } ## end sub is_just_guest

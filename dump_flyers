@@ -32,9 +32,6 @@ mkdir -p output/flyers/panelists
     --output output/flyers/panelists/ \
     --split-day \
     --separate \
-    --hide-paneltype BR \
-    --show-paneltype SM \
-    --show-breaks \
     --hide-unused-rooms \
     --file-by-presenter \
     --no-file-by-guest "$@"
