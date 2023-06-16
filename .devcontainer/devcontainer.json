@@ -49,11 +49,12 @@
                     "yzhang",
                     "zhiyuan"
                 ],
+                "debug.allowBreakpointsEverywhere": true,
+                "editor.formatOnSave": true,
                 "perl.perlInc": [
                     "/workspaces/schedule-to-html/lib"
                 ],
-                "debug.allowBreakpointsEverywhere": true,
-                "editor.formatOnSave": true
+                "terminal.integrated.defaultProfile.linux": "zsh"
             }
         }
     },
