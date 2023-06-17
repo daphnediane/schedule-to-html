@@ -5,11 +5,12 @@ use utf8;
 
 use Carp         qw{ verbose croak };      ## no critic (ProhibitUnusedImport)
 use English      qw{ -no_match_vars };
-use File::Slurp  qw{read_file};
+use File::Slurp  qw{ read_file };
 use File::Spec   qw{};
 use FindBin      qw{};
-use Getopt::Long qw{GetOptionsFromArray};
+use Getopt::Long qw{ GetOptionsFromArray };
 use HTML::Tiny   qw{};
+use List::Util   qw{ any };
 use Readonly;
 
 use lib "${FindBin::Bin}/lib";
@@ -18,7 +19,9 @@ use Canonical         qw{ :all };
 use Data::Panel       qw{};
 use Data::PanelType   qw{};
 use Data::Room        qw{};
+use Data::Partion     qw{};
 use Options           qw{};
+use PartionPanels     qw{ :all };
 use Presenter         qw{};
 use Table::Panel      qw{ :all };
 use Table::PanelType  qw{ :all };
@@ -142,25 +145,6 @@ Readonly our $HEADING_TIME => q{Time};
 Readonly our $RE_COLOR_STYLE =>
     qr{ \A (?: all: | print: | screen: )? [+] (?i:(?:panel_)?color) (?: = | \z ) }xms;
 
-# Grid filter
-Readonly our $FILTER_SPLIT_TIMESTAMP => q{timestamp};
-Readonly our $FILTER_PRESENTER       => q{presenter};
-Readonly our $FILTER_ROOM            => q{room};
-Readonly our $FILTER_OUTPUT_NAME     => q{subname};
-Readonly our $DEFAULT_FILTER         => { $FILTER_OUTPUT_NAME => [], };
-Readonly our $FILTER_ROOM_DESC_HIDE  => q{hidden};
-Readonly our $FILTER_ROOM_CLASSES    => q{class};
-
-Readonly our $FILTER_SET_UNFOCUS => {
-    $FILTER_ROOM_DESC_HIDE => 1,
-    $FILTER_ROOM_CLASSES   => [ $CLASS_GRID_CELL_UNFOCUS ]
-};
-
-Readonly our $FILTER_SET_FOCUS =>
-    { $FILTER_ROOM_CLASSES => [ $CLASS_GRID_CELL_FOCUS ] };
-
-Readonly our $FILTER_SET_DEFAULT => {};
-
 my $options;
 
 my $output_file_handle;
@@ -280,49 +264,12 @@ sub out_class {
     return class => $res;
 } ## end sub out_class
 
-sub get_rooms_for_region {
-    my ( $region ) = @_;
-
-    my @rooms = grep { !$_->get_room_is_hidden() } Table::Room::all_rooms();
-
-    return @rooms if $options->show_all_rooms();
-    return @rooms if !defined $region;
-    return grep { $region->is_room_active( $_ ) } @rooms;
-} ## end sub get_rooms_for_region
-
-sub room_id_focus_map {
-    my ( $filter, $region ) = @_;
-
-    my @region_rooms = get_rooms_for_region( $region );
-
-    if ( exists $filter->{ $FILTER_ROOM } ) {
-        my %res
-            = map { $_->get_room_id() => $FILTER_SET_UNFOCUS } @region_rooms;
-        $res{ $filter->{ $FILTER_ROOM }->get_room_id() }
-            = $FILTER_SET_FOCUS;
-        return %res;
-    } ## end if ( exists $filter->{...})
-
-    if ( $options->has_rooms() ) {
-        my %res;
-        my $def_class = [];
-    ROOM:
-        foreach my $room ( @region_rooms ) {
-            my $room_id = $room->get_room_id();
-            my $name    = $room->get_long_room_name();
-            foreach my $match ( $options->get_rooms() ) {
-                if ( $name =~ m{\Q$match\E}xmsi ) {
-                    $res{ $room_id } = $FILTER_SET_FOCUS;
-                    next ROOM;
-                }
-            } ## end foreach my $match ( $options...)
-            $res{ $room_id } = $FILTER_SET_UNFOCUS;
-        } ## end ROOM: foreach my $room ( @region_rooms)
-        return %res;
-    } ## end if ( $options->has_rooms...)
-
-    return map { $_->get_room_id() => $FILTER_SET_DEFAULT } @region_rooms;
-} ## end sub room_id_focus_map
+sub room_focus_class {
+    my ( @focuses ) = @_;
+    return $CLASS_GRID_CELL_FOCUS   if any { $_->is_focused() } @focuses;
+    return $CLASS_GRID_CELL_UNFOCUS if any { $_->is_unfocused() } @focuses;
+    return;
+} ## end sub room_focus_class
 
 sub dump_grid_row_room_names {
     my ( $filter, $kind, $room_focus_map ) = @_;
@@ -364,9 +311,7 @@ sub dump_grid_row_room_names {
                     $CLASS_GRID_CELL_HEADER,
                     $CLASS_GRID_COLUMN_ROOM,
                     $CLASS_GRID_CELL_ROOM_NAME,
-                    @{  $room_focus_map->{ $room_id }
-                            ->{ $FILTER_ROOM_CLASSES }
-                    },
+                    room_focus_class( $room_focus_map->{ $room_id } ),
                     $kind eq $HTML_TABLE_HEAD
                     ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
                         $room->get_sort_key()
@@ -492,19 +437,19 @@ sub dump_grid_row_cell_group {
     }
 
     my @subclasses = css_subclasses_for_panel( $panel );
-    if ( exists $filter->{ $FILTER_PRESENTER } ) {
-        my $presenter = $filter->{ $FILTER_PRESENTER };
+    if ( defined $filter->get_selected_presenter() ) {
+        my $presenter = $filter->get_selected_presenter();
         if ( $panel->is_presenter_hosting( $presenter ) ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
         elsif ( $time_slot->is_presenter_hosting( $presenter ) ) {
             push @subclasses, $SUBCLASS_BUSY_PANEL;
         }
-    } ## end if ( exists $filter->{...})
+    } ## end if ( defined $filter->...)
 
     push @subclasses,
-        @{ $room_focus_map->{ $first_room->get_room_id() }
-            ->{ $FILTER_ROOM_CLASSES } };
+        room_focus_class( map { $room_focus_map->{ $_->get_room_id() } }
+            @rooms );
 
     my $row_span = $panel_state->get_rows() // 1;
     my $col_span = @rooms                   // 1;
@@ -639,13 +584,13 @@ sub dump_grid_row_time {
         $CLASS_GRID_COLUMN_TIME,
     );
 
-    if ( exists $filter->{ $FILTER_PRESENTER } ) {
-        my $presenter = $filter->{ $FILTER_PRESENTER };
+    if ( defined $filter->get_selected_presenter() ) {
+        my $presenter = $filter->get_selected_presenter();
         if ( $time_slot->is_presenter_hosting( $presenter ) ) {
             push @time_row_classes, $CLASS_GRID_ROW_PRESENTER_BUSY;
             push @time_classes,     $CLASS_GRID_CELL_PRESENTER_BUSY;
         }
-    } ## end if ( exists $filter->{...})
+    } ## end if ( defined $filter->...)
 
     my $time_id = q{sched_id_} . datetime_to_kiosk_id( $time );
     out_open $HTML_TABLE_ROW,
@@ -718,7 +663,7 @@ sub dump_grid_timeslice {
 
     # todo(dpfister) Filter for times?
 
-    my %room_focus_map = room_id_focus_map( $filter, $region );
+    my %room_focus_map = room_id_focus_map( $options, $filter, $region );
 
     dump_grid_header( $filter, $region, \%room_focus_map );
     foreach my $time ( @times ) {
@@ -735,8 +680,8 @@ sub dump_grid_timeslice {
 sub dump_desc_header {
     my ( $filter, $region, $show_unbusy_panels ) = @_;
 
-    if ( exists $filter->{ $FILTER_PRESENTER } ) {
-        my $presenter = $filter->{ $FILTER_PRESENTER };
+    if ( defined $filter->get_selected_presenter() ) {
+        my $presenter = $filter->get_selected_presenter();
 
         my $hdr_text
             = $show_unbusy_panels
@@ -763,7 +708,7 @@ sub dump_desc_header {
         else {
             out_line $h->h2( $hdr_text );
         }
-    } ## end if ( exists $filter->{...})
+    } ## end if ( defined $filter->...)
 
     state $my_idx = 0;
     my $alt_class = $CLASS_DESC_SECTION . ( ++$my_idx );
@@ -777,14 +722,14 @@ sub dump_desc_footer {
 
     out_close $HTML_DIV;
 
-    if ( exists $filter->{ $FILTER_PRESENTER } ) {
+    if ( defined $filter->get_selected_presenter() ) {
         if ( $options->is_mode_postcard() ) {
             out_close $HTML_TABLE_DATA;
             out_close $HTML_TABLE_ROW;
             out_close $HTML_TABLE_BODY;
             out_close $HTML_TABLE;
         } ## end if ( $options->is_mode_postcard...)
-    } ## end if ( exists $filter->{...})
+    } ## end if ( defined $filter->...)
 
     return;
 } ## end sub dump_desc_footer
@@ -952,7 +897,7 @@ sub should_panel_desc_be_dumped {
     my $room = $panel_state->get_room();
     return unless defined $room;
     my $id = $room->get_room_id();
-    return if $room_focus_map->{ $id }->{ $FILTER_ROOM_DESC_HIDE };
+    return if $room_focus_map->{ $id }->are_descriptions_hidden();
 
     my $panel = $panel_state->get_active_panel();
 
@@ -967,7 +912,7 @@ sub should_panel_desc_be_dumped {
         return if $room->get_room_is_hidden();
 
         # Only worry about presenters for non-break panels
-        my $filter_panelist = $filter->{ $FILTER_PRESENTER };
+        my $filter_panelist = $filter->get_selected_presenter();
         if ( defined $filter_panelist ) {
             if ( $panel->is_presenter_hosting( $filter_panelist ) ) {
                 return if $show_unbusy_panels;
@@ -1002,8 +947,8 @@ sub dump_desc_panel_body {
     my @subclasses = css_subclasses_for_panel( $panel );
     my $conflict;
 
-    if ( exists $filter->{ $FILTER_PRESENTER } ) {
-        my $presenter = $filter->{ $FILTER_PRESENTER };
+    if ( defined $filter->get_selected_presenter() ) {
+        my $presenter = $filter->get_selected_presenter();
         if ( $panel->is_presenter_hosting( $presenter ) ) {
             push @subclasses, $SUBCLASS_GUEST_PANEL;
         }
@@ -1011,7 +956,7 @@ sub dump_desc_panel_body {
             push @subclasses, $SUBCLASS_BUSY_PANEL;
             $conflict = 1;
         }
-    } ## end if ( exists $filter->{...})
+    } ## end if ( defined $filter->...)
 
     my $name               = $panel->get_name();
     my $credited_presenter = $panel->get_credits();
@@ -1117,7 +1062,7 @@ sub dump_desc_panel_body {
 sub dump_desc_body {
     my ( $filter, $region, $room_focus_map, $show_unbusy_panels, $on_dump )
         = @_;
-    my $filter_panelist = $filter->{ $FILTER_PRESENTER };
+    my $filter_panelist = $filter->get_selected_presenter();
 
     $region->set_day_being_output( q{} );
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
@@ -1181,7 +1126,7 @@ sub dump_desc_body {
 sub dump_desc_body_regions {
     my ( $filter, $region, $show_unbusy_panels, $on_dump ) = @_;
     if ( defined $region ) {
-        my %room_focus_map = room_id_focus_map( $filter, $region );
+        my %room_focus_map = room_id_focus_map( $options, $filter, $region );
         dump_desc_body(
             $filter,             $region, \%room_focus_map,
             $show_unbusy_panels, $on_dump
@@ -1190,7 +1135,7 @@ sub dump_desc_body_regions {
     } ## end if ( defined $region )
 
     foreach my $region ( get_time_regions() ) {
-        my %room_focus_map = room_id_focus_map( $filter, $region );
+        my %room_focus_map = room_id_focus_map( $options, $filter, $region );
         dump_desc_body(
             $filter,             $region, \%room_focus_map,
             $show_unbusy_panels, $on_dump
@@ -1205,9 +1150,17 @@ sub dump_desc_timeslice {
 
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(
-        {   by_guest    => $options->is_desc_by_guest()    ? 1 : 0,
-            by_panelist => $options->is_desc_by_panelist() ? 1 : 0,
-            is_by_desc  => 1
+        {   ranks => [
+                (     $options->is_desc_by_guest()
+                    ? $Presenter::RANK_GUEST
+                    : ()
+                ),
+                (   $options->is_desc_by_panelist()
+                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    : ()
+                ),
+            ],
+            is_by_desc => 1
         },
         @filters
     );
@@ -1224,14 +1177,14 @@ sub dump_desc_timeslice {
         dump_desc_footer( $desc_filter, $region ) if $header_dumped;
         $header_dumped = undef;
 
-        if (   exists $desc_filter->{ $FILTER_PRESENTER }
+        if (   defined $desc_filter->get_selected_presenter()
             && $options->is_just_everyone()
             && $options->is_desc_everyone_together() ) {
             dump_desc_body_regions( $desc_filter, $region, 1, $on_dump );
             dump_desc_footer( $desc_filter, $region, 1 )
                 if $header_dumped;
             $header_dumped = undef;
-        } ## end if ( exists $desc_filter...)
+        } ## end if ( defined $desc_filter...)
     } ## end foreach my $desc_filter ( @filters)
 
     return;
@@ -1263,7 +1216,7 @@ sub open_dump_file {
     }
 
     my @subnames
-        = map { canonical_header $_ } @{ $filter->{ $FILTER_OUTPUT_NAME } };
+        = map { canonical_header $_ } $filter->get_output_name_pieces();
 
     my $ofname = $options->get_output_file();
     if ( -d $ofname ) {
@@ -1319,7 +1272,7 @@ sub open_html_style {
 sub open_media_style {
     my ( $state, $media ) = @_;
 
-    open_html_style $state;
+    open_html_style( $state );
 
     if ( !defined $media ) {
         if ( defined $state->{ in_media } ) {
@@ -1355,7 +1308,7 @@ sub close_media_style {
 sub close_html_style {
     my ( $state ) = @_;
 
-    close_media_style $state;
+    close_media_style( $state );
 
     my $in_style = delete $state->{ in_style };
     return unless defined $in_style;
@@ -1380,7 +1333,7 @@ sub dump_styles {
         }
 
         if ( $is_html ) {
-            close_html_style \%state;
+            close_html_style( \%state );
 
             my $lines = cache_inline_style( $fname );
             foreach my $line ( @{ $lines } ) {
@@ -1405,8 +1358,8 @@ sub dump_styles {
                     unless $color
                     =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [(] .* ) \z}xms;
 
-                open_media_style \%state, $media;
-                open_media_style \%state, $media;
+                open_media_style( \%state, $media );
+                open_media_style( \%state, $media );
 
                 out_line $COMMENT_STYLE_START, $style, $COMMENT_STYLE_END
                     unless $line_seen;
@@ -1427,7 +1380,7 @@ sub dump_styles {
                 next if $line     =~ m{[@]charset}xmsi;
                 next
                     if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
-                open_media_style \%state, $media;
+                open_media_style( \%state, $media );
                 out_line $COMMENT_STYLE_START, $style, $COMMENT_STYLE_END
                     unless $line_seen;
                 $line_seen = 1;
@@ -1435,7 +1388,7 @@ sub dump_styles {
             } ## end foreach my $line ( @{ $lines...})
         } ## end elsif ( $options->is_css_loc_embedded...)
         else {
-            close_html_style \%state;
+            close_html_style( \%state );
 
             out_line $h->link( {
                 href => $fname,
@@ -1445,8 +1398,8 @@ sub dump_styles {
             } );
         } ## end else [ if ( $is_html ) ]
     } ## end foreach my $style ( $options...)
-    close_media_style \%state;
-    close_html_style \%state;
+    close_media_style( \%state );
+    close_html_style( \%state );
 
     return;
 } ## end sub dump_styles
@@ -1462,7 +1415,7 @@ sub dump_file_header {
     out_line $h->meta( { charset => $HTML_CHARSET_UTF8 } );
     out_line $h->meta( { name    => $HTML_APP_OKAY, content => $HTML_YES } );
 
-    my @subnames = @{ $filter->{ $FILTER_OUTPUT_NAME } };
+    my @subnames = $filter->get_output_name_pieces();
     my $title    = $options->get_title();
     if ( @subnames ) {
         $title .= q{: } . join q{, }, @subnames;
@@ -1494,13 +1447,13 @@ sub dump_table_one_region {
     if ( $options->show_sect_grid() ) {
         dump_grid_timeslice(
             $filter,
-            $filter->{ $FILTER_SPLIT_TIMESTAMP }
+            $filter->get_selected_region()
         );
     } ## end if ( $options->show_sect_grid...)
     if ( $options->show_sect_descriptions() ) {
         dump_desc_timeslice(
             $filter,
-            $filter->{ $FILTER_SPLIT_TIMESTAMP }
+            $filter->get_selected_region()
         );
     } ## end if ( $options->show_sect_descriptions...)
 
@@ -1540,7 +1493,7 @@ sub dump_tables {
 
     out_open $HTML_BODY;
 
-    if ( exists $filter->{ $FILTER_SPLIT_TIMESTAMP } ) {
+    if ( defined $filter->get_selected_region() ) {
         dump_table_one_region( $filter );
     }
     else {
@@ -1559,7 +1512,7 @@ sub dump_kiosk_desc {
     my ( $region ) = @_;
 
     my @times        = sort { $a <=> $b } $region->get_unsorted_times();
-    my @region_rooms = get_rooms_for_region( $region );
+    my @region_rooms = get_rooms_for_region( $options, $region );
     foreach my $time ( @times ) {
         my $time_id = q{desc_id_} . datetime_to_kiosk_id( $time );
         out_open $HTML_DIV,
@@ -1625,12 +1578,12 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
-                $DEFAULT_FILTER, $time_slot,
+                Data::Partion->unfiltered(), $time_slot,
                 $cur_panels->{ $id },
                 $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
-                $DEFAULT_FILTER, $time_slot,
+                Data::Partion->unfiltered(), $time_slot,
                 $next_panels->{ $id },
                 $CLASS_KIOSK_DESC_CELL_FUTURE
             );
@@ -1645,7 +1598,7 @@ sub dump_kiosk_desc {
 } ## end sub dump_kiosk_desc
 
 sub dump_kiosk {
-    open_dump_file( $DEFAULT_FILTER, q{kiosk} );
+    open_dump_file( Data::Partion->unfiltered(), q{kiosk} );
 
     say { $output_file_handle } $HTML_DOCTYPE_HTML
         or die qq{Error writing kiosk: ${output_file_name}: ${ERRNO}\n};
@@ -1682,7 +1635,7 @@ sub dump_kiosk {
     out_line $h->div( { out_class( $CLASS_KIOSK_GRID_HEADERS ) } );
     out_open $HTML_DIV, { out_class( $CLASS_KIOSK_GRID_ROWS ) };
     foreach my $region ( get_time_regions() ) {
-        dump_grid_timeslice( $DEFAULT_FILTER, $region );
+        dump_grid_timeslice( Data::Partion->unfiltered(), $region );
     }
     out_close $HTML_DIV;
 
@@ -1697,101 +1650,6 @@ sub dump_kiosk {
 
     return;
 } ## end sub dump_kiosk
-
-sub split_filter_by_timestamp {
-    my ( @filters ) = @_;
-
-    return @filters unless $options->is_file_by_day();
-
-    my @res;
-    foreach my $filter ( @filters ) {
-        my %new_filter = %{ $filter };
-        my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        foreach my $region ( get_time_regions() ) {
-            push @res,
-                {
-                %new_filter,
-                $FILTER_SPLIT_TIMESTAMP => $region,
-                $FILTER_OUTPUT_NAME     =>
-                    [ @subname, $region->get_region_name() ],
-                };
-        } ## end foreach my $region ( get_time_regions...)
-    } ## end foreach my $filter ( @filters)
-
-    return @res;
-} ## end sub split_filter_by_timestamp
-
-sub split_filter_by_panelist {
-    my ( $flags, @filters ) = @_;
-    my $by_guest      = delete $flags->{ by_guest };
-    my $by_presenters = delete $flags->{ by_panelist };
-    my $is_by_desc    = delete $flags->{ is_by_desc };
-
-    croak q{Unrecognized parameter: },
-        join q{, }, keys %{ $flags } if %{ $flags };
-
-    return @filters
-        unless ( $by_guest
-        || $by_presenters );
-
-    my @res;
-    foreach my $filter ( @filters ) {
-        if ( exists $filter->{ $FILTER_PRESENTER } ) {
-            push @res, $filter;
-            next;
-        }
-        my %new_filter = %{ $filter };
-        my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        foreach my $per_info ( Presenter->get_known() ) {
-            next if $per_info->get_is_other();
-
-            if ( $per_info->get_presenter_rank() == $Presenter::RANK_GUEST ) {
-                next unless $by_guest;
-            }
-            else {
-                next unless $by_presenters;
-            }
-            if ( $is_by_desc ) {
-                next
-                    if $per_info->get_is_meta()
-                    || defined $per_info->is_in_group();
-            }
-
-            push @res,
-                {
-                %new_filter,
-                $FILTER_PRESENTER   => $per_info,
-                $FILTER_OUTPUT_NAME =>
-                    [ @subname, $per_info->get_presenter_name() ],
-                };
-        } ## end foreach my $per_info ( Presenter...)
-    } ## end foreach my $filter ( @filters)
-
-    return @res;
-} ## end sub split_filter_by_panelist
-
-sub split_filter_by_room {
-    my ( @filters ) = @_;
-
-    return @filters unless $options->is_file_by_room();
-
-    my @res;
-    foreach my $filter ( @filters ) {
-        my %new_filter = %{ $filter };
-        my @subname    = @{ $new_filter{ $FILTER_OUTPUT_NAME } };
-        foreach my $room ( get_rooms_for_region() ) {
-            push @res,
-                {
-                %new_filter,
-                $FILTER_ROOM        => $room,
-                $FILTER_OUTPUT_NAME =>
-                    [ @subname, $room->get_short_room_name() ],
-                };
-        } ## end foreach my $room ( get_rooms_for_region...)
-    } ## end foreach my $filter ( @filters)
-
-    return @res;
-} ## end sub split_filter_by_room
 
 sub main {
     my ( @args ) = @_;
@@ -1814,16 +1672,30 @@ sub main {
         return;
     }
 
-    my @filters = ( $DEFAULT_FILTER );
+    my @filters = ( Data::Partion->unfiltered() );
     @filters = split_filter_by_panelist(
-        {   by_guest    => $options->is_file_by_guest()    ? 1 : 0,
-            by_panelist => $options->is_file_by_panelist() ? 1 : 0,
-            is_by_desc  => undef
+        {   ranks => [
+                (     $options->is_file_by_guest()
+                    ? $Presenter::RANK_GUEST
+                    : ()
+                ),
+                (   $options->is_file_by_panelist()
+                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    : ()
+                ),
+            ],
+            is_by_desc => undef
         },
         @filters
     );
-    @filters = split_filter_by_room( @filters );
-    @filters = split_filter_by_timestamp( @filters );
+
+    @filters = split_filter_by_room(
+        [ get_rooms_for_region( $options ) ],
+        @filters
+    ) if $options->is_file_by_room();
+
+    @filters = split_filter_by_timestamp( @filters )
+        if $options->is_file_by_day();
 
     foreach my $filter ( @filters ) {
         dump_tables( $filter );

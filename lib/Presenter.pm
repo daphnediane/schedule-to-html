@@ -6,7 +6,7 @@ use v5.36.0;
 use utf8;
 
 use Readonly;
-use List::Util qw{ max };
+use List::Util qw{ max uniq };
 
 ## no critic (TooMuchCode::ProhibitDuplicateLiteral)
 use overload
@@ -18,15 +18,15 @@ Readonly our $RANK_GUEST         => 0;
 Readonly our $RANK_STAFF         => 1;
 Readonly our $RANK_INVITED_GUEST => 2;
 Readonly our $RANK_FAN_PANELIST  => 3;
-Readonly our $RANK_UNKNOWN       => 999;
 
 # Presenter headers
-Readonly our $PREFIX_TO_RANK => {
+Readonly::Hash our %PREFIX_TO_RANK => (
     g => $RANK_GUEST,
     s => $RANK_STAFF,
     i => $RANK_INVITED_GUEST,
     p => $RANK_FAN_PANELIST,
-};
+);
+Readonly::Array our @RANKS => sort uniq values %PREFIX_TO_RANK;
 
 Readonly our $ANY_GUEST => q{All Guests};
 
@@ -293,7 +293,7 @@ sub lookup {
     return if $name_with_group eq q{};
 
     if ( $name_with_group =~ s{\A (?<rank> \w ) : }{}xms ) {
-        $rank = $PREFIX_TO_RANK->{ lc $+{ rank } };
+        $rank = $PREFIX_TO_RANK{ lc $+{ rank } };
     }
 
     return if $name_with_group eq q{};

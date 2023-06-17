@@ -101,8 +101,10 @@ sub has_prefix {
     my $len = length $prefix;
     $prefix = uc $prefix;
 
-    return 1 if $prefix eq uc substr $self->get_short_room_name(), 0, $len;
-    return 1 if $prefix eq uc substr $self->get_long_room_name(),  0, $len;
+    return 1
+        if $prefix eq uc substr $self->get_short_room_name() // q{}, 0, $len;
+    return 1
+        if $prefix eq uc substr $self->get_long_room_name() // q{}, 0, $len;
     return;
 } ## end sub has_prefix
 
@@ -111,7 +113,7 @@ sub get_sort_key {
     my $key = $self->get_sort_key_();
     return $key if defined $key && $key >= 0;
 
-    if ( $self->get_is_split() || $self->get_is_break() ) {
+    if ( $self->get_is_split() || $self->get_room_is_break() ) {
         $key = $HIDDEN_SORT_KEY;
         $self->set_sort_key_( $key );
         return $key;
@@ -174,8 +176,8 @@ sub get_room_is_hidden {
 
 sub get_room_is_break {
     my ( $self ) = @_;
-    return 1 if $BREAK eq uc $self->get_short_room_name();
-    return 1 if $BREAK eq uc $self->get_long_room_name();
+    return 1 if $BREAK eq uc( $self->get_short_room_name() // q{} );
+    return 1 if $BREAK eq uc( $self->get_long_room_name()  // q{} );
     return;
 } ## end sub get_room_is_break
 
