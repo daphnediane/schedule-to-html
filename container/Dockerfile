@@ -72,7 +72,8 @@ RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
 
 RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
     cpanm \
-    Devel::NYTProf
+    Devel::NYTProf \
+    Perl::Critic::TooMuchCode
 
 ARG USER_NAME=devel
 ARG USER_ID=1000

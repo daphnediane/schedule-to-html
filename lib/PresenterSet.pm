@@ -7,10 +7,9 @@ use warnings;
 use common::sense;
 
 use HTML::Tiny qw{};
-use List::Util;
 use Readonly;
 
-use Presenter;
+use Presenter qw{};
 
 Readonly our $UNLISTED => 1;
 Readonly our $LISTED   => 2;

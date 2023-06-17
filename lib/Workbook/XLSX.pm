@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use common::sense;
 
-use Spreadsheet::ParseXLSX;
+use Spreadsheet::ParseXLSX qw{};
 
 ## no critic (ProhibitUnusedVariables)
 

@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use common::sense;
 
-use Data::Room;
+use Data::Room qw{};
 
 ## no critic (ProhibitUnusedVariables)
 

@@ -8,9 +8,9 @@ use common::sense;
 
 use Carp qw{croak};
 
-use ActivePanel;
-use Data::Panel;
-use PresenterSet;
+use ActivePanel  qw{};
+use Data::Panel  qw{};
+use PresenterSet qw{};
 
 ## no critic (ProhibitUnusedVariables)
 

@@ -8,8 +8,8 @@ use common::sense;
 
 use Carp qw{croak};
 
-use Data::Room;
-use TimeSlot;
+use Data::Room qw{};
+use TimeSlot   qw{};
 
 ## no critic (ProhibitUnusedVariables)
 

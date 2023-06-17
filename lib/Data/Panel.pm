@@ -9,9 +9,9 @@ use common::sense;
 use Carp qw{croak};
 use Readonly;
 
-use Data::PanelType;
-use Data::Room;
-use PresenterSet;
+use Data::PanelType  qw{};
+use Data::Room       qw{};
+use PresenterSet     qw{};
 use Table::PanelType qw{};
 
 Readonly our $COST_FREE  => q{$} . q{0};

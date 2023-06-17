@@ -6,12 +6,13 @@ use strict;
 use warnings;
 use common::sense;
 
+use Data::Dumper    qw{};
 use File::ShareDir  qw{};
 use File::Slurp     qw{ read_file };
 use File::Spec      qw{};
 use Getopt::Long    qw{ GetOptionsFromArray };
-use List::Util      qw{ any uniq };
 use List::MoreUtils qw{ apply before };
+use List::Util      qw{ any uniq };
 use Readonly;
 
 use TimeDecoder qw{ :from_text };
@@ -1225,7 +1226,6 @@ sub options_from {
     die qq{Both grid and descriptions hidden\n}
         unless $opt->show_sect_descriptions() || $opt->show_sect_grid();
 
-    use Data::Dumper;
     $Data::Dumper::Sortkeys = 1;
     say Data::Dumper->Dump( [ $opt ], [ qw{$opt} ] ) or 0;
 

@@ -1,17 +1,16 @@
 #!/usr/bin/perl
 
+use strict;
 use common::sense;
-use Carp         qw{verbose croak};
-use Date::Parse  qw{ str2time };
-use English      qw( -no_match_vars );
+
+use Carp         qw{ verbose croak };      ## no critic (ProhibitUnusedImport)
+use English      qw{ -no_match_vars };
 use File::Slurp  qw{read_file};
 use File::Spec   qw{};
 use FindBin      qw{};
 use Getopt::Long qw{GetOptionsFromArray};
 use HTML::Tiny   qw{};
 use Readonly;
-use strict;
-use utf8;
 
 use lib "${FindBin::Bin}/lib";
 use ActivePanel       qw{};
@@ -46,6 +45,22 @@ Readonly our $HTML_TABLE_DATA => q{td};
 Readonly our $HTML_TABLE_FOOT => q{tfoot};
 Readonly our $HTML_TABLE_HEAD => q{thead};
 Readonly our $HTML_TABLE_ROW  => q{tr};
+
+# HTML Other
+Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
+Readonly our $HTML_CHARSET_UTF8 => q{UTF-8};
+Readonly our $HTML_DOCTYPE_HTML => q{<!doctype html>};
+Readonly our $HTML_STYLESHEET   => q{stylesheet};
+Readonly our $HTML_SUFFIX_HTML  => $HTML_HTML;
+Readonly our $HTML_TEXT_CSS     => q{text/css};
+Readonly our $HTML_YES          => q{yes};
+
+Readonly our $SUBDIR_CSS => q{css};
+
+Readonly our $COMMENT_CONTINUE_END   => q{ continued-->};
+Readonly our $COMMENT_CONTINUE_START => q{<!--};
+Readonly our $COMMENT_STYLE_END      => q{" */};
+Readonly our $COMMENT_STYLE_START    => q{/* "};
 
 # CSS Classes
 Readonly our $CLASS_DESC_BASE                => q{desc};
@@ -117,6 +132,8 @@ Readonly our $SUBCLASS_PIECE_PRESENTER   => q{Panelist};
 Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START       => q{Start};
 
+Readonly our $LINK_SUFFIX_GRID => q{Grid};
+
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
 Readonly our $HEADING_TIME => q{Time};
@@ -149,7 +166,7 @@ my $options;
 my $output_file_handle;
 my $output_file_name;
 my $level = 0;
-my $h     = HTML::Tiny->new( mode => q{html} );
+my $h     = HTML::Tiny->new( mode => $HTML_HTML );
 
 sub join_subclass {
     my ( $base, @subclasses ) = @_;
@@ -457,7 +474,8 @@ sub dump_grid_row_cell_group {
 
     if ( $panel_state->get_start_seconds() != $time ) {
         foreach ( @rooms ) {
-            out_line q{<!--}, $panel->get_uniq_id(), q{ continued-->};
+            out_line $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
+                $COMMENT_CONTINUE_END;
         }
         return;
     } ## end if ( $panel_state->get_start_seconds...)
@@ -489,14 +507,14 @@ sub dump_grid_row_cell_group {
             ->{ $FILTER_ROOM_CLASSES } };
 
     my $row_span = $panel_state->get_rows() // 1;
-    my $col_span = scalar @rooms            // 1;
+    my $col_span = @rooms                   // 1;
     my @spans;
     push @spans, rowspan => $row_span if $row_span > 1;
     push @spans, colspan => $col_span if $col_span > 1;
 
     out_open $HTML_TABLE_DATA,
         {
-        id => $panel->get_href_anchor() . q{Grid},
+        id => $panel->get_href_anchor() . $LINK_SUFFIX_GRID,
         @spans,
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
@@ -559,7 +577,8 @@ sub dump_grid_row_cell_group {
 
     shift @rooms;
     foreach ( @rooms ) {
-        out_line q{<!--}, $panel->get_uniq_id(), q{ continued-->};
+        out_line $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
+            $COMMENT_CONTINUE_END;
     }
 
     return;
@@ -895,7 +914,7 @@ sub dump_desc_panel_parts {
             ) )
         },
         join q{ },
-        map {
+        map {    ## no critic(TooMuchCode::ProhibitLargeBlock)
             $h->li(
                 {   out_class( join_subclass(
                         $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LINE
@@ -1022,7 +1041,7 @@ sub dump_desc_panel_body {
     );
     if ( $options->show_sect_grid() ) {
         out_line $h->a(
-            {   href => q{#} . $panel->get_href_anchor() . q{Grid},
+            {   href => q{#} . $panel->get_href_anchor() . $LINK_SUFFIX_GRID,
                 out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_NAME ) )
             },
@@ -1224,8 +1243,8 @@ sub cache_inline_style {
     state %cache;
     if (   !File::Spec->file_name_is_absolute( $file )
         && !-e $file
-        && -e File::Spec->catfile( q{css}, $file ) ) {
-        $file = File::Spec->catfile( q{css}, $file );
+        && -e File::Spec->catfile( $SUBDIR_CSS, $file ) ) {
+        $file = File::Spec->catfile( $SUBDIR_CSS, $file );
     }
     return $cache{ $file } //= read_file(
         $file,
@@ -1251,12 +1270,12 @@ sub open_dump_file {
         push @subnames, $def_name unless @subnames;
         $ofname = File::Spec->catfile(
             $ofname, join q{.}, @subnames,
-            q{html}
+            $HTML_SUFFIX_HTML
         );
     } ## end if ( -d $ofname )
     elsif ( @subnames ) {
         my ( $vol, $dir, $base ) = File::Spec->splitpath( $ofname );
-        my $suffix = q{html};
+        my $suffix = $HTML_SUFFIX_HTML;
         if ( $base =~ s{[.](html?)\z}{}xms ) {
             $suffix = $1;
         }
@@ -1370,7 +1389,7 @@ sub dump_styles {
         } ## end if ( $is_html )
         elsif ( $fname =~ $RE_COLOR_STYLE ) {
             my ( $unused, $color_set ) = split m{=}xms, $fname, 2;
-            $color_set //= q{Color};
+            $color_set //= $Data::PanelType::DEF_COLOR_SET;
             $color_set = canonical_header( $color_set );
 
             my $line_seen;
@@ -1384,12 +1403,13 @@ sub dump_styles {
                 next unless defined $color;
                 next
                     unless $color
-                    =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [\(] .* ) \z}xms;
+                    =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [(] .* ) \z}xms;
 
                 open_media_style \%state, $media;
                 open_media_style \%state, $media;
 
-                out_line q{/* "}, $style, q{" */} unless $line_seen;
+                out_line $COMMENT_STYLE_START, $style, $COMMENT_STYLE_END
+                    unless $line_seen;
                 $line_seen = 1;
 
                 out_line q{.descType}, uc $prefix, q{,};
@@ -1408,7 +1428,8 @@ sub dump_styles {
                 next
                     if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
                 open_media_style \%state, $media;
-                out_line q{/* "}, $style, q{" */} unless $line_seen;
+                out_line $COMMENT_STYLE_START, $style, $COMMENT_STYLE_END
+                    unless $line_seen;
                 $line_seen = 1;
                 out_line $line;
             } ## end foreach my $line ( @{ $lines...})
@@ -1418,8 +1439,8 @@ sub dump_styles {
 
             out_line $h->link( {
                 href => $fname,
-                rel  => q{stylesheet},
-                type => q{text/css},
+                rel  => $HTML_STYLESHEET,
+                type => $HTML_TEXT_CSS,
                 ( defined $media ? ( media => $media ) : () )
             } );
         } ## end else [ if ( $is_html ) ]
@@ -1433,14 +1454,13 @@ sub dump_styles {
 sub dump_file_header {
     my ( $filter ) = @_;
 
-    say { $output_file_handle } q{<!doctype html>}
-        or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
+    say { $output_file_handle } $HTML_DOCTYPE_HTML
+        or die qq{Error writing file: ${output_file_name}: ${ERRNO}\n};
 
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
-    out_line $h->meta( { charset => q{UTF-8} } );
-    out_line $h->meta(
-        { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
+    out_line $h->meta( { charset => $HTML_CHARSET_UTF8 } );
+    out_line $h->meta( { name    => $HTML_APP_OKAY, content => $HTML_YES } );
 
     my @subnames = @{ $filter->{ $FILTER_OUTPUT_NAME } };
     my $title    = $options->get_title();
@@ -1452,7 +1472,7 @@ sub dump_file_header {
     out_line $h->link( {
         href =>
             q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
-        rel => q{stylesheet}
+        rel => $HTML_STYLESHEET
     } );
 
     dump_styles;
@@ -1627,19 +1647,18 @@ sub dump_kiosk_desc {
 sub dump_kiosk {
     open_dump_file( $DEFAULT_FILTER, q{kiosk} );
 
-    say { $output_file_handle } q{<!doctype html>}
-        or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
+    say { $output_file_handle } $HTML_DOCTYPE_HTML
+        or die qq{Error writing kiosk: ${output_file_name}: ${ERRNO}\n};
 
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
-    out_line $h->meta( { charset => q{UTF-8} } );
-    out_line $h->meta(
-        { name => q{apple-mobile-web-app-capable}, content => q{yes} } );
+    out_line $h->meta( { charset => $HTML_CHARSET_UTF8 } );
+    out_line $h->meta( { name    => $HTML_APP_OKAY, content => $HTML_YES } );
     out_line $h->title( $options->get_title() );
     out_line $h->link( {
         href => q{css/kiosk.css},
-        rel  => q{stylesheet},
-        type => q{text/css}
+        rel  => $HTML_STYLESHEET,
+        type => $HTML_TEXT_CSS
     } );
     dump_styles;
     out_line $h->script(
@@ -1707,7 +1726,7 @@ sub split_filter_by_panelist {
     my $by_guest      = delete $flags->{ by_guest };
     my $by_presenters = delete $flags->{ by_panelist };
     my $is_by_desc    = delete $flags->{ is_by_desc };
-    use Data::Dumper;
+
     croak q{Unrecognized parameter: },
         join q{, }, keys %{ $flags } if %{ $flags };
 
@@ -1782,7 +1801,7 @@ sub main {
     foreach my $style ( $options->get_styles() ) {
         next unless $style =~ $RE_COLOR_STYLE;
         my ( $unused, $color_set ) = split m{=}xms, $style, 2;
-        $color_set //= q{Color};
+        $color_set //= $Data::PanelType::DEF_COLOR_SET;
         Table::PanelType::add_color_set( $color_set );
     } ## end foreach my $style ( $options...)
 
