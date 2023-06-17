@@ -10,10 +10,9 @@ use File::ShareDir  qw{};
 use File::Slurp     qw{ read_file };
 use File::Spec      qw{};
 use Getopt::Long    qw{ GetOptionsFromArray };
-use List::Util      qw{ any min uniq };
-use List::MoreUtils qw{ apply before natatime };
+use List::Util      qw{ any uniq };
+use List::MoreUtils qw{ apply before };
 use Readonly;
-use utf8;
 
 use TimeDecoder qw{ :from_text };
 Readonly my $OPTION_PAT => qr{^ [#][#] \s (?= - ) }xms;
@@ -162,20 +161,20 @@ sub get_method_ {
 
     return
         sub { shift; $self->increment_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{\+\z}xms;
+        if $mod =~ m{ [+] \z }xms;
 
     return
         sub { shift; $self->rev_hash_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{\%\%\z}xms;
+        if $mod =~ m{ % % \z}xms;
 
     return sub { shift; $self->hash_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{\%\z}xms;
+        if $mod =~ m{ % \z}xms;
 
     return sub { shift; $self->def_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{/\z}xms;
+        if $mod =~ m{ / \z}xms;
 
     return sub { shift; $self->sub_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{&\z}xms;
+        if $mod =~ m{ & \z}xms;
 
     return sub { shift; $self->set_option_( @parms, to_str_ @_ ); return; };
 } ## end sub get_method_
@@ -396,8 +395,8 @@ sub is_css_loc_linked {
 ## --no-file-by-panelist
 ##     Alias of --no-file-by-presenter
 Readonly our $OPT_FILE_BY_ => q{file-by};
-Readonly our $VAL_BY_DAY   => q{day};
-Readonly our $VAL_BY_ROOM  => q{room};
+Readonly our $VAL_BY_DAY   => q{/day};
+Readonly our $VAL_BY_ROOM  => q{/room};
 
 push @opt_parse,
     [
@@ -708,15 +707,15 @@ sub get_paneltypes_hidden {
 ##     Alias of --show-premium --hide-free
 
 Readonly our $OPT_SHOW               => q{show/hide};
-Readonly our $VAL_SHOW_ALL_ROOMS_    => q{all-rooms};
-Readonly our $VAL_SHOW_AV_           => q{av};
-Readonly our $VAL_SHOW_BREAKS_       => q{breaks};
-Readonly our $VAL_SHOW_COST_FREE_    => q{free};
-Readonly our $VAL_SHOW_COST_PREMIUM_ => q{premium};
-Readonly our $VAL_SHOW_DAY_COLUMN_   => q{day};
-Readonly our $VAL_SHOW_DIFFICULTY_   => q{difficulty};
-Readonly our $VAL_SHOW_SECT_DESC_    => q{descriptions};
-Readonly our $VAL_SHOW_SECT_GRID_    => q{grid};
+Readonly our $VAL_SHOW_ALL_ROOMS_    => q{/all-rooms};
+Readonly our $VAL_SHOW_AV_           => q{/av};
+Readonly our $VAL_SHOW_BREAKS_       => q{/breaks};
+Readonly our $VAL_SHOW_COST_FREE_    => q{/free};
+Readonly our $VAL_SHOW_COST_PREMIUM_ => q{/premium};
+Readonly our $VAL_SHOW_DAY_COLUMN_   => q{/day-column};
+Readonly our $VAL_SHOW_DIFFICULTY_   => q{/difficulty};
+Readonly our $VAL_SHOW_SECT_DESC_    => q{/descriptions};
+Readonly our $VAL_SHOW_SECT_GRID_    => q{/grid};
 
 push @opt_parse,
     [ $OPT_SHOW, [ qw{ -!unused-rooms } ], q{%}, $VAL_SHOW_ALL_ROOMS_ => 0 ],
@@ -1052,6 +1051,8 @@ sub get_known_options_doc_ {
 
 ## --help
 ##   Display options
+Readonly our $OPT_HELP_FLAG => q{--help};
+
 sub dump_help {
     my ( @help ) = @_;
     push @help, q{} unless @help;
@@ -1099,7 +1100,7 @@ sub dump_help_from_options {
     my $skip_help = 1;
 
     foreach my $option ( @args ) {
-        if ( $option eq q{--help} && $skip_help ) {
+        if ( $option eq $OPT_HELP_FLAG && $skip_help ) {
             undef $skip_help;
             next;
         }
@@ -1155,6 +1156,8 @@ sub dump_table_ {
 
 ## --help-markdown
 ##   Generate option summary for README.md
+Readonly our $OPT_HELP_MD_FLAG => q{--help-markdown};
+
 sub dump_help_markdown {
     my $option_doc = get_known_options_doc_();
 
@@ -1196,9 +1199,9 @@ sub options_from {
 
     ## Special help option recognize anywhere
     dump_help_from_options( @before_dashes )
-        if any { $_ eq q{--help} } @before_dashes;
+        if any { $_ eq $OPT_HELP_FLAG } @before_dashes;
     dump_help_markdown( @before_dashes )
-        if any { $_ eq q{--help-markdown} } @before_dashes;
+        if any { $_ eq $OPT_HELP_MD_FLAG } @before_dashes;
 
     GetOptionsFromArray(
         \@args,

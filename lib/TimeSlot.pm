@@ -7,8 +7,6 @@ use warnings;
 use common::sense;
 
 use Carp qw{croak};
-use Readonly;
-use utf8;
 
 use ActivePanel;
 use Data::Panel;
@@ -57,7 +55,7 @@ sub get_upcoming {
 sub init_upcoming {
     my ( $self, $upcoming_map ) = @_;
     my $res = $self->get_upcoming_();
-    croak q{Current already set} if defined $res && %{ $res };
+    croak q{Upcoming already set} if defined $res && %{ $res };
     $self->set_upcoming_( $upcoming_map );
     return;
 } ## end sub init_upcoming

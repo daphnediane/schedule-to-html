@@ -8,7 +8,6 @@ use common::sense;
 
 use Carp qw{croak};
 use Readonly;
-use utf8;
 
 use Canonical qw{ :all };
 
@@ -16,9 +15,13 @@ Readonly our $RE_BREAK       => qr{ \A br }xmsi;
 Readonly our $RE_CAFE        => qr{ \A caf[eé] \z }xmsi;
 Readonly our $RE_ID_WORKSHOP => qr{ \A . W \z}xmsi;
 
+Readonly our $DEF_COLOR_SET => q{Color};
+
+## no critic(TooMuchCode::ProhibitDuplicateLiteral)
 q{Café}  =~ $RE_CAFE or croak q{Assertion fail};
 q{CAFE}  =~ $RE_CAFE or croak q{Assertion fail};
 q{CAFET} !~ $RE_CAFE or croak q{Assertion fail};
+## use critic
 
 ## no critic (ProhibitUnusedVariables)
 
@@ -124,8 +127,8 @@ sub is_workshop {
 
 sub set_color {
     my ( $self, $value, $color_set ) = @_;
-    $color_set //= q{Color};
-    $color_set = q{Color} if $color_set eq q{};
+    $color_set //= $DEF_COLOR_SET;
+    $color_set = $DEF_COLOR_SET if $color_set eq q{};
     $color_set = canonical_header( $color_set );
     $color_set = lc $color_set;
 
@@ -141,8 +144,8 @@ sub set_color {
 
 sub get_color {
     my ( $self, $color_set ) = @_;
-    $color_set //= q{Color};
-    $color_set = q{Color} if $color_set eq q{};
+    $color_set //= $DEF_COLOR_SET;
+    $color_set = $DEF_COLOR_SET if $color_set eq q{};
     $color_set = canonical_header( $color_set );
     $color_set = lc $color_set;
 

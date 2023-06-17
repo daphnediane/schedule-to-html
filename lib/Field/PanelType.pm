@@ -5,7 +5,6 @@ use warnings;
 use common::sense;
 
 use Readonly;
-use utf8;
 
 Readonly our $HIDDEN      => q{Hidden};
 Readonly our $IS_BREAK    => q{Is_Break};

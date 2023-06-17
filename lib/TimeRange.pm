@@ -6,7 +6,6 @@ use strict;
 use warnings;
 use common::sense;
 
-use utf8;
 use TimeDecoder qw{ :from_text };
 
 sub pre_init_time_ {

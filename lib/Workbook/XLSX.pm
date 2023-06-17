@@ -6,9 +6,7 @@ use strict;
 use warnings;
 use common::sense;
 
-use Readonly;
 use Spreadsheet::ParseXLSX;
-use utf8;
 
 ## no critic (ProhibitUnusedVariables)
 

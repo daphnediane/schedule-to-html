@@ -8,11 +8,12 @@ use common::sense;
 
 use Carp qw{ confess };
 use Readonly;
-use utf8;
 
+## no critic (TooMuchCode::ProhibitDuplicateLiteral)
 use overload
     q{<=>} => q{compare},
     q{cmp} => q{compare};
+## use critic
 
 Readonly our $SPLIT_PREFIX     => q{SPLIT};
 Readonly our $BREAK            => q{BREAK};

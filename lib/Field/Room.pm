@@ -5,7 +5,6 @@ use warnings;
 use common::sense;
 
 use Readonly;
-use utf8;
 
 Readonly our $SORT_KEY  => q{Sort_Key};
 Readonly our $NAME      => q{Room_Name};

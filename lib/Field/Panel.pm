@@ -5,7 +5,6 @@ use warnings;
 use common::sense;
 
 use Readonly;
-use utf8;
 
 Readonly our $AV_NOTE         => q{AV_Notes};
 Readonly our $CAPACITY        => q{Capacity};

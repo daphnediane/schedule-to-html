@@ -7,8 +7,6 @@ use warnings;
 use common::sense;
 
 use English qw( -no_match_vars );
-use Readonly;
-use utf8;
 
 ## no critic (ProhibitUnusedVariables)
 

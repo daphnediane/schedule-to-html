@@ -7,8 +7,6 @@ use warnings;
 use common::sense;
 
 use Carp qw{croak};
-use Readonly;
-use utf8;
 
 use Data::Room;
 use TimeSlot;
@@ -61,8 +59,9 @@ my @time_last_output_time
 
 sub add_active_room {
     my ( $self, $room ) = @_;
-    return              unless defined $room;
-    croak q{Not a room} unless $room->isa( q{Data::Room} );
+    return unless defined $room;
+    croak q{add_active_room requires a Data::Room object}
+        unless $room->isa( q{Data::Room} );
     my $map = $self->get_active_rooms_();
     $map->{ $room->get_room_id() } = $room;
     return;
@@ -70,8 +69,9 @@ sub add_active_room {
 
 sub is_room_active {
     my ( $self, $room ) = @_;
-    return              unless defined $room;
-    croak q{Not a room} unless $room->isa( q{Data::Room} );
+    return unless defined $room;
+    croak q{is_room_active requires a Data::Room object}
+        unless $room->isa( q{Data::Room} );
     my $map = $self->get_active_rooms_();
     return unless defined $map;
     return 1 if exists $map->{ $room->get_room_id() };

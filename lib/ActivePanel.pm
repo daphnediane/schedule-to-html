@@ -6,9 +6,6 @@ use strict;
 use warnings;
 use common::sense;
 
-use Readonly;
-use utf8;
-
 use Data::Room;
 
 ## no critic (ProhibitUnusedVariables)

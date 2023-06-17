@@ -27,6 +27,7 @@ my @types_;
 my %by_key_;
 my %known_color_sets_ = ( color => 1 );
 
+## no critic (TooMuchCode::ProhibitDuplicateLiteral)
 Readonly::Hash our %IS_MAP_ => (
     $Field::PanelType::HIDDEN      => q{is_hidden},
     $Field::PanelType::IS_BREAK    => q{is_break},
@@ -34,6 +35,7 @@ Readonly::Hash our %IS_MAP_ => (
     $Field::PanelType::IS_CAFE2    => q{is_cafe},
     $Field::PanelType::IS_WORKSHOP => q{is_workshop},
 );
+## use critic
 
 sub read_panel_type_ {
     my ( $header, $san_header, $raw ) = @_;

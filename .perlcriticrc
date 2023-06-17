@@ -1,5 +1,5 @@
 severity = 1
-exclude = RequireRcsKeywords ProhibitPostfixControls ProhibitUnlessBlocks ProhibitEscapedMetacharacters RequireVersionVar ProhibitUnusedCapture
+exclude = ControlStructures::ProhibitPostfixControls Modules::RequireVersionVar RegularExpressions::ProhibitUnusedCapture
 verbose = %f:%l:%c: %m [%p], near '%r'.  (Severity: %s)\n
 
 [Variables::ProhibitPunctuationVars]
@@ -17,3 +17,9 @@ equivalent_modules = common::sense
 
 [ValuesAndExpressions::ProhibitMagicNumbers]
 allowed_values = -1 0 1 2
+
+[TooMuchCode::ProhibitDuplicateLiteral]
+allowlist = ' ' '--' '-' '' '%' '=s' '=s@' '=s%' '=s%%' '|' '$' 'Data::Room' "\n" 2
+
+[TooMuchCode::ProhibitUnusedImport]
+ignored_modules = Object::InsideOut

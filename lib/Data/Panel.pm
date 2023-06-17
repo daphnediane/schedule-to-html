@@ -8,7 +8,6 @@ use common::sense;
 
 use Carp qw{croak};
 use Readonly;
-use utf8;
 
 use Data::PanelType;
 use Data::Room;
@@ -31,6 +30,7 @@ Readonly our $RE_TBD   => qr{ \A [\$]? T [.]? B [.]? D[.]? \z }xmsi;
 Readonly our $RE_MODEL => qr{ model }xmsi;
 ## use critic
 
+## no critic(TooMuchCode::ProhibitDuplicateLiteral)
 q{free}        =~ $RE_FREE  or croak q{Assertion fail};
 q{n/A}         =~ $RE_FREE  or croak q{Assertion fail};
 q{nothing}     =~ $RE_FREE  or croak q{Assertion fail};
@@ -40,6 +40,7 @@ q{$} . q{0}    =~ $RE_FREE  or croak q{Assertion fail};
 q{$} . q{00}   =~ $RE_FREE  or croak q{Assertion fail};
 q{T.B.D.}      =~ $RE_TBD   or croak q{Assertion fail};
 q{model}       =~ $RE_MODEL or croak q{Assertion fail};
+## use critic
 
 sub norm_text_ {
     my ( @values ) = @_;

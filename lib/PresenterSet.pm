@@ -6,11 +6,9 @@ use strict;
 use warnings;
 use common::sense;
 
-use Carp       qw{croak};
 use HTML::Tiny qw{};
 use List::Util;
 use Readonly;
-use utf8;
 
 use Presenter;
 

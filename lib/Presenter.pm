@@ -7,11 +7,13 @@ use warnings;
 use common::sense;
 
 use Readonly;
-use utf8;
+use List::Util qw{ max };
 
+## no critic (TooMuchCode::ProhibitDuplicateLiteral)
 use overload
     q{<=>} => q{compare},
     q{cmp} => q{compare};
+## use critic
 
 Readonly our $RANK_GUEST         => 0;
 Readonly our $RANK_STAFF         => 1;
@@ -212,13 +214,9 @@ sub compare {
     return $res if $res;
 
     # Compare indices from major to minor
-    my @self_ind      = $self->get_index_array();
-    my @other_ind     = $other->get_index_array();
-    my $self_num_ind  = scalar @self_ind;
-    my $other_num_ind = scalar @other_ind;
-    my $largest_ind
-        = $self_num_ind >= $other_num_ind ? \@self_ind : \@other_ind;
-    for my $ind ( keys @{ $largest_ind } ) {
+    my @self_ind  = $self->get_index_array();
+    my @other_ind = $other->get_index_array();
+    for my $ind ( 0 .. max $#self_ind, $#other_ind ) {
         $res = ( $self_ind[ $ind ] // 0 ) <=> ( $other_ind[ $ind ] // 0 );
         return $res if $res;
     }

@@ -9,7 +9,6 @@ use common::sense;
 use Date::Parse qw{ str2time };
 use POSIX       qw{ strftime };
 use Readonly;
-use utf8;
 
 our @EXPORT_OK = qw{
     text_to_datetime
@@ -27,7 +26,7 @@ our %EXPORT_TAGS = (
 );
 
 Readonly our $SEC_PER_MIN   => 60;
-Readonly our $MIN_PER_HOUR  => 60;
+Readonly our $MIN_PER_HOUR  => 60;    ## no critic (ProhibitDuplicateLiteral)
 Readonly our $HOUR_PER_DAY  => 24;
 Readonly our $DAYS_PER_WEEK => 7;
 

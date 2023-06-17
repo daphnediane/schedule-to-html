@@ -8,7 +8,6 @@ use common::sense;
 
 use English     qw( -no_match_vars );
 use File::Slurp qw{read_file};
-use utf8;
 
 ## no critic (ProhibitUnusedVariables)
 
@@ -60,7 +59,7 @@ sub get_line {
             while ( $full
                 !~ m{ \A " (?: [^"]++ | (?: "" )++ )* " (?:\n\r?+|\r\n?+)?+ \z }xms
             ) {
-                unless ( @raw ) {
+                if ( !@raw ) {
                     chomp $full_line;
                     die
                         qq{Unable to process: [${full}]\nin line: ${full_line}\n};
