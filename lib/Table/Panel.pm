@@ -9,8 +9,9 @@ use List::Util qw{ any };
 
 use Canonical    qw{ :all };
 use Data::Room   qw{};
-use Field::Room  qw{};
 use Field::Panel qw{};
+use Field::Room  qw{};
+use Options      qw{};
 use Presenter    qw{};
 use PresenterSet qw{};
 use TimeDecoder  qw{ :from_text :timepoints };
@@ -21,6 +22,7 @@ our @EXPORT_OK = qw {
     get_panels_by_start
     get_related_panels
     read_from
+    read_spreadsheet_file
 };
 
 our %EXPORT_TAGS = (
@@ -277,5 +279,47 @@ sub read_from {
 
     return;
 } ## end sub read_from
+
+sub read_spreadsheet_file {
+    my ( $options ) = @_;
+
+    my $wb = Workbook->new( filename => $options->get_input_file() );
+    if ( !defined $wb || !$wb->get_is_open() ) {
+        die q{Unable to read }, $options->get_input_file(), qq{\n};
+    }
+
+    Table::Room::read_from( $wb );
+
+    foreach my $room_name ( $options->get_rooms_shown() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_shown();
+    }
+    foreach my $room_name ( $options->get_rooms_hidden() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_hidden();
+    }
+
+    Table::PanelType::read_from( $wb );
+
+    foreach my $paneltype_name ( $options->get_paneltypes_shown() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_shown();
+    }
+    foreach my $paneltype_name ( $options->get_paneltypes_hidden() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_hidden();
+    }
+
+    Table::Panel::read_from( $wb );
+
+    $wb->release() if defined $wb;
+    undef $wb;
+
+    return;
+} ## end sub read_spreadsheet_file
 
 1;

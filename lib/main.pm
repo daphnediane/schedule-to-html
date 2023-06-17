@@ -33,6 +33,7 @@ use TimeRegion        qw{};
 use TimeSlot          qw{};
 use Workbook          qw{};
 use Workbook::Sheet   qw{};
+use WriteLevel        qw{};
 
 # HTML Elements
 Readonly our $HTML_ANCHOR     => q{a};
@@ -147,10 +148,9 @@ Readonly our $RE_COLOR_STYLE =>
 
 my $options;
 
-my $output_file_handle;
+my $output_writer;
 my $output_file_name;
-my $level = 0;
-my $h     = HTML::Tiny->new( mode => $HTML_HTML );
+my $h = HTML::Tiny->new( mode => $HTML_HTML );
 
 sub join_subclass {
     my ( $base, @subclasses ) = @_;
@@ -165,65 +165,17 @@ sub join_subclass {
     return $base;
 } ## end sub join_subclass
 
-sub read_spreadsheet_file {
-    my $wb = Workbook->new( filename => $options->get_input_file() );
-    if ( !defined $wb || !$wb->get_is_open() ) {
-        die q{Unable to read }, $options->get_input_file(), qq{\n};
-    }
-
-    Table::Room::read_from( $wb );
-
-    foreach my $room_name ( $options->get_rooms_shown() ) {
-        my $room = Table::Room::lookup( $room_name );
-        next unless defined $room;
-        $room->set_room_is_shown();
-    }
-    foreach my $room_name ( $options->get_rooms_hidden() ) {
-        my $room = Table::Room::lookup( $room_name );
-        next unless defined $room;
-        $room->set_room_is_hidden();
-    }
-
-    Table::PanelType::read_from( $wb );
-
-    foreach my $paneltype_name ( $options->get_paneltypes_shown() ) {
-        my $paneltype = Table::PanelType::lookup( $paneltype_name );
-        next unless defined $paneltype;
-        $paneltype->make_shown();
-    }
-    foreach my $paneltype_name ( $options->get_paneltypes_hidden() ) {
-        my $paneltype = Table::PanelType::lookup( $paneltype_name );
-        next unless defined $paneltype;
-        $paneltype->make_hidden();
-    }
-
-    Table::Panel::read_from( $wb );
-
-    $wb->release() if defined $wb;
-    undef $wb;
-
-    return;
-} ## end sub read_spreadsheet_file
-
 sub out_line {
     my ( @content ) = @_;
-    my $indent      = join q{}, ( qq{\t} x $level );
-    my $content     = join q{}, @content;
-    foreach my $line ( split m{\n+}xms, $content ) {
-        $line =~ s{\A\s+}{}xms;
-        $line =~ s{\s+\Z}{}xms;
-        next if $line eq q{};
-        say { $output_file_handle } $indent, $line
-            or die qq{Error writing ${output_file_name}: ${ERRNO}\n};
-    } ## end foreach my $line ( split m{\n+}xms...)
+    $output_writer->add_line( @content );
 
     return;
 } ## end sub out_line
 
 sub out_css_open {
     my ( @content ) = @_;
-    out_line @content, q[ {];
-    ++$level;
+    push @content, q{ } if @content;
+    $output_writer->open_level( @content, qw[ { ] );
 
     return;
 } ## end sub out_css_open
@@ -231,24 +183,21 @@ sub out_css_open {
 sub out_css_close {
     my ( @content ) = @_;
     unshift @content, q{ } if @content;
-    --$level;
-    out_line q[}], @content;
+    $output_writer->close_level( qw[ } ], @content );
 
     return;
 } ## end sub out_css_close
 
 sub out_open {
     my ( @content ) = @_;
-    out_line $h->open( @content );
-    ++$level;
+    $output_writer->open_level( $h->open( @content ) );
 
     return;
 } ## end sub out_open
 
 sub out_close {
     my ( @content ) = @_;
-    --$level;
-    out_line $h->close( @content );
+    $output_writer->close_level( $h->close( @content ) );
 
     return;
 } ## end sub out_close
@@ -1209,9 +1158,10 @@ sub open_dump_file {
     my ( $filter, $def_name ) = @_;
     $def_name //= q{index};
 
+    $output_writer = WriteLevel->new();
+
     if ( $options->is_output_stdio() ) {
-        $output_file_handle = \*STDOUT;
-        $output_file_name   = q{<STDOUT>};
+        $output_file_name = q{<STDOUT>};
         return;
     }
 
@@ -1237,23 +1187,26 @@ sub open_dump_file {
         $ofname = File::Spec->catpath( $vol, $dir, $base );
     } ## end elsif ( @subnames )
 
-    ## no critic(RequireBriefOpen)
-
-    open $output_file_handle, q{>:encoding(utf8)}, $ofname
-        or die qq{Unable to write: ${ofname}\n};
-
-    ## use critic
-
     $output_file_name = $ofname;
     return;
 } ## end sub open_dump_file
 
 sub close_dump_file {
-    if ( !$options->is_output_stdio() && defined $output_file_handle ) {
-        $output_file_handle->close
-            or die qq{Unable to close ${output_file_name}: ${ERRNO}\n};
+    if ( !$output_writer->is_balanced() ) {
+        $output_writer->write_to( \*STDERR );
+        die qq{Unbalanced level in output for ${output_file_name}\n};
     }
-    undef $output_file_handle;
+
+    if ( $options->is_output_stdio() ) {
+        $output_writer->write_to( \*STDOUT );
+    }
+    else {
+        open my $fh, q{>:encoding(utf8)}, ${ output_file_name }
+            or die qq{Unable to write: ${output_file_name}\n};
+        $output_writer->write_to( $fh );
+        $fh->close
+            or die qq{Unable to close ${output_file_name}: ${ERRNO}\n};
+    } ## end else [ if ( $options->is_output_stdio...)]
     undef $output_file_name;
 
     return;
@@ -1407,8 +1360,7 @@ sub dump_styles {
 sub dump_file_header {
     my ( $filter ) = @_;
 
-    say { $output_file_handle } $HTML_DOCTYPE_HTML
-        or die qq{Error writing file: ${output_file_name}: ${ERRNO}\n};
+    $output_writer->add_line( $HTML_DOCTYPE_HTML );
 
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
@@ -1600,8 +1552,7 @@ sub dump_kiosk_desc {
 sub dump_kiosk {
     open_dump_file( Data::Partion->unfiltered(), q{kiosk} );
 
-    say { $output_file_handle } $HTML_DOCTYPE_HTML
-        or die qq{Error writing kiosk: ${output_file_name}: ${ERRNO}\n};
+    $output_writer->add_line( $HTML_DOCTYPE_HTML );
 
     out_open $HTML_HTML;
     out_open $HTML_HEAD;
@@ -1663,7 +1614,7 @@ sub main {
         Table::PanelType::add_color_set( $color_set );
     } ## end foreach my $style ( $options...)
 
-    read_spreadsheet_file( $options->get_input_file() );
+    read_spreadsheet_file( $options );
 
     populate_time_regions( $options );
 
