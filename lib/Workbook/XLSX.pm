@@ -2,9 +2,8 @@ package Workbook::XLSX;
 
 use Object::InsideOut qw{ Workbook };
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Spreadsheet::ParseXLSX qw{};
 

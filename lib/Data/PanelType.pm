@@ -2,9 +2,8 @@ package Data::PanelType;
 
 use Object::InsideOut;
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Carp qw{croak};
 use Readonly;

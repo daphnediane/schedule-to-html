@@ -2,9 +2,8 @@ package TimeDecoder;
 
 use base qw{Exporter};
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Date::Parse qw{ str2time };
 use POSIX       qw{ strftime };
@@ -62,7 +61,7 @@ sub text_to_duration {
 
     return unless $value =~ m{ \A \d+ : \d{1,2} \z}xms;
 
-    my ( $hour, $min ) = split m{:}xms, $value, $2;
+    my ( $hour, $min ) = split m{:}xms, $value, 2;
     $min += $hour * $MIN_PER_HOUR;
     return $min * $SEC_PER_MIN;
 } ## end sub text_to_duration

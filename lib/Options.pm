@@ -2,10 +2,10 @@ package Options;
 
 use base qw{Exporter};
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
+use Carp            qw{ croak };
 use Data::Dumper    qw{};
 use File::ShareDir  qw{};
 use File::Slurp     qw{ read_file };
@@ -20,6 +20,7 @@ Readonly my $OPTION_PAT => qr{^ [#][#] \s (?= - ) }xms;
 
 my @opt_parse;
 my @opt_on_kiosk;
+my %opt_gen;
 
 sub unindent_ {
     my ( $chunk, $prefix ) = @_;
@@ -66,118 +67,125 @@ sub parse_internal_doc_ {
 } ## end sub parse_internal_doc_
 
 sub to_str_ {
-    my ( @vals ) = @_;
-    return map { ref $_ ? q{} . $_ : $_ } @vals;
+    my ( $value ) = @_;
+    return q{} . $value if ref $value;
+    return $value;
 }
 
-sub push_option_ {
-    my ( $self, $opt_name, $value ) = @_;
+## List option
+Readonly our $MOD_LIST => q{=s@};
+$opt_gen{ $MOD_LIST } = sub {
+    my ( $self, $opt_name, @rest ) = @_;
+    croak q{Too many args for mod_list} if @rest;
 
-    return unless defined $value;
-    push @{ $self->{ $opt_name } }, $value;
-    return;
-} ## end sub push_option_
+    return sub {
+        my ( $flag, $opt ) = @_;
+        $opt = to_str_ $opt;
+        return unless defined $opt;
+        push @{ $self->{ $opt_name } }, $opt;
+        return;
+    };
+};
 
-sub increment_option_ {
-    my ( $self, $opt_name ) = @_;
+## Value option
+Readonly our $MOD_VALUE => q{=s};
+$opt_gen{ $MOD_VALUE } = sub {
+    my ( $self, $opt_name, @rest ) = @_;
+    croak q{Too many args for mod_value} if @rest;
 
-    ++$self->{ $opt_name };
-    return;
-} ## end sub increment_option_
+    return sub {
+        my ( $flag, $opt ) = @_;
+        $opt = to_str_ $opt;
+        $self->{ $opt_name } = $opt;
+    };
+};
 
-sub set_option_ {
-    my ( $self, $opt_name, $value ) = @_;
+## Sub value option
+Readonly our $MOD_SUB_VALUE => q{=s%};
+$opt_gen{ $MOD_SUB_VALUE } = sub {
+    my ( $self, $opt_name, $opt_sub_name, @rest ) = @_;
+    croak q{Too many args for mod_sub_value} if @rest;
+
+    return sub {
+        my ( $flag, $opt ) = @_;
+        $opt = to_str_ $opt;
+        $self->{ $opt_name }->{ $opt_sub_name } = $opt;
+    };
+};
+
+## Named state option
+Readonly our $MOD_NAMED_STATE => q{=s%%};
+$opt_gen{ $MOD_NAMED_STATE } = sub {
+    my ( $self, $opt_name, $opt_sub_name, @rest ) = @_;
+    croak q{Too many args for mod_named_state} if @rest;
+
+    return sub {
+        my ( $flag, $opt ) = @_;
+        $opt = to_str_ $opt;
+        $self->{ $opt_name }->{ $opt } = $opt_sub_name;
+    };
+};
+
+## Flag option
+Readonly our $MOD_FLAG => q{};
+$opt_gen{ $MOD_FLAG } = sub {
+    my ( $self, $opt_name, $value, @rest ) = @_;
+    croak q{Too many args for mod_flag} if @rest;
 
     if ( defined $value ) {
-        $self->{ $opt_name } = $value;
-    }
-    else {
+        return sub {
+            $self->{ $opt_name } = $value;
+            return;
+        }
+    } ## end if ( defined $value )
+    return sub {
         delete $self->{ $opt_name };
+        return;
     }
-    return;
-} ## end sub set_option_
+};
 
-sub def_option_ {
-    my ( $self, $opt_name, $value ) = @_;
-
-    if ( defined $value ) {
-        $self->{ $opt_name } //= $value;
-    }
-    return;
-} ## end sub def_option_
-
-sub sub_option_ {
-    my ( $self, $opt_name, $value, @args ) = @_;
-
-    $self->$value( @args );
-    return;
-} ## end sub sub_option_
-
-sub hash_option_ {
+## Sub flag option
+Readonly our $MOD_SUB_FLAG => q{%};
+$opt_gen{ $MOD_SUB_FLAG } = sub {
     my ( $self, $opt_name, %hash_values ) = @_;
 
-    my $deleted;
-    foreach my $key ( keys %hash_values ) {
-        my $value = $hash_values{ $key };
-        $value .= q{} if ref $value;
-        if ( defined $value ) {
-            $self->{ $opt_name }->{ $key } = $value;
+    return sub {
+        my $any_deleted;
+        foreach my $key ( keys %hash_values ) {
+            my $value = $hash_values{ $key };
+            $value .= q{} if ref $value;
+            if ( defined $value ) {
+                $self->{ $opt_name }->{ $key } = $value;
+            }
+            else {
+                delete $self->{ $opt_name }->{ $key };
+                $any_deleted = 1;
+            }
+        } ## end foreach my $key ( keys %hash_values)
+        if ( $any_deleted && !%{ $self->{ $opt_name } } ) {
+            delete $self->{ $opt_name };
         }
-        else {
-            delete $self->{ $opt_name }->{ $key };
-            $deleted = 1;
-        }
-    } ## end foreach my $key ( keys %hash_values)
-    if ( $deleted && !%{ $self->{ $opt_name } } ) {
-        delete $self->{ $opt_name };
-    }
-    return;
-} ## end sub hash_option_
 
-sub rev_hash_option_ {
-    my ( $self, $opt_name, $value, @keys ) = @_;
-
-    my $deleted;
-    foreach my $key ( @keys ) {
-        $value = undef if $value eq q{};
-        if ( defined $value ) {
-            $self->{ $opt_name }->{ $key } = $value;
-        }
-        else {
-            delete $self->{ $opt_name }->{ $key };
-            $deleted = 1;
-        }
-    } ## end foreach my $key ( @keys )
-    if ( $deleted && !%{ $self->{ $opt_name } } ) {
-        delete $self->{ $opt_name };
+        return;
     }
-    return;
-} ## end sub rev_hash_option_
+};
+
+## Special option
+Readonly our $MOD_SPECIAL => q{&};
+$opt_gen{ $MOD_SPECIAL } = sub {
+    my ( $self, $opt_name, $handler, @rest ) = @_;
+
+    return sub {
+        $handler->( $self, @rest );
+        return;
+    };
+};
 
 sub get_method_ {
     my ( $self, $mod, @parms ) = @_;
 
-    return sub { shift; $self->push_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{\@\z}xms;
-
-    return
-        sub { shift; $self->increment_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{ [+] \z }xms;
-
-    return
-        sub { shift; $self->rev_hash_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{ % % \z}xms;
-
-    return sub { shift; $self->hash_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{ % \z}xms;
-
-    return sub { shift; $self->def_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{ / \z}xms;
-
-    return sub { shift; $self->sub_option_( @parms, to_str_ @_ ); return; }
-        if $mod =~ m{ & \z}xms;
-
-    return sub { shift; $self->set_option_( @parms, to_str_ @_ ); return; };
+    my $generator = $opt_gen{ $mod } or croak q{Unknown option mod: } . $mod;
+    return $generator->( $self, @parms );
 } ## end sub get_method_
 
 sub get_getopt_flag_names_ {
@@ -235,8 +243,8 @@ Readonly our $VAL_DESC_FORM_DIV_   => 1;
 Readonly our $VAL_DESC_FORM_TABLE_ => undef;
 
 push @opt_parse,
-    [ $OPT_DESC_FORM_, [ qw{ -div } ],   q{}, $VAL_DESC_FORM_DIV_ ],
-    [ $OPT_DESC_FORM_, [ qw{ -table } ], q{}, $VAL_DESC_FORM_TABLE_ ];
+    [ $OPT_DESC_FORM_, [ qw{ -div } ],   $MOD_FLAG, $VAL_DESC_FORM_DIV_ ],
+    [ $OPT_DESC_FORM_, [ qw{ -table } ], $MOD_FLAG, $VAL_DESC_FORM_TABLE_ ];
 
 sub is_desc_form_div {
     my ( $self ) = @_;
@@ -259,11 +267,17 @@ Readonly our $VAL_DESC_LOC_MIXED_ => undef;
 Readonly our $VAL_DESC_LOC_LAST_  => 1;
 
 push @opt_parse,
-    [ $OPT_DESC_LOC_, [ qw{ -mixed !separate } ], q{}, $VAL_DESC_LOC_MIXED_ ],
-    [ $OPT_DESC_LOC_, [ qw{ -last separate } ],   q{}, $VAL_DESC_LOC_LAST_ ];
+    [
+    $OPT_DESC_LOC_, [ qw{ -mixed !separate } ], $MOD_FLAG,
+    $VAL_DESC_LOC_MIXED_
+    ],
+    [
+    $OPT_DESC_LOC_, [ qw{ -last separate } ], $MOD_FLAG,
+    $VAL_DESC_LOC_LAST_
+    ];
 
 push @opt_on_kiosk,
-    [ $OPT_DESC_LOC_, q{} ];
+    [ $OPT_DESC_LOC_, $MOD_FLAG ];
 
 sub is_desc_loc_last {
     my ( $self ) = @_;
@@ -298,19 +312,31 @@ Readonly our $VAL_BY_PANELIST       => q{panelist};
 
 push @opt_parse,
     [
-    $OPT_DESC_BY_, [ qw{ desc-everyone-together } ], q{},
+    $OPT_DESC_BY_, [ qw{ desc-everyone-together } ], $MOD_FLAG,
     $VAL_EVERYONE_TOGETHER
     ],
-    [ $OPT_DESC_BY_, [ qw{ -!guest } ],     q{%}, $VAL_BY_GUEST    => 0 ],
-    [ $OPT_DESC_BY_, [ qw{ -guest } ],      q{%}, $VAL_BY_GUEST    => 1 ],
-    [ $OPT_DESC_BY_, [ qw{ -!presenter } ], q{%}, $VAL_BY_PANELIST => 0 ],
-    [ $OPT_DESC_BY_, [ qw{ -!panelist } ],  q{%}, $VAL_BY_PANELIST => 0 ],
-    [ $OPT_DESC_BY_, [ qw{ -presenter } ],  q{%}, $VAL_BY_PANELIST => 1 ],
-    [ $OPT_DESC_BY_, [ qw{ -panelist } ],   q{%}, $VAL_BY_PANELIST => 1 ],
+    [ $OPT_DESC_BY_, [ qw{ -!guest } ], $MOD_SUB_FLAG, $VAL_BY_GUEST => 0 ],
+    [ $OPT_DESC_BY_, [ qw{ -guest } ],  $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [
+    $OPT_DESC_BY_, [ qw{ -!presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 0
+    ],
+    [
+    $OPT_DESC_BY_, [ qw{ -!panelist } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 0
+    ],
+    [
+    $OPT_DESC_BY_, [ qw{ -presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
+    [
+    $OPT_DESC_BY_, [ qw{ -panelist } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
     ;
 
 push @opt_on_kiosk,
-    [ $OPT_DESC_BY_, q{}, $VAL_EVERYONE_TOGETHER ];
+    [ $OPT_DESC_BY_, $MOD_FLAG, $VAL_EVERYONE_TOGETHER ];
 
 sub is_desc_everyone_together {
     my ( $self ) = @_;
@@ -347,11 +373,17 @@ Readonly our $VAL_EMDED_CSS_ => 1;
 Readonly our $VAL_LINK_CSS_  => 0;
 
 push @opt_parse,
-    [ $OPT_CSS_LOC_, [ qw{ embed-css !inline-css } ], q{}, $VAL_EMDED_CSS_ ],
-    [ $OPT_CSS_LOC_, [ qw{ inline-css !embed-css } ], q{}, $VAL_LINK_CSS_ ];
+    [
+    $OPT_CSS_LOC_, [ qw{ embed-css !inline-css } ], $MOD_FLAG,
+    $VAL_EMDED_CSS_
+    ],
+    [
+    $OPT_CSS_LOC_, [ qw{ inline-css !embed-css } ], $MOD_FLAG,
+    $VAL_LINK_CSS_
+    ];
 
 push @opt_on_kiosk,
-    [ $OPT_CSS_LOC_, q{}, $VAL_LINK_CSS_ ];
+    [ $OPT_CSS_LOC_, $MOD_FLAG, $VAL_LINK_CSS_ ];
 
 sub is_css_loc_embedded {
     my ( $self ) = @_;
@@ -401,23 +433,41 @@ Readonly our $VAL_BY_ROOM  => q{/room};
 
 push @opt_parse,
     [
-    $OPT_FILE_BY_, [ qw{ file-everyone-together } ], q{},
+    $OPT_FILE_BY_, [ qw{ file-everyone-together } ], $MOD_FLAG,
     $VAL_EVERYONE_TOGETHER
     ],
-    [ $OPT_FILE_BY_, [ qw{ --all-days -!day } ], q{%}, $VAL_BY_DAY    => 0 ],
-    [ $OPT_FILE_BY_, [ qw{ -day } ],             q{%}, $VAL_BY_DAY    => 1 ],
-    [ $OPT_FILE_BY_, [ qw{ -!guest } ],          q{%}, $VAL_BY_GUEST  => 0 ],
-    [ $OPT_FILE_BY_, [ qw{ -guest } ],           q{%}, $VAL_BY_GUEST  => 1 ],
-    [ $OPT_FILE_BY_, [ qw{ -!presenter } ], q{%}, $VAL_BY_PANELIST    => 0 ],
-    [ $OPT_FILE_BY_, [ qw{ -!panelist } ],  q{%}, $VAL_BY_PANELIST    => 0 ],
-    [ $OPT_FILE_BY_, [ qw{ -presenter } ],  q{%}, $VAL_BY_PANELIST    => 1 ],
-    [ $OPT_FILE_BY_, [ qw{ -panelist } ],   q{%}, $VAL_BY_PANELIST    => 1 ],
-    [ $OPT_FILE_BY_, [ qw{ --all-rooms -!room } ], q{%}, $VAL_BY_ROOM => 0 ],
-    [ $OPT_FILE_BY_, [ qw{ -room } ],              q{%}, $VAL_BY_ROOM => 1 ],
+    [
+    $OPT_FILE_BY_, [ qw{ --all-days -!day } ], $MOD_SUB_FLAG,
+    $VAL_BY_DAY => 0
+    ],
+    [ $OPT_FILE_BY_, [ qw{ -day } ],    $MOD_SUB_FLAG, $VAL_BY_DAY   => 1 ],
+    [ $OPT_FILE_BY_, [ qw{ -!guest } ], $MOD_SUB_FLAG, $VAL_BY_GUEST => 0 ],
+    [ $OPT_FILE_BY_, [ qw{ -guest } ],  $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [
+    $OPT_FILE_BY_, [ qw{ -!presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 0
+    ],
+    [
+    $OPT_FILE_BY_, [ qw{ -!panelist } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 0
+    ],
+    [
+    $OPT_FILE_BY_, [ qw{ -presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
+    [
+    $OPT_FILE_BY_, [ qw{ -panelist } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
+    [
+    $OPT_FILE_BY_, [ qw{ --all-rooms -!room } ], $MOD_SUB_FLAG,
+    $VAL_BY_ROOM => 0
+    ],
+    [ $OPT_FILE_BY_, [ qw{ -room } ], $MOD_SUB_FLAG, $VAL_BY_ROOM => 1 ],
     ;
 
 push @opt_on_kiosk,
-    [ $OPT_FILE_BY_, q{} ];
+    [ $OPT_FILE_BY_, $MOD_FLAG ];
 
 sub is_file_everyone_together {
     my ( $self ) = @_;
@@ -476,7 +526,7 @@ sub is_file_by_room {
 Readonly our $OPT_INPUT_ => q{input};
 
 push @opt_parse,
-    [ $OPT_INPUT_, [ qw{ input } ], q{=s} ];
+    [ $OPT_INPUT_, [ qw{ input } ], $MOD_VALUE ];
 
 sub get_input_file {
     my ( $self ) = @_;
@@ -494,14 +544,17 @@ sub get_input_file {
 Readonly our $OPT_JUST_ => q{just};
 
 push @opt_parse,
-    [ $OPT_JUST_, [ qw{ everyone } ],   q{},  $VAL_EVERYONE_TOGETHER ],
-    [ $OPT_JUST_, [ qw{ -guest } ],     q{%}, $VAL_BY_GUEST    => 1 ],
-    [ $OPT_JUST_, [ qw{ -presenter } ], q{%}, $VAL_BY_PANELIST => 1 ],
-    [ $OPT_JUST_, [ qw{ -panelist } ],  q{%}, $VAL_BY_PANELIST => 1 ],
+    [ $OPT_JUST_, [ qw{ everyone } ], $MOD_FLAG,     $VAL_EVERYONE_TOGETHER ],
+    [ $OPT_JUST_, [ qw{ -guest } ],   $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [
+    $OPT_JUST_, [ qw{ -presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
+    [ $OPT_JUST_, [ qw{ -panelist } ], $MOD_SUB_FLAG, $VAL_BY_PANELIST => 1 ],
     ;
 
 push @opt_on_kiosk,
-    [ $OPT_JUST_, q{} ];
+    [ $OPT_JUST_, $MOD_FLAG ];
 
 sub is_just_everyone {
     my ( $self ) = @_;
@@ -541,9 +594,12 @@ Readonly our $VAL_MODE_KIOSK_     => q{kiosk};
 Readonly our $VAL_MODE_POSTCACRD_ => q{postcard};
 
 push @opt_parse,
-    [ $OPT_MODE_, [ qw{ -flyer flyer } ],       q{}, $VAL_MODE_FLYER_ ],
-    [ $OPT_MODE_, [ qw{ -kiosk kiosk } ],       q{}, $VAL_MODE_KIOSK_ ],
-    [ $OPT_MODE_, [ qw{ -postcard postcard } ], q{}, $VAL_MODE_POSTCACRD_ ];
+    [ $OPT_MODE_, [ qw{ -flyer flyer } ], $MOD_FLAG, $VAL_MODE_FLYER_ ],
+    [ $OPT_MODE_, [ qw{ -kiosk kiosk } ], $MOD_FLAG, $VAL_MODE_KIOSK_ ],
+    [
+    $OPT_MODE_, [ qw{ -postcard postcard } ], $MOD_FLAG,
+    $VAL_MODE_POSTCACRD_
+    ];
 
 sub get_mode_ {
     my ( $self ) = @_;
@@ -574,7 +630,7 @@ sub is_mode_postcard {
 Readonly our $OPT_OUTPUT_ => q{output};
 
 push @opt_parse,
-    [ $OPT_OUTPUT_, [ qw{ output } ], q{=s} ];
+    [ $OPT_OUTPUT_, [ qw{ output } ], $MOD_VALUE ];
 
 sub get_output_file {
     my ( $self ) = @_;
@@ -595,10 +651,10 @@ sub is_output_stdio {
 Readonly our $OPT_ROOM_ => q{room};
 
 push @opt_parse,
-    [ $OPT_ROOM_, [ qw{ room } ], q{=s@} ];
+    [ $OPT_ROOM_, [ qw{ room } ], $MOD_LIST ];
 
 push @opt_on_kiosk,
-    [ $OPT_ROOM_, q{}, undef ];
+    [ $OPT_ROOM_, $MOD_FLAG, undef ];
 
 sub get_rooms {
     my ( $self ) = @_;
@@ -628,10 +684,10 @@ Readonly our $OPT_ROOM_VIS      => q{room-vis};
 Readonly our $OPT_PANELTYPE_VIS => q{panel-vis};
 
 push @opt_parse,
-    [ $OPT_ROOM_VIS,      [ qw{ show-room } ],      q{=s%%}, 1, ],
-    [ $OPT_ROOM_VIS,      [ qw{ hide-room } ],      q{=s%%}, 0, ],
-    [ $OPT_PANELTYPE_VIS, [ qw{ show-paneltype } ], q{=s%%}, 1, ],
-    [ $OPT_PANELTYPE_VIS, [ qw{ hide-paneltype } ], q{=s%%}, 0, ],
+    [ $OPT_ROOM_VIS,      [ qw{ show-room } ],      $MOD_NAMED_STATE, 1, ],
+    [ $OPT_ROOM_VIS,      [ qw{ hide-room } ],      $MOD_NAMED_STATE, 0, ],
+    [ $OPT_PANELTYPE_VIS, [ qw{ show-paneltype } ], $MOD_NAMED_STATE, 1, ],
+    [ $OPT_PANELTYPE_VIS, [ qw{ hide-paneltype } ], $MOD_NAMED_STATE, 0, ],
     ;
 
 sub get_rooms_shown {
@@ -719,55 +775,77 @@ Readonly our $VAL_SHOW_SECT_DESC_    => q{/descriptions};
 Readonly our $VAL_SHOW_SECT_GRID_    => q{/grid};
 
 push @opt_parse,
-    [ $OPT_SHOW, [ qw{ -!unused-rooms } ], q{%}, $VAL_SHOW_ALL_ROOMS_ => 0 ],
     [
-    $OPT_SHOW, [ qw{ -all-rooms -unused-rooms} ], q{%},
+    $OPT_SHOW, [ qw{ -!unused-rooms } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_ALL_ROOMS_ => 0
+    ],
+    [
+    $OPT_SHOW, [ qw{ -all-rooms -unused-rooms} ], $MOD_SUB_FLAG,
     $VAL_SHOW_ALL_ROOMS_ => 1
     ],
-    [ $OPT_SHOW, [ qw{ -!av } ],     q{%}, $VAL_SHOW_AV_        => 0 ],
-    [ $OPT_SHOW, [ qw{ -av } ],      q{%}, $VAL_SHOW_AV_        => 1 ],
-    [ $OPT_SHOW, [ qw{ -!breaks } ], q{%}, $VAL_SHOW_BREAKS_    => 0 ],
-    [ $OPT_SHOW, [ qw{ -breaks } ],  q{%}, $VAL_SHOW_BREAKS_    => 1 ],
-    [ $OPT_SHOW, [ qw{ -!free } ],   q{%}, $VAL_SHOW_COST_FREE_ => 0 ],
-    [ $OPT_SHOW, [ qw{ -free } ],    q{%}, $VAL_SHOW_COST_FREE_ => 1 ],
+    [ $OPT_SHOW, [ qw{ -!av } ],     $MOD_SUB_FLAG, $VAL_SHOW_AV_      => 0 ],
+    [ $OPT_SHOW, [ qw{ -av } ],      $MOD_SUB_FLAG, $VAL_SHOW_AV_      => 1 ],
+    [ $OPT_SHOW, [ qw{ -!breaks } ], $MOD_SUB_FLAG, $VAL_SHOW_BREAKS_  => 0 ],
+    [ $OPT_SHOW, [ qw{ -breaks } ],  $MOD_SUB_FLAG, $VAL_SHOW_BREAKS_  => 1 ],
+    [ $OPT_SHOW, [ qw{ -!free } ], $MOD_SUB_FLAG, $VAL_SHOW_COST_FREE_ => 0 ],
+    [ $OPT_SHOW, [ qw{ -free } ],  $MOD_SUB_FLAG, $VAL_SHOW_COST_FREE_ => 1 ],
     [
-    $OPT_SHOW, [ qw{ just-free } ], q{%}, $VAL_SHOW_COST_FREE_ => 1,
+    $OPT_SHOW, [ qw{ just-free } ], $MOD_SUB_FLAG, $VAL_SHOW_COST_FREE_ => 1,
     $VAL_SHOW_COST_PREMIUM_ => 0
     ],
-    [ $OPT_SHOW, [ qw{ -!premium } ], q{%}, $VAL_SHOW_COST_PREMIUM_ => 0 ],
-    [ $OPT_SHOW, [ qw{ -premium } ],  q{%}, $VAL_SHOW_COST_PREMIUM_ => 1 ],
     [
-    $OPT_SHOW, [ qw{ just-premium } ], q{%},
+    $OPT_SHOW, [ qw{ -!premium } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_COST_PREMIUM_ => 0
+    ],
+    [
+    $OPT_SHOW, [ qw{ -premium } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_COST_PREMIUM_ => 1
+    ],
+    [
+    $OPT_SHOW, [ qw{ just-premium } ], $MOD_SUB_FLAG,
     $VAL_SHOW_COST_PREMIUM_ => 1, $VAL_SHOW_COST_FREE_ => 0
     ],
-    [ $OPT_SHOW, [ qw{ -!day } ],          q{%}, $VAL_SHOW_DAY_COLUMN_ => 0 ],
-    [ $OPT_SHOW, [ qw{ -day } ],           q{%}, $VAL_SHOW_DAY_COLUMN_ => 1 ],
-    [ $OPT_SHOW, [ qw{ -!difficulty } ],   q{%}, $VAL_SHOW_DIFFICULTY_ => 0 ],
-    [ $OPT_SHOW, [ qw{ -difficulty } ],    q{%}, $VAL_SHOW_DIFFICULTY_ => 1 ],
-    [ $OPT_SHOW, [ qw{ -!descriptions } ], q{%}, $VAL_SHOW_SECT_DESC_  => 0 ],
+    [ $OPT_SHOW, [ qw{ -!day } ], $MOD_SUB_FLAG, $VAL_SHOW_DAY_COLUMN_ => 0 ],
+    [ $OPT_SHOW, [ qw{ -day } ],  $MOD_SUB_FLAG, $VAL_SHOW_DAY_COLUMN_ => 1 ],
     [
-    $OPT_SHOW, [ qw{ -descriptions descriptions } ], q{%},
+    $OPT_SHOW, [ qw{ -!difficulty } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_DIFFICULTY_ => 0
+    ],
+    [
+    $OPT_SHOW, [ qw{ -difficulty } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_DIFFICULTY_ => 1
+    ],
+    [
+    $OPT_SHOW, [ qw{ -!descriptions } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_SECT_DESC_ => 0
+    ],
+    [
+    $OPT_SHOW, [ qw{ -descriptions descriptions } ], $MOD_SUB_FLAG,
     $VAL_SHOW_SECT_DESC_ => 1
     ],
     [
-    $OPT_SHOW, [ qw{ just-descriptions } ], q{%}, $VAL_SHOW_SECT_DESC_ => 1,
+    $OPT_SHOW, [ qw{ just-descriptions } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_SECT_DESC_ => 1,
     $VAL_SHOW_SECT_GRID_ => 0
     ],
-    [ $OPT_SHOW, [ qw{ -!grid } ],     q{%}, $VAL_SHOW_SECT_GRID_ => 0 ],
-    [ $OPT_SHOW, [ qw{ -grid grid } ], q{%}, $VAL_SHOW_SECT_GRID_ => 1 ],
+    [ $OPT_SHOW, [ qw{ -!grid } ], $MOD_SUB_FLAG, $VAL_SHOW_SECT_GRID_ => 0 ],
     [
-    $OPT_SHOW, [ qw{ just-grid } ], q{%},
+    $OPT_SHOW, [ qw{ -grid grid } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_SECT_GRID_ => 1
+    ],
+    [
+    $OPT_SHOW, [ qw{ just-grid } ], $MOD_SUB_FLAG,
     $VAL_SHOW_SECT_GRID_ => 1, $VAL_SHOW_SECT_DESC_ => 0
     ],
     ;
 
 push @opt_on_kiosk,
-    [ $OPT_SHOW, q{%}, $VAL_SHOW_BREAKS_       => 1 ],
-    [ $OPT_SHOW, q{%}, $VAL_SHOW_COST_FREE_    => 1 ],
-    [ $OPT_SHOW, q{%}, $VAL_SHOW_COST_PREMIUM_ => 1 ],
-    [ $OPT_SHOW, q{%}, $VAL_SHOW_DAY_COLUMN_   => undef ],
-    [ $OPT_SHOW, q{%}, $VAL_SHOW_SECT_DESC_    => 1 ],
-    [ $OPT_SHOW, q{%}, $VAL_SHOW_SECT_GRID_    => 1 ],
+    [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_BREAKS_       => 1 ],
+    [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_COST_FREE_    => 1 ],
+    [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_COST_PREMIUM_ => 1 ],
+    [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_DAY_COLUMN_   => undef ],
+    [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_SECT_DESC_    => 1 ],
+    [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_SECT_GRID_    => 1 ],
     ;
 
 sub show_all_rooms {
@@ -881,14 +959,14 @@ Readonly our $VAL_SPLIT_TIMEREGION_ => q{timeregion};
 Readonly our $VAL_SPLIT_DAY_        => q{day};
 
 push @opt_parse,
-    [ $OPT_SPLIT_, [ qw{ unified no-split } ], q{}, $VAL_SPLIT_NONE_ ],
-    [ $OPT_SPLIT_, [ qw{ -timeregion } ],      q{}, $VAL_SPLIT_TIMEREGION_ ],
-    [ $OPT_SPLIT_, [ qw{ -half-day } ],        q{}, $VAL_SPLIT_TIMEREGION_ ],
-    [ $OPT_SPLIT_, [ qw{ -day } ],             q{}, $VAL_SPLIT_DAY_ ],
+    [ $OPT_SPLIT_, [ qw{ unified no-split } ], $MOD_FLAG, $VAL_SPLIT_NONE_ ],
+    [ $OPT_SPLIT_, [ qw{ -timeregion } ], $MOD_FLAG, $VAL_SPLIT_TIMEREGION_ ],
+    [ $OPT_SPLIT_, [ qw{ -half-day } ],   $MOD_FLAG, $VAL_SPLIT_TIMEREGION_ ],
+    [ $OPT_SPLIT_, [ qw{ -day } ],        $MOD_FLAG, $VAL_SPLIT_DAY_ ],
     [
     $OPT_SPLIT_,
     [ qw{ split } ],
-    q{&},
+    $MOD_SPECIAL,
     sub {
         my ( $self ) = @_;
         return if $self->{ $OPT_SPLIT_ } eq $VAL_SPLIT_DAY_;
@@ -898,7 +976,7 @@ push @opt_parse,
     ];
 
 push @opt_on_kiosk,
-    [ $OPT_SPLIT_, q{}, $VAL_SPLIT_NONE_ ];
+    [ $OPT_SPLIT_, $MOD_FLAG, $VAL_SPLIT_NONE_ ];
 
 sub get_split_ {
     my ( $self ) = @_;
@@ -937,10 +1015,10 @@ sub is_split_day {
 Readonly our $OPT_STYLE_ => q{style};
 
 push @opt_parse,
-    [ $OPT_STYLE_, [ qw{ style } ], q{=s@} ];
+    [ $OPT_STYLE_, [ qw{ style } ], $MOD_LIST ];
 
 push @opt_on_kiosk,
-    [ $OPT_STYLE_, q{}, [ qw{+color} ] ];
+    [ $OPT_STYLE_, $MOD_FLAG, [ qw{+color} ] ];
 
 sub get_styles {
     my ( $self ) = @_;
@@ -967,8 +1045,8 @@ Readonly our $VAL_TIME_END_   => q{end};
 Readonly our $VAL_TIME_START_ => q{start};
 
 push @opt_parse,
-    [ $OPT_TIME_, [ qw{ end-time } ],   q{=s%}, $VAL_TIME_END_ ],
-    [ $OPT_TIME_, [ qw{ start-time } ], q{=s%}, $VAL_TIME_START_ ],
+    [ $OPT_TIME_, [ qw{ end-time } ],   $MOD_SUB_VALUE, $VAL_TIME_END_ ],
+    [ $OPT_TIME_, [ qw{ start-time } ], $MOD_SUB_VALUE, $VAL_TIME_START_ ],
     ;
 
 sub get_time_end {
@@ -993,7 +1071,7 @@ sub get_time_start {
 Readonly our $OPT_TITLE_ => q{title};
 
 push @opt_parse,
-    [ $OPT_TITLE_, [ qw{ title } ], q{=s} ];
+    [ $OPT_TITLE_, [ qw{ title } ], $MOD_VALUE ];
 
 sub get_title {
     my ( $self ) = @_;

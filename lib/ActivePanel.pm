@@ -2,9 +2,8 @@ package ActivePanel;
 
 use Object::InsideOut qw{TimeRange};
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Data::Room qw{};
 

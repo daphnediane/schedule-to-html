@@ -2,9 +2,8 @@ package Presenter;
 
 use Object::InsideOut;
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Readonly;
 use List::Util qw{ max };

@@ -1,8 +1,7 @@
 package Field::Panel;
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Readonly;
 

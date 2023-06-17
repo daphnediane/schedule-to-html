@@ -2,9 +2,8 @@ package Workbook::UnicodeText;
 
 use Object::InsideOut qw{ Workbook };
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use English     qw( -no_match_vars );
 use File::Slurp qw{read_file};

@@ -2,9 +2,8 @@ package TimeRange;
 
 use Object::InsideOut;
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use TimeDecoder qw{ :from_text };
 

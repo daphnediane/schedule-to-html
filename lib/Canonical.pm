@@ -2,9 +2,8 @@ package Canonical;
 
 use base qw{Exporter};
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 our @EXPORT_OK = qw {
     canonical_header

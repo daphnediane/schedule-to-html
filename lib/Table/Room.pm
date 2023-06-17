@@ -2,9 +2,8 @@ package Table::Room;
 
 use base qw{Exporter};
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use Canonical   qw{ :all };
 use Data::Room  qw{};

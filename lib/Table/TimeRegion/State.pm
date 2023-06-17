@@ -2,9 +2,8 @@ package Table::TimeRegion::State;
 
 use Object::InsideOut;
 
-use strict;
-use warnings;
-use common::sense;
+use v5.36.0;
+use utf8;
 
 use ActivePanel qw{};
 use TimeRegion  qw{};
