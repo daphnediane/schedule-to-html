@@ -5,8 +5,7 @@ use base qw{Exporter};
 use v5.36.0;
 use utf8;
 
-use Carp         qw{ croak cluck };
-use Scalar::Util qw{ blessed };
+use Carp qw{ croak cluck };
 use Readonly;
 
 our @EXPORT_OK = qw {
@@ -16,7 +15,8 @@ our %EXPORT_TAGS = (
     all => [ @EXPORT_OK ],
 );
 
-Readonly our $ERROR_NO_LEVEL => q{No open levels};
+Readonly our $ERROR_NO_LEVEL  => q{No open levels};
+Readonly our $WRITE_TO_METHOD => q{write_to};
 
 sub add_line {
     my ( $self, @content ) = @_;
@@ -32,8 +32,8 @@ sub add_line {
 sub embed {
     my ( $self, $embedded ) = @_;
     return unless defined $embedded;
-    croak q{WriteLevel can only embed other instances of WriteLevel}
-        unless eval { $embedded->isa( __PACKAGE__ ) };
+    croak q{WriteLevel can only embed WriteLevel based classes}
+        unless eval { $embedded->can( $WRITE_TO_METHOD ) };
 
     croak $ERROR_NO_LEVEL unless @{ $self };
 
@@ -78,7 +78,7 @@ sub write_to_ {
         unless defined $ref && ref $ref && q{ARRAY} eq ref $ref;
 
     foreach my $val ( @{ $ref } ) {
-        if ( blessed $val ) {
+        if ( eval { $val->can( $WRITE_TO_METHOD ) } ) {
             $val->write_to( $fh, $level );
         }
         elsif ( ref $val ) {
