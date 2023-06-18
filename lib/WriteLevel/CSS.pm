@@ -27,7 +27,7 @@ sub close_level {
     return;
 }
 
-sub new_nested {
+sub nested_selector {
     my ( $self, @content ) = @_;
     my $child = $self->new();
     push @content, q{ } if @content;
@@ -35,6 +35,6 @@ sub new_nested {
     $self->WriteLevel::embed( $child );
     $self->WriteLevel::close_level( qw[ } ] );
     return $child;
-} ## end sub new_nested
+} ## end sub nested_selector
 
 1;

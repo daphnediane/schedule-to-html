@@ -29,21 +29,36 @@ my @html_
 
 ## use critic
 
-sub open_level {
-    my ( $self, @content ) = @_;
-    my $h = $self->get_formatter();
-    $self->wl_()->open_level( $h->open( @content ) );
+sub add_line {
+    my ( $self, @args ) = @_;
+    $self->wl_()->add_line( @args );
     return;
-} ## end sub open_level
+}
 
-sub close_level {
-    my ( $self, @content ) = @_;
+sub add_meta {
+    my ( $self, @args ) = @_;
     my $h = $self->get_formatter();
-    $self->wl_()->close_level( $h->close( @content ) );
+    $self->wl_()->add_line( $h->meta( @args ) );
     return;
-} ## end sub close_level
+} ## end sub add_meta
 
-sub new_nested {
+sub add_tag {
+    my ( $self, @args ) = @_;
+    my $h = $self->get_formatter();
+    $self->wl_()->add_line( $h->tag( @args ) );
+    return;
+} ## end sub add_tag
+
+sub nested_inline {
+    my ( $self ) = @_;
+    my $h        = $self->get_formatter();
+    my $wl       = $self->wl_();
+    my $child    = $self->new( formatter => $h );
+    $wl->embed( $child->wl_() );
+    return $child;
+} ## end sub nested_inline
+
+sub nested_tag {
     my ( $self, $tag, @rest ) = @_;
     my $h     = $self->get_formatter();
     my $wl    = $self->wl_();
@@ -52,9 +67,9 @@ sub new_nested {
     $wl->embed( $child->wl_() );
     $wl->close_level( $h->close( $tag ) );
     return $child;
-} ## end sub new_nested
+} ## end sub nested_tag
 
-sub new_style {
+sub nested_style {
     my ( $self, @rest ) = @_;
     my $h     = $self->get_formatter();
     my $wl    = $self->wl_();
@@ -64,7 +79,7 @@ sub new_style {
     $wl->embed( $child );
     $wl->close_level( $h->close( $tag ) );
     return $child;
-} ## end sub new_style
+} ## end sub nested_style
 
 sub reg_handler_ {
     my ( $name, $handler ) = @_;
@@ -99,37 +114,7 @@ sub automethod_ :Automethod {
         return;
     } ## end if ( $method =~ m{\Aadd_(.*)}xms)
 
-    if ( $method =~ m{\Aopen_(.*)}xms ) {
-        my $tag = $1;
-        if ( eval { $h_->can( $tag ) } ) {
-            my $handler = sub {
-                my ( $self, @args ) = @_;
-                my $h = $self->get_formatter();
-                $self->wl_()->open_level( $h->open( $tag, @args ) );
-                return;
-            };
-
-            return reg_handler_( $method, $handler );
-        } ## end if
-        return;
-    } ## end if ( $method =~ m{\Aopen_(.*)}xms)
-
-    if ( $method =~ m{\Aclose_(.*)}xms ) {
-        my $tag = $1;
-        if ( eval { $h_->can( $tag ) } ) {
-            my $handler = sub {
-                my ( $self, @args ) = @_;
-                my $h = $self->get_formatter();
-                $self->wl_()->open_level( $h->close( $tag ) );
-                return;
-            };
-
-            return reg_handler_( $method, $handler );
-        } ## end if
-        return;
-    } ## end if ( $method =~ m{\Aclose_(.*)}xms)
-
-    if ( $method =~ m{\Anew_(.*)}xms ) {
+    if ( $method =~ m{\Anested_(.*)}xms ) {
         my $tag = $1;
         if ( eval { $h_->can( $tag ) } ) {
             my $handler = sub {
@@ -146,7 +131,7 @@ sub automethod_ :Automethod {
             return reg_handler_( $method, $handler );
         } ## end if
         return;
-    } ## end if ( $method =~ m{\Anew_(.*)}xms)
+    } ## end if ( $method =~ m{\Anested_(.*)}xms)
 
     return;
 } ## end sub automethod_
