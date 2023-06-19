@@ -60,7 +60,13 @@ sub is_room_active_clear_if_expired {
 sub add_active_panel {
     my ( $self, $active ) = @_;
     return unless $active;
-    my $room = $active->get_room()->get_room_id();
+    my $room  = $active->get_room()->get_room_id();
+    my $prior = $self->active_by_room_()->{ $room };
+    if ( defined $prior
+        && $prior->get_end_seconds() > $active->get_start_seconds() ) {
+        ## Truncate
+        $prior->set_end_seconds( $active->get_start_seconds() );
+    }
     $self->active_by_room_()->{ $room } = $active;
     return;
 } ## end sub add_active_panel
@@ -76,6 +82,7 @@ sub split_active_panels {
             next;
         }
         my $new_state = $active->clone();
+        $active->set_end_seconds( $time );
         $new_state->set_rows( 0 );
         $new_state->set_start_time( $time );
         $ref->{ $room_id } = $new_state;

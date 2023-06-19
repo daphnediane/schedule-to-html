@@ -1,5 +1,5 @@
 severity = 1
-exclude = ControlStructures::ProhibitPostfixControls Modules::RequireVersionVar RegularExpressions::ProhibitUnusedCapture TooMuchCode::ProhibitUnnecessaryUTF8Pragma ValuesAndExpressions::ProhibitVersionStrings
+exclude = ControlStructures::ProhibitPostfixControls Modules::RequireVersionVar RegularExpressions::ProhibitUnusedCapture TooMuchCode::ProhibitUnnecessaryUTF8Pragma ValuesAndExpressions::ProhibitVersionStrings Variables::ProhibitLocalVars
 verbose = %f:%l:%c: %m [%p], near '%r'.  (Severity: %s)\n
 
 [Variables::ProhibitPunctuationVars]

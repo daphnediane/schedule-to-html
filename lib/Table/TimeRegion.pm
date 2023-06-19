@@ -24,7 +24,11 @@ our %EXPORT_TAGS = (
 );
 
 # Global variables
-Readonly our $HALF_HOUR_IN_SEC => 30 * 60;
+Readonly our $HALF_HOUR_IN_SEC =>
+    ( $TimeDecoder::MIN_PER_HOUR * $TimeDecoder::SEC_PER_MIN / 2 );
+Readonly our $DAY_IN_SEC => ( $TimeDecoder::HOUR_PER_DAY
+        * $TimeDecoder::MIN_PER_HOUR
+        * $TimeDecoder::SEC_PER_MIN );
 
 my %split_points_;
 my %regions_;

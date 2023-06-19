@@ -28,7 +28,7 @@ use Table::Panel        qw{ :all };
 use Table::PanelType    qw{ :all };
 use Table::Room         qw{ :all };
 use Table::TimeRegion   qw{ :all };
-use TimeDecoder         qw{ :from_text :to_text :timepoints};
+use TimeDecoder         qw{ :from_text :to_text :timepoints };
 use TimeRange           qw{};
 use TimeRegion          qw{};
 use TimeSlot            qw{};

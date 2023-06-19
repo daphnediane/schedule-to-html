@@ -14,6 +14,7 @@ our @EXPORT_OK = qw{
     text_to_duration
     datetime_to_text
     datetime_to_kiosk_id
+    same_day
     mark_timepoint_seen
     get_timepoints
 };
@@ -21,6 +22,7 @@ our %EXPORT_TAGS = (
     all        => [ @EXPORT_OK ],
     from_text  => [ qw{ text_to_datetime text_to_duration  } ],
     to_text    => [ qw{ datetime_to_text datetime_to_kiosk_id } ],
+    utility    => [ qw{ same_day } ],
     timepoints => [ qw{ mark_timepoint_seen get_timepoints } ],
 );
 
@@ -28,6 +30,7 @@ Readonly our $SEC_PER_MIN   => 60;
 Readonly our $MIN_PER_HOUR  => 60;    ## no critic (ProhibitDuplicateLiteral)
 Readonly our $HOUR_PER_DAY  => 24;
 Readonly our $DAYS_PER_WEEK => 7;
+Readonly our $SEC_PER_DAY   => $HOUR_PER_DAY * $MIN_PER_HOUR * $SEC_PER_MIN;
 
 Readonly our $LOCALTIME_HOUR => 1;
 Readonly our $LOCALTIME_MIN  => 2;
@@ -102,6 +105,17 @@ sub datetime_to_kiosk_id {
     }
     return ( ( $day * $HOUR_PER_DAY ) + $hour ) * $MIN_PER_HOUR + $min;
 } ## end sub datetime_to_kiosk_id
+
+sub same_day {
+    my ( $time1, $time2 ) = @_;
+    return unless defined $time1;
+    return unless defined $time2;
+    return if abs( $time2 - $time1 ) > $SEC_PER_DAY;
+    my @ltime1 = localtime $time1;
+    my @ltime2 = localtime $time2;
+    return unless $ltime1[ $LOCALTIME_DAY ] == $ltime2[ $LOCALTIME_DAY ];
+    return 1;
+} ## end sub same_day
 
 sub mark_timepoint_seen {
     my ( $time ) = @_;
