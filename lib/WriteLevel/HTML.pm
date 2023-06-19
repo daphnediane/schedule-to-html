@@ -20,6 +20,11 @@ my @wl_
     :Default(WriteLevel->new())
     :Get(Name => q{wl_}, Restricted => 1);
 
+my @parent_tag_
+    :Field
+    :Arg(Name => q{tag}, Mandatory => 1)
+    :Get(Name => q{get_tag});
+
 my @html_
     :Field
     :Type(HTML::Tiny)
@@ -53,7 +58,10 @@ sub nested_inline {
     my ( $self ) = @_;
     my $h        = $self->get_formatter();
     my $wl       = $self->wl_();
-    my $child    = $self->new( formatter => $h );
+    my $child    = $self->new(
+        formatter => $h,
+        tag       => $self->get_tag(),
+    );
     $wl->embed( $child->wl_() );
     return $child;
 } ## end sub nested_inline
@@ -62,10 +70,15 @@ sub nested_tag {
     my ( $self, $tag, @rest ) = @_;
     my $h     = $self->get_formatter();
     my $wl    = $self->wl_();
-    my $child = $self->new( formatter => $h );
-    $wl->open_level( $h->open( $tag, @rest ) );
-    $wl->embed( $child->wl_() );
-    $wl->close_level( $h->close( $tag ) );
+    my $child = $self->new(
+        formatter => $h,
+        tag       => $self->get_tag() . q{.} . $tag,
+    );
+    $wl->nested(
+        [ $h->open( $tag, @rest ) ],
+        $child->wl_(),
+        [ $h->close( $tag ) ],
+    );
     return $child;
 } ## end sub nested_tag
 
@@ -75,9 +88,11 @@ sub nested_style {
     my $wl    = $self->wl_();
     my $child = WriteLevel::CSS->new();
     my $tag   = q{style};
-    $wl->open_level( $h->open( $tag, @rest ) );
-    $wl->embed( $child );
-    $wl->close_level( $h->close( $tag ) );
+    $wl->nested(
+        [ $h->open( $tag, @rest ) ],
+        $child,
+        [ $h->close( $tag ) ],
+    );
     return $child;
 } ## end sub nested_style
 
@@ -121,10 +136,15 @@ sub automethod_ :Automethod {
                 my ( $self, @rest ) = @_;
                 my $h     = $self->get_formatter();
                 my $wl    = $self->wl_();
-                my $child = $self->new( formatter => $h );
-                $wl->open_level( $h->open( $tag, @rest ) );
-                $wl->embed( $child->wl_() );
-                $wl->close_level( $h->close( $tag ) );
+                my $child = $self->new(
+                    formatter => $h,
+                    tag       => $self->get_tag() . q{.} . $tag,
+                );
+                $wl->nested(
+                    [ $h->open( $tag, @rest ) ],
+                    $child->wl_(),
+                    [ $h->close( $tag ) ],
+                );
                 return $child;
             };
 

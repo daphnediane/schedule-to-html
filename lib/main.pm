@@ -12,59 +12,48 @@ use Getopt::Long qw{ GetOptionsFromArray };
 use HTML::Tiny   qw{};
 use List::Util   qw{ any };
 use Readonly;
+use Scalar::Util qw{ blessed };
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel       qw{};
-use Canonical         qw{ :all };
-use Data::Panel       qw{};
-use Data::PanelType   qw{};
-use Data::Room        qw{};
-use Data::Partion     qw{};
-use Options           qw{};
-use PartionPanels     qw{ :all };
-use Presenter         qw{};
-use Table::Panel      qw{ :all };
-use Table::PanelType  qw{ :all };
-use Table::Room       qw{ :all };
-use Table::TimeRegion qw{ :all };
-use TimeDecoder       qw{ :from_text :to_text :timepoints};
-use TimeRange         qw{};
-use TimeRegion        qw{};
-use TimeSlot          qw{};
-use Workbook          qw{};
-use Workbook::Sheet   qw{};
-use WriteLevel        qw{};
+use ActivePanel         qw{};
+use Canonical           qw{ :all };
+use Data::Panel         qw{};
+use Data::PanelType     qw{};
+use Data::Partion       qw{};
+use Data::Room          qw{};
+use Options             qw{};
+use PartionPanels       qw{ :all };
+use Presenter           qw{};
+use Table::Panel        qw{ :all };
+use Table::PanelType    qw{ :all };
+use Table::Room         qw{ :all };
+use Table::TimeRegion   qw{ :all };
+use TimeDecoder         qw{ :from_text :to_text :timepoints};
+use TimeRange           qw{};
+use TimeRegion          qw{};
+use TimeSlot            qw{};
+use Workbook            qw{};
+use Workbook::Sheet     qw{};
+use WriteLevel          qw{};
+use WriteLevel::CSS     qw{};
+use WriteLevel::HTML    qw{};
+use WriteLevel::WebPage qw{};
 
-# HTML Elements
-Readonly our $HTML_ANCHOR     => q{a};
-Readonly our $HTML_BODY       => q{body};
-Readonly our $HTML_COLGROUP   => q{colgroup};
-Readonly our $HTML_DIV        => q{div};
-Readonly our $HTML_HEAD       => q{head};
-Readonly our $HTML_HTML       => q{html};
-Readonly our $HTML_STYLE      => q{style};
-Readonly our $HTML_TABLE      => q{table};
-Readonly our $HTML_TABLE_BODY => q{tbody};
-Readonly our $HTML_TABLE_DATA => q{td};
-Readonly our $HTML_TABLE_FOOT => q{tfoot};
-Readonly our $HTML_TABLE_HEAD => q{thead};
-Readonly our $HTML_TABLE_ROW  => q{tr};
-
-# HTML Other
+# HTML keywoards
 Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
 Readonly our $HTML_CHARSET_UTF8 => q{UTF-8};
 Readonly our $HTML_DOCTYPE_HTML => q{<!doctype html>};
 Readonly our $HTML_STYLESHEET   => q{stylesheet};
-Readonly our $HTML_SUFFIX_HTML  => $HTML_HTML;
+Readonly our $HTML_SUFFIX_HTML  => q{html};
 Readonly our $HTML_TEXT_CSS     => q{text/css};
 Readonly our $HTML_YES          => q{yes};
 
 Readonly our $SUBDIR_CSS => q{css};
 
-Readonly our $COMMENT_CONTINUE_END   => q{ continued-->};
 Readonly our $COMMENT_CONTINUE_START => q{<!--};
-Readonly our $COMMENT_STYLE_END      => q{" */};
+Readonly our $COMMENT_CONTINUE_END   => q{ continued-->};
 Readonly our $COMMENT_STYLE_START    => q{/* "};
+Readonly our $COMMENT_STYLE_END      => q{" */};
 
 # CSS Classes
 Readonly our $CLASS_DESC_BASE                => q{desc};
@@ -148,9 +137,7 @@ Readonly our $RE_COLOR_STYLE =>
 
 my $options;
 
-my $output_writer;
-my $output_file_name;
-my $h = HTML::Tiny->new( mode => $HTML_HTML );
+my $h = HTML::Tiny->new( mode => $HTML_SUFFIX_HTML );
 
 sub join_subclass {
     my ( $base, @subclasses ) = @_;
@@ -164,43 +151,6 @@ sub join_subclass {
     return if $base eq q{};
     return $base;
 } ## end sub join_subclass
-
-sub out_line {
-    my ( @content ) = @_;
-    $output_writer->add_line( @content );
-
-    return;
-} ## end sub out_line
-
-sub out_css_open {
-    my ( @content ) = @_;
-    push @content, q{ } if @content;
-    $output_writer->open_level( @content, qw[ { ] );
-
-    return;
-} ## end sub out_css_open
-
-sub out_css_close {
-    my ( @content ) = @_;
-    unshift @content, q{ } if @content;
-    $output_writer->close_level( qw[ } ], @content );
-
-    return;
-} ## end sub out_css_close
-
-sub out_open {
-    my ( @content ) = @_;
-    $output_writer->open_level( $h->open( @content ) );
-
-    return;
-} ## end sub out_open
-
-sub out_close {
-    my ( @content ) = @_;
-    $output_writer->close_level( $h->close( @content ) );
-
-    return;
-} ## end sub out_close
 
 sub out_class {
     my ( @fields ) = @_;
@@ -221,24 +171,24 @@ sub room_focus_class {
 } ## end sub room_focus_class
 
 sub dump_grid_row_room_names {
-    my ( $filter, $kind, $room_focus_map ) = @_;
+    my ( $writer, $filter, $room_focus_map ) = @_;
+
+    my $is_head = $writer->get_tag() =~ m{ thead [.] tr \z }xms;
 
     if ( $options->show_day_column() ) {
-        out_line $h->th(
+        $writer->add_th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
-                    $kind eq $HTML_TABLE_HEAD
-                    ? $CLASS_GRID_COLUMN_DAY
-                    : ()
+                    $is_head ? $CLASS_GRID_COLUMN_DAY : ()
                 )
             },
             $HEADING_DAY
         );
     } ## end if ( $options->show_day_column...)
-    out_line $h->th(
+    $writer->add_th(
         {   out_class(
                 $CLASS_GRID_CELL_HEADER,
-                $kind eq $HTML_TABLE_HEAD ? $CLASS_GRID_COLUMN_TIME : ()
+                $is_head ? $CLASS_GRID_COLUMN_TIME : ()
             )
         },
         $HEADING_TIME
@@ -255,13 +205,13 @@ sub dump_grid_row_room_names {
         {
             $name = $name . $h->br() . $h->i( $hotel );
         }
-        out_line $h->th(
+        $writer->add_th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
                     $CLASS_GRID_COLUMN_ROOM,
                     $CLASS_GRID_CELL_ROOM_NAME,
                     room_focus_class( $room_focus_map->{ $room_id } ),
-                    $kind eq $HTML_TABLE_HEAD
+                    $is_head
                     ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
                         $room->get_sort_key()
                         )
@@ -276,10 +226,9 @@ sub dump_grid_row_room_names {
 } ## end sub dump_grid_row_room_names
 
 sub dump_grid_header {
-    my ( $filter, $region, $room_focus_map ) = @_;
+    my ( $writer, $filter, $region, $room_focus_map ) = @_;
 
-    out_open $HTML_TABLE,
-        {
+    $writer = $writer->nested_table( {
         out_class(
             $CLASS_GRID_TABLE,
             join_subclass(
@@ -287,20 +236,20 @@ sub dump_grid_header {
                 canonical_class( $region->get_region_name() )
             )
         )
-        };
+    } );
 
-    out_open $HTML_COLGROUP;
+    my $colgroup = $writer->nested_colgroup();
 
     if ( $options->show_day_column() ) {
-        out_line $h->col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
+        $colgroup->add_col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
     }
-    out_line $h->col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
+    $colgroup->add_col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
 
     my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
 
     foreach my $room ( @rooms ) {
-        out_line $h->col( {
+        $colgroup->add_col( {
             out_class(
                 sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
                 $room->get_sort_key()
@@ -308,20 +257,18 @@ sub dump_grid_header {
         } );
     } ## end foreach my $room ( @rooms )
 
-    out_close $HTML_COLGROUP;
+    my $head = $writer->nested_thead()
+        ->nested_tr( { out_class( $CLASS_GRID_ROW_HEADER ) } );
+    dump_grid_row_room_names( $head, $filter, $room_focus_map );
 
-    out_open $HTML_TABLE_HEAD;
-    out_open $HTML_TABLE_ROW, { out_class( $CLASS_GRID_ROW_HEADER ) };
-    dump_grid_row_room_names(
-        $filter, $HTML_TABLE_HEAD,
-        $room_focus_map
-    );
-    out_close $HTML_TABLE_ROW;
-    out_close $HTML_TABLE_HEAD;
+    my $body = $writer->nested_tbody();
 
-    out_open $HTML_TABLE_BODY;
+    my $footer = $writer->nested_tfoot()
+        ->nested_tr( { out_class( $CLASS_GRID_ROW_HEADER ) } );
 
-    return;
+    dump_grid_row_room_names( $footer, $filter, $room_focus_map );
+
+    return $body;
 } ## end sub dump_grid_header
 
 sub css_subclasses_for_panel {
@@ -351,14 +298,15 @@ sub css_subclasses_for_panel {
     return @subclasses;
 } ## end sub css_subclasses_for_panel
 
-sub dump_grid_row_cell_group {
-    my ( $filter, $room_focus_map, $time_slot, $panel_state, @rooms ) = @_;
+sub dump_grid_row_cell_group {    ## no critic(Subroutines::ProhibitManyArgs)
+    my ( $writer, $filter, $room_focus_map, $time_slot, $panel_state, @rooms )
+        = @_;
 
     return unless @rooms;
 
     if ( !defined $panel_state ) {
         foreach ( @rooms ) {
-            out_line $h->td( { out_class( $CLASS_GRID_CELL_EMPTY ) } );
+            $writer->add_td( { out_class( $CLASS_GRID_CELL_EMPTY ) } );
         }
         return;
     } ## end if ( !defined $panel_state)
@@ -368,9 +316,11 @@ sub dump_grid_row_cell_group {
 
     if ( $panel_state->get_start_seconds() != $time ) {
         foreach ( @rooms ) {
-            out_line $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
-                $COMMENT_CONTINUE_END;
-        }
+            $writer->add_line(
+                $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
+                $COMMENT_CONTINUE_END
+            );
+        } ## end foreach ( @rooms )
         return;
     } ## end if ( $panel_state->get_start_seconds...)
 
@@ -406,20 +356,19 @@ sub dump_grid_row_cell_group {
     push @spans, rowspan => $row_span if $row_span > 1;
     push @spans, colspan => $col_span if $col_span > 1;
 
-    out_open $HTML_TABLE_DATA,
-        {
+    my $tdata = $writer->nested_td( {
         id => $panel->get_href_anchor() . $LINK_SUFFIX_GRID,
         @spans,
         out_class(
             $CLASS_GRID_COLUMN_ROOM,
             map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } @subclasses
         )
-        };
+    } );
 
-    out_open $HTML_ANCHOR, { href => q{#} . $panel->get_href_anchor() }
+    $tdata = $tdata->nested_a( { href => q{#} . $panel->get_href_anchor() } )
         if $options->show_sect_descriptions();
 
-    out_line $h->div(
+    $tdata->add_div(
         {   out_class( join_subclass(
                 $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_ID ) )
         },
@@ -427,7 +376,7 @@ sub dump_grid_row_cell_group {
     );
 
     if ( $panel->get_is_full() ) {
-        out_line $h->div(
+        $tdata->add_div(
             {   out_class( join_subclass(
                     $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_FULL
                 ) )
@@ -435,7 +384,7 @@ sub dump_grid_row_cell_group {
             q{Workshop is Full}
         );
     } ## end if ( $panel->get_is_full...)
-    out_line $h->span(
+    $tdata->add_span(
         {   out_class( join_subclass(
                 $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_NAME
             ) )
@@ -445,7 +394,7 @@ sub dump_grid_row_cell_group {
 
     my $cost = $panel->get_cost();
     if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
-        out_line $h->div(
+        $tdata->add_div(
             {   out_class(
                     map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
                         $SUBCLASS_PIECE_COST,
@@ -457,7 +406,7 @@ sub dump_grid_row_cell_group {
     } ## end if ( defined $cost && ...)
 
     if ( defined $credited_presenter ) {
-        out_line $h->span(
+        $tdata->add_span(
             {   out_class( join_subclass(
                     $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_PRESENTER
                 ) )
@@ -466,20 +415,19 @@ sub dump_grid_row_cell_group {
         );
     } ## end if ( defined $credited_presenter)
 
-    out_close $HTML_ANCHOR if $options->show_sect_descriptions();
-    out_close $HTML_TABLE_DATA;
-
     shift @rooms;
     foreach ( @rooms ) {
-        out_line $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
-            $COMMENT_CONTINUE_END;
-    }
+        $writer->add_line(
+            $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
+            $COMMENT_CONTINUE_END
+        );
+    } ## end foreach ( @rooms )
 
     return;
 } ## end sub dump_grid_row_cell_group
 
 sub dump_grid_row_make_cell_groups {
-    my ( $filter, $region, $room_focus_map, $time_slot ) = @_;
+    my ( $writer, $filter, $region, $room_focus_map, $time_slot ) = @_;
 
     my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
         keys %{ $room_focus_map };
@@ -506,7 +454,7 @@ sub dump_grid_row_make_cell_groups {
         } ## end if ( scalar @room_queue...)
 
         dump_grid_row_cell_group(
-            $filter,     $room_focus_map, $time_slot,
+            $writer,     $filter, $room_focus_map, $time_slot,
             $last_state, @room_queue
         ) if @room_queue;
 
@@ -516,7 +464,7 @@ sub dump_grid_row_make_cell_groups {
     } ## end foreach my $room ( @rooms )
 
     dump_grid_row_cell_group(
-        $filter,     $room_focus_map, $time_slot,
+        $writer,     $filter, $room_focus_map, $time_slot,
         $last_state, @room_queue
     ) if @room_queue;
 
@@ -524,7 +472,7 @@ sub dump_grid_row_make_cell_groups {
 } ## end sub dump_grid_row_make_cell_groups
 
 sub dump_grid_row_time {
-    my ( $filter, $region, $room_focus_map, $time_slot ) = @_;
+    my ( $writer, $filter, $region, $room_focus_map, $time_slot ) = @_;
 
     my $time             = $time_slot->get_start_seconds();
     my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
@@ -542,11 +490,12 @@ sub dump_grid_row_time {
     } ## end if ( defined $filter->...)
 
     my $time_id = q{sched_id_} . datetime_to_kiosk_id( $time );
-    out_open $HTML_TABLE_ROW,
-        { out_class( @time_row_classes ), id => $time_id };
+
+    $writer = $writer->nested_tr(
+        { out_class( @time_row_classes ), id => $time_id } );
 
     if ( $options->show_day_column() ) {
-        out_line $h->th(
+        $writer->add_th(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_DAY,
                     $CLASS_GRID_COLUMN_DAY
@@ -554,7 +503,7 @@ sub dump_grid_row_time {
             },
             datetime_to_text( $time, qw{ day } )
         );
-        out_line $h->th(
+        $writer->add_th(
             { out_class( @time_classes ) },
             datetime_to_text( $time, qw{ time } )
         );
@@ -568,41 +517,22 @@ sub dump_grid_row_time {
             push @before_time, $day, $h->br();
             $region->set_day_being_output( $day );
         }
-        out_line $h->th(
+        $writer->add_th(
             { out_class( @time_classes ) },
             join q{}, @before_time, $tm
         );
     } ## end else [ if ( $options->show_day_column...)]
 
     dump_grid_row_make_cell_groups(
-        $filter, $region, $room_focus_map,
+        $writer, $filter, $region, $room_focus_map,
         $time_slot
     );
-
-    out_close $HTML_TABLE_ROW;
 
     return;
 } ## end sub dump_grid_row_time
 
-sub dump_grid_footer {
-    my ( $filter, $room_focus_map ) = @_;
-
-    out_close $HTML_TABLE_BODY;
-    out_open $HTML_TABLE_FOOT;
-    out_open $HTML_TABLE_ROW, { out_class( $CLASS_GRID_ROW_HEADER ) };
-    dump_grid_row_room_names(
-        $filter, $HTML_TABLE_FOOT,
-        $room_focus_map
-    );
-    out_close $HTML_TABLE_ROW;
-    out_close $HTML_TABLE_FOOT;
-    out_close $HTML_TABLE;
-
-    return;
-} ## end sub dump_grid_footer
-
 sub dump_grid_timeslice {
-    my ( $filter, $region ) = @_;
+    my ( $writer, $filter, $region ) = @_;
 
     $region->set_day_being_output( q{} );
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
@@ -614,20 +544,19 @@ sub dump_grid_timeslice {
 
     my %room_focus_map = room_id_focus_map( $options, $filter, $region );
 
-    dump_grid_header( $filter, $region, \%room_focus_map );
+    $writer = dump_grid_header( $writer, $filter, $region, \%room_focus_map );
     foreach my $time ( @times ) {
         dump_grid_row_time(
-            $filter, $region, \%room_focus_map,
+            $writer, $filter, $region, \%room_focus_map,
             $region->get_time_slot( $time )
         );
     } ## end foreach my $time ( @times )
-    dump_grid_footer( $filter, \%room_focus_map );
 
     return;
 } ## end sub dump_grid_timeslice
 
-sub dump_desc_header {
-    my ( $filter, $region, $show_unbusy_panels ) = @_;
+sub desc_writer {
+    my ( $writer, $filter, $region, $show_unbusy_panels ) = @_;
 
     if ( defined $filter->get_selected_presenter() ) {
         my $presenter = $filter->get_selected_presenter();
@@ -638,99 +567,66 @@ sub dump_desc_header {
             : q{Schedule for } . $presenter->get_presenter_name();
 
         if ( $options->is_mode_postcard() ) {
-            out_open $HTML_TABLE, { out_class( $CLASS_DESC_TYPE_TABLE ) };
-            out_open $HTML_COLGROUP;
-            out_line $h->col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
-            out_close $HTML_COLGROUP;
+            $writer = $writer->nested_table(
+                { out_class( $CLASS_DESC_TYPE_TABLE ) } );
+            $writer->nested_colgroup(
+                { out_class( $CLASS_DESC_TYPE_TABLE ) } )
+                ->add_col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
 
-            out_line $h->thead(
+            $writer->nested_thead(
                 { out_class( $CLASS_DESC_TYPE_HEADER ) },
                 $h->tr( $h->th(
                     { out_class( $CLASS_DESC_TYPE_COLUMN ) },
                     $hdr_text
                 ) )
             );
-            out_open $HTML_TABLE_BODY;
-            out_open $HTML_TABLE_ROW;
-            out_open $HTML_TABLE_DATA;
+
+            $writer = $writer->nested_tbody()->nested_tr()->nested_td();
         } ## end if ( $options->is_mode_postcard...)
         else {
-            out_line $h->h2( $hdr_text );
+            $writer->add_h2( $hdr_text );
         }
     } ## end if ( defined $filter->...)
 
     state $my_idx = 0;
     my $alt_class = $CLASS_DESC_SECTION . ( ++$my_idx );
-    out_open $HTML_DIV, { out_class( $CLASS_DESC_SECTION, $alt_class ) };
-
-    return;
-} ## end sub dump_desc_header
-
-sub dump_desc_footer {
-    my ( $filter, $region, $show_unbusy_panels ) = @_;
-
-    out_close $HTML_DIV;
-
-    if ( defined $filter->get_selected_presenter() ) {
-        if ( $options->is_mode_postcard() ) {
-            out_close $HTML_TABLE_DATA;
-            out_close $HTML_TABLE_ROW;
-            out_close $HTML_TABLE_BODY;
-            out_close $HTML_TABLE;
-        } ## end if ( $options->is_mode_postcard...)
-    } ## end if ( defined $filter->...)
-
-    return;
-} ## end sub dump_desc_footer
+    return $writer->nested_div(
+        { out_class( $CLASS_DESC_SECTION, $alt_class ) } );
+} ## end sub desc_writer
 
 sub dump_desc_time_start {
-    my ( $time, @hdr_suffix ) = @_;
+    my ( $writer, $time, @hdr_suffix ) = @_;
 
     if ( $options->is_desc_form_div() ) {
-        out_line $h->div(
+        $writer->add_div(
             { out_class( $CLASS_DESC_TIME_SLOT ) }, join q{ },
             datetime_to_text( $time, qw{ both } ),
             @hdr_suffix
         );
+        return $writer;
     } ## end if ( $options->is_desc_form_div...)
-    else {
-        out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
-        out_open $HTML_COLGROUP;
-        out_line $h->col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
-        out_close $HTML_COLGROUP;
 
-        out_line $h->thead(
-            { out_class( $CLASS_DESC_TIME_HEADER ) },
-            $h->tr( $h->th(
-                {   out_class(
-                        $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT
-                    )
-                },
-                join q{ },
-                datetime_to_text( $time, qw{ both } ),
-                @hdr_suffix
-            ) )
-        );
+    $writer
+        = $writer->nested_table( { out_class( $CLASS_DESC_TIME_TABLE ) } );
+    $writer->nested_colgroup()
+        ->add_col( { out_class( $CLASS_DESC_TIME_COLUMN ) } );
 
-        out_open $HTML_TABLE_BODY;
-    } ## end else [ if ( $options->is_desc_form_div...)]
+    $writer->add_thead(
+        { out_class( $CLASS_DESC_TIME_HEADER ) },
+        $h->tr( $h->th(
+            { out_class( $CLASS_DESC_TIME_COLUMN, $CLASS_DESC_TIME_SLOT ) },
+            join q{ },
+            datetime_to_text( $time, qw{ both } ),
+            @hdr_suffix
+        ) )
+    );
 
-    return;
+    $writer = $writer->nested_tbody();
+    return $writer;
 } ## end sub dump_desc_time_start
 
-sub dump_desc_time_end {
-    my ( $time ) = @_;
-
-    if ( $options->is_desc_form_table() ) {
-        out_close $HTML_TABLE_BODY;
-        out_close $HTML_TABLE;
-    }
-
-    return;
-} ## end sub dump_desc_time_end
-
 sub dump_desc_panel_note {
-    my ( $panel, $conflict ) = @_;
+    my ( $writer, $panel, $conflict ) = @_;
 
     my @note;
     if ( $conflict ) {
@@ -776,7 +672,7 @@ sub dump_desc_panel_note {
         );
     } ## end if ( defined $panel->get_difficulty...)
     if ( @note ) {
-        out_line $h->p(
+        $writer->add_p(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_NOTE ) )
             },
@@ -788,7 +684,7 @@ sub dump_desc_panel_note {
 } ## end sub dump_desc_panel_note
 
 sub dump_desc_panel_parts {
-    my ( $panel ) = @_;
+    my ( $writer, $panel ) = @_;
 
     my $part   = $panel->get_uniq_id_part();
     my @series = grep {
@@ -802,7 +698,7 @@ sub dump_desc_panel_parts {
             || $a->get_start_seconds() <=> $b->get_start_seconds()
     } @series;
 
-    out_line $h->ul(
+    $writer->add_ul(
         {   out_class( join_subclass(
                 $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LIST
             ) )
@@ -881,11 +777,11 @@ sub should_panel_desc_be_dumped {
 } ## end sub should_panel_desc_be_dumped
 
 sub dump_desc_panel_body {
-    my ( $filter, $time_slot, $panel_state, @extra_classes ) = @_;
+    my ( $writer, $filter, $time_slot, $panel_state, @extra_classes ) = @_;
 
     if ( !defined $panel_state ) {
         return if $options->is_desc_form_div();
-        out_line $h->td(
+        $writer->add_td(
             { out_class( @extra_classes, $CLASS_KIOSK_DESC_CELL_EMPTY ) } );
         return;
     } ## end if ( !defined $panel_state)
@@ -914,19 +810,22 @@ sub dump_desc_panel_body {
         $name = q{Cosplay Café Featuring } . $name;
     }
 
-    my $desc_element
-        = $options->is_desc_form_div() ? $HTML_DIV : $HTML_TABLE_DATA;
-
-    out_open $desc_element,
-        {
+    my %desc_attributes = (
         id => $panel->get_href_anchor(),
         out_class(
             @extra_classes,
             map { join_subclass( $CLASS_DESC_BASE, $_ ) } @subclasses
         )
-        };
-    out_open $HTML_DIV if $options->is_mode_kiosk();
-    out_line $h->div(
+    );
+
+    $writer
+        = $options->is_desc_form_div()
+        ? $writer->nested_div( \%desc_attributes )
+        : $writer->nested_td( \%desc_attributes );
+
+    $writer = $writer->nested_div() if $options->is_mode_kiosk();
+
+    $writer->add_div(
         {   out_class(
                 join_subclass( $CLASS_DESC_BASE, $SUBCLASS_PIECE_ID )
             )
@@ -934,7 +833,7 @@ sub dump_desc_panel_body {
         $panel->get_uniq_id()
     );
     if ( $options->show_sect_grid() ) {
-        out_line $h->a(
+        $writer->add_a(
             {   href => q{#} . $panel->get_href_anchor() . $LINK_SUFFIX_GRID,
                 out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_NAME ) )
@@ -943,7 +842,7 @@ sub dump_desc_panel_body {
         );
     } ## end if ( $options->show_sect_grid...)
     else {
-        out_line $h->div(
+        $writer->add_div(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_NAME ) )
             },
@@ -953,7 +852,7 @@ sub dump_desc_panel_body {
 
     my $cost = $panel->get_cost();
     if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
-        out_line $h->div(
+        $writer->add_div(
             {   out_class(
                     map { join_subclass( $CLASS_DESC_BASE, $_ ) } (
                         $SUBCLASS_PIECE_COST,
@@ -964,7 +863,7 @@ sub dump_desc_panel_body {
         );
     } ## end if ( defined $cost && ...)
     if ( $options->is_mode_kiosk() ) {
-        out_line $h->p(
+        $writer->add_p(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_START
                 ) )
@@ -973,7 +872,7 @@ sub dump_desc_panel_body {
         );
     } ## end if ( $options->is_mode_kiosk...)
     else {
-        out_line $h->p(
+        $writer->add_p(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_ROOM ) )
             },
@@ -982,7 +881,7 @@ sub dump_desc_panel_body {
         );
     } ## end else [ if ( $options->is_mode_kiosk...)]
     if ( defined $credited_presenter ) {
-        out_line $h->p(
+        $writer->add_p(
             {   out_class( join_subclass(
                     $CLASS_DESC_BASE, $SUBCLASS_PIECE_PRESENTER
                 ) )
@@ -991,7 +890,7 @@ sub dump_desc_panel_body {
         );
     } ## end if ( defined $credited_presenter)
 
-    out_line $h->p(
+    $writer->add_p(
         {   out_class( join_subclass(
                 $CLASS_DESC_BASE, $SUBCLASS_PIECE_DESCRIPTION
             ) )
@@ -999,18 +898,16 @@ sub dump_desc_panel_body {
         $panel->get_description()
     );
 
-    dump_desc_panel_note( $panel, $conflict );
-    dump_desc_panel_parts( $panel );
-
-    out_close $HTML_DIV if $options->is_mode_kiosk();
-    out_close $desc_element;
+    dump_desc_panel_note( $writer, $panel, $conflict );
+    dump_desc_panel_parts( $writer, $panel );
 
     return;
 } ## end sub dump_desc_panel_body
 
 sub dump_desc_body {
-    my ( $filter, $region, $room_focus_map, $show_unbusy_panels, $on_dump )
-        = @_;
+    my ($writer_or_code, $filter, $region, $room_focus_map,
+        $show_unbusy_panels
+    ) = @_;
     my $filter_panelist = $filter->get_selected_presenter();
 
     $region->set_day_being_output( q{} );
@@ -1018,7 +915,7 @@ sub dump_desc_body {
     $region->set_last_output_time( $times[ -1 ] );
 
     foreach my $time ( @times ) {
-        my $time_header_seen;
+        my $writer;
         my $time_slot           = $region->get_time_slot( $time );
         my $panels_for_timeslot = $time_slot->get_current();
 
@@ -1041,10 +938,11 @@ sub dump_desc_body {
             next if $panel_dumped{ $panel_uid };
             $panel_dumped{ $panel_uid } = 1;
 
-            if ( !defined $time_header_seen ) {
-                $time_header_seen = 1;
-
-                $on_dump->() if defined $on_dump;
+            if ( !defined $writer ) {
+                $writer
+                    = blessed $writer_or_code
+                    ? $writer_or_code
+                    : $writer_or_code->();
 
                 my @hdr_extra;
                 if (   $show_unbusy_panels
@@ -1052,33 +950,31 @@ sub dump_desc_body {
                 {
                     push @hdr_extra, qw{ Conflict };
                 }
-                dump_desc_time_start( $time, @hdr_extra );
-            } ## end if ( !defined $time_header_seen)
+                $writer = dump_desc_time_start( $writer, $time, @hdr_extra );
+            } ## end if ( !defined $writer )
 
+            my $panel_writer = $writer;
             if ( $options->is_desc_form_table() ) {
-                out_open $HTML_TABLE_ROW,
-                    { out_class( $CLASS_DESC_PANEL_ROW ) };
+                $panel_writer = $writer->nested_tr(
+                    { out_class( $CLASS_DESC_PANEL_ROW ) } );
             }
-            dump_desc_panel_body( $filter, $time_slot, $panel_state );
-            if ( $options->is_desc_form_table() ) {
-                out_close $HTML_TABLE_ROW;
-            }
+            dump_desc_panel_body(
+                $panel_writer, $filter, $time_slot,
+                $panel_state
+            );
         } ## end foreach my $panel_state ( @panel_states)
-        if ( $time_header_seen ) {
-            dump_desc_time_end( $time );
-        }
     } ## end foreach my $time ( @times )
 
     return;
 } ## end sub dump_desc_body
 
 sub dump_desc_body_regions {
-    my ( $filter, $region, $show_unbusy_panels, $on_dump ) = @_;
+    my ( $writer, $filter, $region, $show_unbusy_panels ) = @_;
     if ( defined $region ) {
         my %room_focus_map = room_id_focus_map( $options, $filter, $region );
         dump_desc_body(
-            $filter,             $region, \%room_focus_map,
-            $show_unbusy_panels, $on_dump
+            $writer, $filter, $region, \%room_focus_map,
+            $show_unbusy_panels
         );
         return;
     } ## end if ( defined $region )
@@ -1086,8 +982,8 @@ sub dump_desc_body_regions {
     foreach my $region ( get_time_regions() ) {
         my %room_focus_map = room_id_focus_map( $options, $filter, $region );
         dump_desc_body(
-            $filter,             $region, \%room_focus_map,
-            $show_unbusy_panels, $on_dump
+            $writer, $filter, $region, \%room_focus_map,
+            $show_unbusy_panels
         );
     } ## end foreach my $region ( get_time_regions...)
 
@@ -1095,7 +991,7 @@ sub dump_desc_body_regions {
 } ## end sub dump_desc_body_regions
 
 sub dump_desc_timeslice {
-    my ( $filter, $region ) = @_;
+    my ( $writer, $filter, $region ) = @_;
 
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(
@@ -1116,23 +1012,19 @@ sub dump_desc_timeslice {
 
     foreach my $desc_filter ( @filters ) {
         my $on_dump;
-        my $header_dumped;
+        my $region_writer;
         $on_dump = sub {
-            return if $header_dumped;
-            $header_dumped = 1;
-            dump_desc_header( $desc_filter, $region );
+            $region_writer //= desc_writer( $writer, $desc_filter, $region );
+            return $region_writer;
         };
-        dump_desc_body_regions( $desc_filter, $region, 0, $on_dump );
-        dump_desc_footer( $desc_filter, $region ) if $header_dumped;
-        $header_dumped = undef;
+        dump_desc_body_regions( $on_dump, $desc_filter, $region, 0 );
+        $region_writer = undef;
 
         if (   defined $desc_filter->get_selected_presenter()
             && $options->is_just_everyone()
             && $options->is_desc_everyone_together() ) {
-            dump_desc_body_regions( $desc_filter, $region, 1, $on_dump );
-            dump_desc_footer( $desc_filter, $region, 1 )
-                if $header_dumped;
-            $header_dumped = undef;
+            dump_desc_body_regions( $on_dump, $desc_filter, $region, 1 );
+            $region_writer = undef;
         } ## end if ( defined $desc_filter...)
     } ## end foreach my $desc_filter ( @filters)
 
@@ -1158,11 +1050,10 @@ sub open_dump_file {
     my ( $filter, $def_name ) = @_;
     $def_name //= q{index};
 
-    $output_writer = WriteLevel->new();
+    my $writer = WriteLevel::WebPage->new( formatter => $h );
 
     if ( $options->is_output_stdio() ) {
-        $output_file_name = q{<STDOUT>};
-        return;
+        return ( $writer, undef );
     }
 
     my @subnames
@@ -1187,92 +1078,29 @@ sub open_dump_file {
         $ofname = File::Spec->catpath( $vol, $dir, $base );
     } ## end elsif ( @subnames )
 
-    $output_file_name = $ofname;
-    return;
+    return ( $writer, $ofname );
 } ## end sub open_dump_file
 
 sub close_dump_file {
-    if ( !$output_writer->is_balanced() ) {
-        $output_writer->write_to( \*STDERR );
-        die qq{Unbalanced level in output for ${output_file_name}\n};
-    }
+    my ( $writer, $ofname ) = @_;
+    my $file_name = $ofname // q{<STDIO>};
 
     if ( $options->is_output_stdio() ) {
-        $output_writer->write_to( \*STDOUT );
+        $writer->write_to( \*STDOUT );
     }
     else {
-        open my $fh, q{>:encoding(utf8)}, ${ output_file_name }
-            or die qq{Unable to write: ${output_file_name}\n};
-        $output_writer->write_to( $fh );
+        open my $fh, q{>:encoding(utf8)}, ${ ofname }
+            or die qq{Unable to write: ${file_name}\n};
+        $writer->write_to( $fh );
         $fh->close
-            or die qq{Unable to close ${output_file_name}: ${ERRNO}\n};
+            or die qq{Unable to close ${file_name}: ${ERRNO}\n};
     } ## end else [ if ( $options->is_output_stdio...)]
-    undef $output_file_name;
 
     return;
 } ## end sub close_dump_file
 
-sub open_html_style {
-    my ( $state ) = @_;
-
-    return if defined $state->{ in_style };
-
-    out_open $HTML_STYLE;
-    $state->{ in_style } = 1;
-    return;
-} ## end sub open_html_style
-
-sub open_media_style {
-    my ( $state, $media ) = @_;
-
-    open_html_style( $state );
-
-    if ( !defined $media ) {
-        if ( defined $state->{ in_media } ) {
-            out_css_close;
-            delete $state->{ in_media };
-        }
-        return;
-    } ## end if ( !defined $media )
-
-    if ( defined $state->{ in_media } ) {
-        return if $state->{ in_media } eq $media;
-
-        # Switching media
-        out_css_close;
-    } ## end if ( defined $state->{...})
-
-    out_css_open q{@}, q{media }, $media;
-    $state->{ in_media } = $media;
-
-    return;
-} ## end sub open_media_style
-
-sub close_media_style {
-    my ( $state ) = @_;
-
-    my $in_media = delete $state->{ in_media };
-    return unless defined $in_media;
-    out_css_close;
-
-    return;
-} ## end sub close_media_style
-
-sub close_html_style {
-    my ( $state ) = @_;
-
-    close_media_style( $state );
-
-    my $in_style = delete $state->{ in_style };
-    return unless defined $in_style;
-
-    out_close $HTML_STYLE;
-
-    return;
-} ## end sub close_html_style
-
 sub dump_styles {
-    my %state;
+    my ( $writer ) = @_;
 
     foreach my $style ( $options->get_styles() ) {
         my $is_html = $style =~ m{.html?\z}xms;
@@ -1286,11 +1114,11 @@ sub dump_styles {
         }
 
         if ( $is_html ) {
-            close_html_style( \%state );
+            my $style_out = $writer->get_html_style();
 
             my $lines = cache_inline_style( $fname );
             foreach my $line ( @{ $lines } ) {
-                out_line $line;
+                $style_out->add_line( $line );
             }
         } ## end if ( $is_html )
         elsif ( $fname =~ $RE_COLOR_STYLE ) {
@@ -1298,7 +1126,7 @@ sub dump_styles {
             $color_set //= $Data::PanelType::DEF_COLOR_SET;
             $color_set = canonical_header( $color_set );
 
-            my $line_seen;
+            my $style_out;
 
             foreach my $panel_type (
                 sort { $a->get_prefix() cmp $b->get_prefix() }
@@ -1311,39 +1139,46 @@ sub dump_styles {
                     unless $color
                     =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [(] .* ) \z}xms;
 
-                open_media_style( \%state, $media );
-                open_media_style( \%state, $media );
+                if ( !defined $style_out ) {
+                    $style_out = $writer->get_css_style( $media );
+                    $style_out->add_line(
+                        $COMMENT_STYLE_START, $style,
+                        $COMMENT_STYLE_END
+                    );
+                } ## end if ( !defined $style_out)
 
-                out_line $COMMENT_STYLE_START, $style, $COMMENT_STYLE_END
-                    unless $line_seen;
-                $line_seen = 1;
-
-                out_line q{.descType}, uc $prefix, q{,};
-                out_css_open q{.panelType}, uc $prefix;
-                out_line q{background-color: }, $color;
-                out_css_close;
+                $style_out->nested_selector(
+                    q{.descType}, uc $prefix,
+                    qq{,\n}, q{.panelType}, uc $prefix
+                )->add_line( q{background-color: }, $color );
             } ## end foreach my $panel_type ( sort...)
         } ## end elsif ( $fname =~ $RE_COLOR_STYLE)
         elsif ( $options->is_css_loc_embedded() ) {
             my $lines = cache_inline_style( $fname );
-            my $line_seen;
+
+            my $style_out;
 
             foreach my $line ( @{ $lines } ) {
                 next unless $line =~ m{\S}xms;
                 next if $line     =~ m{[@]charset}xmsi;
                 next
                     if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
-                open_media_style( \%state, $media );
-                out_line $COMMENT_STYLE_START, $style, $COMMENT_STYLE_END
-                    unless $line_seen;
-                $line_seen = 1;
-                out_line $line;
+
+                if ( !defined $style_out ) {
+                    $style_out = $writer->get_css_style( $media );
+                    $style_out->add_line(
+                        $COMMENT_STYLE_START, $style,
+                        $COMMENT_STYLE_END
+                    );
+                } ## end if ( !defined $style_out)
+
+                $style_out->add_line( $line );
             } ## end foreach my $line ( @{ $lines...})
         } ## end elsif ( $options->is_css_loc_embedded...)
         else {
-            close_html_style( \%state );
+            my $style_out = $writer->get_html_style();
 
-            out_line $h->link( {
+            $style_out->add_link( {
                 href => $fname,
                 rel  => $HTML_STYLESHEET,
                 type => $HTML_TEXT_CSS,
@@ -1351,21 +1186,18 @@ sub dump_styles {
             } );
         } ## end else [ if ( $is_html ) ]
     } ## end foreach my $style ( $options...)
-    close_media_style( \%state );
-    close_html_style( \%state );
 
     return;
 } ## end sub dump_styles
 
 sub dump_file_header {
-    my ( $filter ) = @_;
+    my ( $writer, $filter ) = @_;
 
-    $output_writer->add_line( $HTML_DOCTYPE_HTML );
+    $writer->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
 
-    out_open $HTML_HTML;
-    out_open $HTML_HEAD;
-    out_line $h->meta( { charset => $HTML_CHARSET_UTF8 } );
-    out_line $h->meta( { name    => $HTML_APP_OKAY, content => $HTML_YES } );
+    $writer->get_head()->add_meta( { charset => $HTML_CHARSET_UTF8 } );
+    $writer->get_head()
+        ->add_meta( { name => $HTML_APP_OKAY, content => $HTML_YES } );
 
     my @subnames = $filter->get_output_name_pieces();
     my $title    = $options->get_title();
@@ -1373,38 +1205,28 @@ sub dump_file_header {
         $title .= q{: } . join q{, }, @subnames;
     }
 
-    out_line $h->title( $title );
-    out_line $h->link( {
+    $writer->get_head()->add_title( $title );
+    $writer->get_head()->add_link( {
         href =>
             q{https://fonts.googleapis.com/css?family=Nunito+Sans&display=swap},
         rel => $HTML_STYLESHEET
     } );
 
-    dump_styles;
-
-    out_close $HTML_HEAD;
-
     return;
 } ## end sub dump_file_header
 
-sub dump_file_footer {
-    out_close $HTML_HTML;
-
-    return;
-}
-
 sub dump_table_one_region {
-    my ( $filter ) = @_;
+    my ( $writer, $filter ) = @_;
 
     if ( $options->show_sect_grid() ) {
         dump_grid_timeslice(
-            $filter,
+            $writer, $filter,
             $filter->get_selected_region()
         );
     } ## end if ( $options->show_sect_grid...)
     if ( $options->show_sect_descriptions() ) {
         dump_desc_timeslice(
-            $filter,
+            $writer, $filter,
             $filter->get_selected_region()
         );
     } ## end if ( $options->show_sect_descriptions...)
@@ -1413,24 +1235,24 @@ sub dump_table_one_region {
 } ## end sub dump_table_one_region
 
 sub dump_table_all_regions {
-    my ( $filter ) = @_;
+    my ( $writer, $filter ) = @_;
 
     my $need_all_desc = $options->show_sect_descriptions();
 
     if ( $options->show_sect_grid() ) {
         foreach my $region ( get_time_regions() ) {
-            dump_grid_timeslice( $filter, $region );
+            dump_grid_timeslice( $writer, $filter, $region );
             next unless $options->show_sect_descriptions();
             next if $options->is_desc_loc_last();
 
-            dump_desc_timeslice( $filter, $region );
+            dump_desc_timeslice( $writer, $filter, $region );
             undef $need_all_desc;
         } ## end foreach my $region ( get_time_regions...)
         return if $options->is_desc_loc_mixed();
     } ## end if ( $options->show_sect_grid...)
 
     if ( $need_all_desc ) {
-        dump_desc_timeslice( $filter, undef );
+        dump_desc_timeslice( $writer, $filter, undef );
     }
 
     return;
@@ -1439,56 +1261,51 @@ sub dump_table_all_regions {
 sub dump_tables {
     my ( $filter ) = @_;
 
-    open_dump_file( $filter );
+    my ( $writer, $ofname ) = open_dump_file( $filter );
 
-    dump_file_header( $filter );
+    dump_file_header( $writer, $filter );
 
-    out_open $HTML_BODY;
+    dump_styles( $writer );
 
     if ( defined $filter->get_selected_region() ) {
-        dump_table_one_region( $filter );
+        dump_table_one_region( $writer->get_body(), $filter );
     }
     else {
-        dump_table_all_regions( $filter );
+        dump_table_all_regions( $writer->get_body(), $filter );
     }
 
-    out_close $HTML_BODY;
-
-    dump_file_footer;
-    close_dump_file;
+    close_dump_file( $writer, $ofname );
 
     return;
 } ## end sub dump_tables
 
 sub dump_kiosk_desc {
-    my ( $region ) = @_;
+    my ( $writer, $region ) = @_;
 
     my @times        = sort { $a <=> $b } $region->get_unsorted_times();
     my @region_rooms = get_rooms_for_region( $options, $region );
     foreach my $time ( @times ) {
-        my $time_id = q{desc_id_} . datetime_to_kiosk_id( $time );
-        out_open $HTML_DIV,
-            {
+        my $time_id    = q{desc_id_} . datetime_to_kiosk_id( $time );
+        my $time_table = $writer->nested_div( {
             out_class( $CLASS_KIOSK_DESCRIPTIONS, $CLASS_KIOSK_HIDDEN ),
             id => $time_id
-            };
-        out_open $HTML_TABLE, { out_class( $CLASS_DESC_TIME_TABLE ) };
-        out_open $HTML_COLGROUP;
-        out_line $h->col( { out_class( $CLASS_KIOSK_COLUMN_ROOM ) } );
-        out_line $h->col( { out_class( $CLASS_KIOSK_COLUMN_CURRENT ) } );
-        out_line $h->col( { out_class( $CLASS_KIOSK_COLUMN_FUTURE ) } );
-        out_close $HTML_COLGROUP;
-        out_open $HTML_TABLE_HEAD,
-            { out_class( $CLASS_KIOSK_DESC_HEAD ) };
-        out_open $HTML_TABLE_ROW,
-            { out_class( $CLASS_KIOSK_DESC_ROW_HEADERS ) };
-        out_line $h->th( {
+        } )->nested_table( { out_class( $CLASS_DESC_TIME_TABLE ) } );
+        my $colgroup = $time_table->nested_colgroup();
+        $colgroup->add_col( { out_class( $CLASS_KIOSK_COLUMN_ROOM ) } );
+        $colgroup->add_col( { out_class( $CLASS_KIOSK_COLUMN_CURRENT ) } );
+        $colgroup->add_col( { out_class( $CLASS_KIOSK_COLUMN_FUTURE ) } );
+
+        my $head_row
+            = $time_table->nested_thead(
+            { out_class( $CLASS_KIOSK_DESC_HEAD ) } )
+            ->nested_tr( { out_class( $CLASS_KIOSK_DESC_ROW_HEADERS ) } );
+        $head_row->add_th( {
             out_class(
                 $CLASS_KIOSK_COLUMN_ROOM,
                 $CLASS_KIOSK_DESC_CELL_HEADER
             )
         } );
-        out_line $h->th(
+        $head_row->add_th(
             {   out_class(
                     $CLASS_KIOSK_COLUMN_CURRENT,
                     $CLASS_KIOSK_DESC_CELL_HEADER
@@ -1496,7 +1313,7 @@ sub dump_kiosk_desc {
             },
             q{Current Panel}
         );
-        out_line $h->th(
+        $head_row->add_th(
             {   out_class(
                     $CLASS_KIOSK_COLUMN_FUTURE,
                     $CLASS_KIOSK_DESC_CELL_HEADER
@@ -1504,10 +1321,10 @@ sub dump_kiosk_desc {
             },
             q{Upcoming Panel}
         );
-        out_close $HTML_TABLE_ROW;
-        out_close $HTML_TABLE_HEAD;
-        out_open $HTML_TABLE_BODY,
-            { out_class( $CLASS_KIOSK_DESC_BODY ) };
+
+        my $table_body = $time_table->nested_tbody(
+            { out_class( $CLASS_KIOSK_DESC_BODY ) } );
+
         my $time_slot   = $region->get_time_slot( $time );
         my $cur_panels  = $time_slot->get_current();
         my $next_panels = $time_slot->get_upcoming();
@@ -1519,9 +1336,9 @@ sub dump_kiosk_desc {
             if ( $hotel ne $name ) {
                 $name = $hotel . $h->br() . $name;
             }
-            out_open $HTML_TABLE_ROW,
-                { out_class( $CLASS_KIOSK_DESC_ROW_ROOM ) };
-            out_line $h->th(
+            my $room_row = $table_body->nested_tr(
+                { out_class( $CLASS_KIOSK_DESC_ROW_ROOM ) } );
+            $room_row->add_th(
                 {   out_class(
                         $CLASS_KIOSK_DESC_CELL_ROOM,
                         $CLASS_KIOSK_DESC_CELL_HEADER
@@ -1530,74 +1347,72 @@ sub dump_kiosk_desc {
                 $name
             );
             dump_desc_panel_body(
+                $room_row,
                 Data::Partion->unfiltered(), $time_slot,
                 $cur_panels->{ $id },
                 $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
+                $room_row,
                 Data::Partion->unfiltered(), $time_slot,
                 $next_panels->{ $id },
                 $CLASS_KIOSK_DESC_CELL_FUTURE
             );
-            out_close $HTML_TABLE_ROW;
         } ## end foreach my $room ( @region_rooms)
-        out_close $HTML_TABLE_BODY;
-        out_close $HTML_TABLE;
-        out_close $HTML_DIV;
     } ## end foreach my $time ( @times )
 
     return;
 } ## end sub dump_kiosk_desc
 
 sub dump_kiosk {
-    open_dump_file( Data::Partion->unfiltered(), q{kiosk} );
+    my ( $writer, $ofname )
+        = open_dump_file( Data::Partion->unfiltered(), q{kiosk} );
 
-    $output_writer->add_line( $HTML_DOCTYPE_HTML );
+    $writer->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
 
-    out_open $HTML_HTML;
-    out_open $HTML_HEAD;
-    out_line $h->meta( { charset => $HTML_CHARSET_UTF8 } );
-    out_line $h->meta( { name    => $HTML_APP_OKAY, content => $HTML_YES } );
-    out_line $h->title( $options->get_title() );
-    out_line $h->link( {
+    $writer->get_head()->add_meta( { charset => $HTML_CHARSET_UTF8 } );
+    $writer->get_head()
+        ->add_meta( { name => $HTML_APP_OKAY, content => $HTML_YES } );
+    $writer->get_head()->add_title( $options->get_title() );
+    $writer->get_head()->add_link( {
         href => q{css/kiosk.css},
         rel  => $HTML_STYLESHEET,
         type => $HTML_TEXT_CSS
     } );
-    dump_styles;
-    out_line $h->script(
-        { type => q{text/javascript}, src => q{js/kiosk.js} } );
 
-    out_close $HTML_HEAD;
-    out_open $HTML_BODY;
+    dump_styles( $writer );
 
-    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_BAR ) };
-    out_line $h->img( {
+    $writer->get_head()
+        ->add_script( { type => q{text/javascript}, src => q{js/kiosk.js} } );
+
+    my $bar
+        = $writer->get_body()->nested_div( out_class( $CLASS_KIOSK_BAR ) );
+    $bar->add_img( {
         out_class( $CLASS_KIOSK_LOGO ),
         src => q{images/CosplayAmericaLogoAlt.svg},
         alt => q{Cosplay America}
     } );
-    out_open $HTML_DIV,
-        { out_class( $CLASS_KIOSK_TIME ), id => q{current_time} };
-    out_line q{SOMEDAY ##:## ?M};
-    out_close $HTML_DIV;
-    out_close $HTML_DIV;
+    $bar->nested_div(
+        { out_class( $CLASS_KIOSK_TIME ), id => q{current_time} } )
+        ->add_line( q{SOMEDAY ##:## ?M} );
 
-    out_line $h->div( { out_class( $CLASS_KIOSK_GRID_HEADERS ) } );
-    out_open $HTML_DIV, { out_class( $CLASS_KIOSK_GRID_ROWS ) };
-    foreach my $region ( get_time_regions() ) {
-        dump_grid_timeslice( Data::Partion->unfiltered(), $region );
-    }
-    out_close $HTML_DIV;
+    $writer->get_body()
+        ->add_div( { out_class( $CLASS_KIOSK_GRID_HEADERS ) } );
+    my $regions_div = $writer->get_body()
+        ->nested_div( { out_class( $CLASS_KIOSK_GRID_ROWS ) } );
 
     foreach my $region ( get_time_regions() ) {
-        dump_kiosk_desc( $region );
+        dump_grid_timeslice(
+            $regions_div, Data::Partion->unfiltered(),
+            $region
+        );
+    } ## end foreach my $region ( get_time_regions...)
+
+    foreach my $region ( get_time_regions() ) {
+        dump_kiosk_desc( $writer->get_body(), $region );
     }
 
-    out_close $HTML_BODY;
-    out_close $HTML_HTML;
-
-    close_dump_file;
+    close_dump_file( $writer, $ofname );
 
     return;
 } ## end sub dump_kiosk

@@ -7,6 +7,7 @@ use utf8;
 
 use Carp qw{ croak cluck };
 use Readonly;
+use Scalar::Util qw{ reftype };
 
 our @EXPORT_OK = qw {
 };
@@ -15,16 +16,13 @@ our %EXPORT_TAGS = (
     all => [ @EXPORT_OK ],
 );
 
-Readonly our $ERROR_NO_LEVEL  => q{No open levels};
 Readonly our $WRITE_TO_METHOD => q{write_to};
 
 sub add_line {
     my ( $self, @content ) = @_;
 
-    croak $ERROR_NO_LEVEL unless @{ $self };
-
     my $content = join q{}, @content;
-    push @{ $self->[ -1 ] }, grep { m{\S}xms } split m{\s*\n+\s*}xms,
+    push @{ $self }, grep { m{\S}xms } split m{\s*\n+\s*}xms,
         $content;
     return;
 } ## end sub add_line
@@ -35,47 +33,27 @@ sub embed {
     croak q{WriteLevel can only embed WriteLevel based classes}
         unless eval { $embedded->can( $WRITE_TO_METHOD ) };
 
-    croak $ERROR_NO_LEVEL unless @{ $self };
-
-    push @{ $self->[ -1 ] }, $embedded;
+    push @{ $self }, $embedded;
     return;
 } ## end sub embed
 
-sub embed_level {
-    my ( $self, $level, $embedded ) = @_;
-    return unless defined $embedded;
+sub nested {
+    my ( $self, $level_open, $embedded, $level_close ) = @_;
+    croak q{WriteLevel can only nest WriteLevel based classes}
+        unless eval { $embedded->can( $WRITE_TO_METHOD ) };
 
-    croak q{Unexpected level} unless $level eq $#{ $self };
-    $self->embed( $embedded );
-    return;
-} ## end sub embed_level
-
-sub open_level {
-    my ( $self, @content ) = @_;
-
-    $self->add_line( @content );
-    push @{ $self }, [];
-    return;
-} ## end sub open_level
-
-sub close_level {
-    my ( $self, @content ) = @_;
-
-    my $nested = pop @{ $self };
-    croak q{Closed too many levels} unless @{ $self };
-
-    push @{ $self->[ -1 ] }, $nested if defined $nested && @{ $nested };
-
-    $self->add_line( @content );
+    $self->add_line( @{ $level_open } ) if @{ $level_open };
+    push @{ $self }, [ $embedded ];
+    $self->add_line( @{ $level_close } ) if @{ $level_close };
 
     return;
-} ## end sub close_level
+} ## end sub nested
 
 sub write_to_ {
     my ( $self, $fh, $level, $ref ) = @_;
 
     cluck q{Expeced array ref}
-        unless defined $ref && ref $ref && q{ARRAY} eq ref $ref;
+        unless defined $ref && reftype $ref && q{ARRAY} eq reftype $ref;
 
     foreach my $val ( @{ $ref } ) {
         if ( eval { $val->can( $WRITE_TO_METHOD ) } ) {
@@ -98,21 +76,10 @@ sub write_to {
     $fh    //= \*STDOUT;
     $level //= 0;
 
-    croak q{Unclosed level} if 0 < $#{ ${ self } };
-
-    for my $idx ( 0 .. $#{ ${ self } } ) {
-        $self->write_to_( $fh, $level + $idx, $self->[ $idx ] );
-    }
+    $self->write_to_( $fh, $level, $self );
 
     return;
 } ## end sub write_to
-
-sub is_balanced {
-    my ( $self ) = @_;
-
-    return 1 if 0 == $#{ ${ self } };
-    return;
-} ## end sub is_balanced
 
 sub new {
     my ( $class ) = @_;
