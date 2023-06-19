@@ -1386,7 +1386,8 @@ sub dump_kiosk {
         ->add_script( { type => q{text/javascript}, src => q{js/kiosk.js} } );
 
     my $bar
-        = $writer->get_body()->nested_div( out_class( $CLASS_KIOSK_BAR ) );
+        = $writer->get_body()
+        ->nested_div( { out_class( $CLASS_KIOSK_BAR ) } );
     $bar->add_img( {
         out_class( $CLASS_KIOSK_LOGO ),
         src => q{images/CosplayAmericaLogoAlt.svg},
