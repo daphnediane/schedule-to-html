@@ -1267,12 +1267,14 @@ sub dump_tables {
 
     dump_styles( $writer );
 
-    if ( defined $filter->get_selected_region() ) {
-        dump_table_one_region( $writer->get_body(), $filter );
-    }
-    else {
-        dump_table_all_regions( $writer->get_body(), $filter );
-    }
+    for my $copy ( 1 .. $options->get_copies() ) {
+        if ( defined $filter->get_selected_region() ) {
+            dump_table_one_region( $writer->get_body(), $filter );
+        }
+        else {
+            dump_table_all_regions( $writer->get_body(), $filter );
+        }
+    } ## end for my $copy ( 1 .. $options...)
 
     close_dump_file( $writer, $ofname );
 

@@ -88,15 +88,27 @@ $opt_gen{ $MOD_LIST } = sub {
 };
 
 ## Value option
-Readonly our $MOD_VALUE => q{=s};
-$opt_gen{ $MOD_VALUE } = sub {
+Readonly our $MOD_VALUE_STR => q{=s};
+$opt_gen{ $MOD_VALUE_STR } = sub {
     my ( $self, $opt_name, @rest ) = @_;
-    croak q{Too many args for mod_value} if @rest;
+    croak q{Too many args for mod_value_str} if @rest;
 
     return sub {
         my ( $flag, $opt ) = @_;
         $opt = to_str_ $opt;
         $self->{ $opt_name } = $opt;
+    };
+};
+
+## Value number option
+Readonly our $MOD_VALUE_NUM => q{=i};
+$opt_gen{ $MOD_VALUE_NUM } = sub {
+    my ( $self, $opt_name, @rest ) = @_;
+    croak q{Too many args for mod_value_num} if @rest;
+
+    return sub {
+        my ( $flag, $opt ) = @_;
+        $self->{ $opt_name } = 0 + $opt;
     };
 };
 
@@ -526,7 +538,7 @@ sub is_file_by_room {
 Readonly our $OPT_INPUT_ => q{input};
 
 push @opt_parse,
-    [ $OPT_INPUT_, [ qw{ input } ], $MOD_VALUE ];
+    [ $OPT_INPUT_, [ qw{ input } ], $MOD_VALUE_STR ];
 
 sub get_input_file {
     my ( $self ) = @_;
@@ -630,7 +642,7 @@ sub is_mode_postcard {
 Readonly our $OPT_OUTPUT_ => q{output};
 
 push @opt_parse,
-    [ $OPT_OUTPUT_, [ qw{ output } ], $MOD_VALUE ];
+    [ $OPT_OUTPUT_, [ qw{ output } ], $MOD_VALUE_STR ];
 
 sub get_output_file {
     my ( $self ) = @_;
@@ -1071,11 +1083,24 @@ sub get_time_start {
 Readonly our $OPT_TITLE_ => q{title};
 
 push @opt_parse,
-    [ $OPT_TITLE_, [ qw{ title } ], $MOD_VALUE ];
+    [ $OPT_TITLE_, [ qw{ title } ], $MOD_VALUE_STR ];
 
 sub get_title {
     my ( $self ) = @_;
     return $self->{ $OPT_TITLE_ } // q{Cosplay America 2023 Schedule};
+}
+
+## --copies _number_
+##     How many copies in the same html
+
+Readonly our $OPT_COPIES_ => q{copies};
+
+push @opt_parse,
+    [ $OPT_COPIES_, [ qw{ copies } ], $MOD_VALUE_NUM ];
+
+sub get_copies {
+    my ( $self ) = @_;
+    return $self->{ $OPT_COPIES_ } || 1;
 }
 
 sub register_option_ {

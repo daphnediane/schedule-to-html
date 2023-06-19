@@ -44,6 +44,17 @@ mkdir -p output/flyers/panelists
     --separate \
     --hide-unused-rooms "$@"
 
+mkdir -p output/flyers/desc
+./schedule_html \
+    --style print:landscape.css \
+    --input input/Test.xlsx \
+    --output output/flyers/desc \
+    --split-day \
+    --show-descriptions \
+    --hide-grid \
+    --hide-unused-rooms \
+    --file-by-day "$@"
+
 ./schedule_html \
     --style print:landscape.css \
     --input input/Test.xlsx \
