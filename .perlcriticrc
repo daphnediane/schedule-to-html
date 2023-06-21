@@ -19,7 +19,7 @@ equivalent_modules = common::sense
 allowed_values = -1 0 1 2
 
 [TooMuchCode::ProhibitDuplicateLiteral]
-allowlist = q{} q{ } q{, } q{: } q{::} q{.} q{-} q{--} q{%} q{=s} q{=s@} q{=s%} q{=s%%} q{|} q{$} q{CODE} q{Data::Room} '#' qq{\n} qq{\t} q{-1} 2
+allowlist = q{} q{ } q{, } q{: } q{::} q{_} q{.} q{-} q{--} q{%} q{=s} q{=s@} q{=s%} q{=s%%} q{|} q{$} q{CODE} q{Data::Room} '#' qq{\n} qq{\t} q{-1} 2
 
 [TooMuchCode::ProhibitUnusedImport]
 ignored_modules = Object::InsideOut

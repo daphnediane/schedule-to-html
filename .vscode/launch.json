@@ -75,6 +75,44 @@
             ],
             "stopOnEntry": true,
             "reloadModules": true
+        },
+        {
+            "type": "perl",
+            "request": "launch",
+            "name": "portcards",
+            "program": "${workspaceFolder}/lib/main.pm",
+            "args": [
+                "--style",
+                "license-fonts.css",
+                "--style",
+                "common.css",
+                "--style",
+                "screen.css",
+                "--style",
+                "screen:color.css",
+                "--style",
+                "screen:+color",
+                "--style",
+                "print.css",
+                "--style",
+                "print:+color=BW",
+                "--style",
+                "print:bw.css",
+                "--style",
+                "print:premium7.css",
+                "--input",
+                "input/Test.xlsx",
+                "--output",
+                "output/postcards",
+                "--unified",
+                "--just-premium",
+                "--hide-grid",
+                "--show-descriptions",
+                "--desc-by-guest",
+                "--postcard"
+            ],
+            "stopOnEntry": true,
+            "reloadModules": true
         }
     ]
 }

@@ -24,7 +24,7 @@ sub add_line {
     my $content = join q{}, @content;
     push @{ $self }, grep { m{\S}xms } split m{\s*\n+\s*}xms,
         $content;
-    return;
+    return $self;
 } ## end sub add_line
 
 sub embed {

@@ -22,4 +22,9 @@ sub nested_selector {
     return $child;
 } ## end sub nested_selector
 
+sub wl_ {
+    my ( $self ) = @_;
+    return $self;
+}
+
 1;

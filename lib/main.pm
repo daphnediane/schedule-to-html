@@ -573,13 +573,11 @@ sub desc_writer {
                 { out_class( $CLASS_DESC_TYPE_TABLE ) } )
                 ->add_col( { out_class( $CLASS_DESC_TYPE_COLUMN ) } );
 
-            $writer->nested_thead(
-                { out_class( $CLASS_DESC_TYPE_HEADER ) },
-                $h->tr( $h->th(
-                    { out_class( $CLASS_DESC_TYPE_COLUMN ) },
-                    $hdr_text
-                ) )
-            );
+            $writer->nested_thead( { out_class( $CLASS_DESC_TYPE_HEADER ) } )
+                ->add_tr( $h->th(
+                { out_class( $CLASS_DESC_TYPE_COLUMN ) },
+                $hdr_text
+                ) );
 
             $writer = $writer->nested_tbody()->nested_tr()->nested_td();
         } ## end if ( $options->is_mode_postcard...)

@@ -5,13 +5,46 @@ use Object::InsideOut;
 use v5.36.0;
 use utf8;
 
+use Carp       qw{ croak};
 use HTML::Tiny qw{};
+use Readonly;
+use Scalar::Util qw{ reftype };
+use Sub::Name    qw{ subname };
 
 use WriteLevel      qw{};
 use WriteLevel::CSS qw{};
-use Sub::Name       qw{ subname };
 
 ## no critic (ProhibitUnusedVariables)
+
+Readonly::Array my @KNOWN_ELEMENTS => ( qw{
+    a abbr address area article aside audio
+    b base bdi bdo blockquote body br button
+    canvas caption cite code col colgroup
+    data datalist dd del details dfn dialog div dl dt
+    em embed
+    fieldset figcaption figure footer form
+    h1 h2 h3 h4 h5 h6 head header hgroup hr html
+    i iframe img input ins
+    kbd
+    label legend li link
+    main map mark menu meta meter
+    nav noscript
+    object ol optgroup option output
+    p picture portal pre progress
+    q
+    rp rt ruby
+    s samp script section select slot small source span strong style
+    sub summary sup
+    table tbody td template textarea tfoot th thead time title tr track
+    u ul
+    var video
+    wbr
+} );
+
+Readonly::Array my @OBSOLETE_ELEMENTS => ( qw{
+    acronym big center dir font frame frameset image marquee menuitem
+    nobr noembed noframes param plaintext rb rtc strike tt xml
+} );
 
 my @wl_
     :Field
@@ -37,21 +70,14 @@ my @html_
 sub add_line {
     my ( $self, @args ) = @_;
     $self->wl_()->add_line( @args );
-    return;
+    return $self;
 }
-
-sub add_meta {
-    my ( $self, @args ) = @_;
-    my $h = $self->get_formatter();
-    $self->wl_()->add_line( $h->meta( @args ) );
-    return;
-} ## end sub add_meta
 
 sub add_tag {
     my ( $self, @args ) = @_;
     my $h = $self->get_formatter();
     $self->wl_()->add_line( $h->tag( @args ) );
-    return;
+    return $self;
 } ## end sub add_tag
 
 sub nested_inline {
@@ -82,20 +108,6 @@ sub nested_tag {
     return $child;
 } ## end sub nested_tag
 
-sub nested_style {
-    my ( $self, @rest ) = @_;
-    my $h     = $self->get_formatter();
-    my $wl    = $self->wl_();
-    my $child = WriteLevel::CSS->new();
-    my $tag   = q{style};
-    $wl->nested(
-        [ $h->open( $tag, @rest ) ],
-        $child,
-        [ $h->close( $tag ) ],
-    );
-    return $child;
-} ## end sub nested_style
-
 sub reg_handler_ {
     my ( $name, $handler ) = @_;
 
@@ -108,52 +120,63 @@ sub reg_handler_ {
     return $handler;
 } ## end sub reg_handler_
 
-sub automethod_ :Automethod {
-    my ( $self, @given_args ) = @_;
-    my $method = $_;
+sub get_child_ {
+    my ( $self, $tag ) = @_;
 
-    my $h_ = $self->get_formatter();
+    return WriteLevel::CSS->new() if $tag eq q{style};
+    return $self->new(
+        formatter => $self->get_formatter(),
+        tag       => $self->get_tag() . q{.} . $tag
+    );
+} ## end sub get_child_
 
-    if ( $method =~ m{\Aadd_(.*)}xms ) {
-        my $tag = $1;
-        if ( eval { $h_->can( $tag ) } ) {
-            my $handler = sub {
-                my ( $self, @args ) = @_;
-                my $h = $self->get_formatter();
-                $self->wl_()->add_line( $h->auto_tag( $tag, @args ) );
-                return;
-            };
+## Generate methods
+foreach my $tag ( @KNOWN_ELEMENTS ) {
+    my $add_name      = join q{_},  qw{ add }, $tag;
+    my $full_add_name = join q{::}, __PACKAGE__, $add_name;
 
-            return reg_handler_( $method, $handler );
-        } ## end if
-        return;
-    } ## end if ( $method =~ m{\Aadd_(.*)}xms)
+    my $add_sub = sub {
+        my ( $self, @args ) = @_;
+        $self->wl_()
+            ->add_line( $self->get_formatter()->auto_tag( $tag, @args ) );
+        return $self;
+    };
 
-    if ( $method =~ m{\Anested_(.*)}xms ) {
-        my $tag = $1;
-        if ( eval { $h_->can( $tag ) } ) {
-            my $handler = sub {
-                my ( $self, @rest ) = @_;
-                my $h     = $self->get_formatter();
-                my $wl    = $self->wl_();
-                my $child = $self->new(
-                    formatter => $h,
-                    tag       => $self->get_tag() . q{.} . $tag,
-                );
-                $wl->nested(
-                    [ $h->open( $tag, @rest ) ],
-                    $child->wl_(),
-                    [ $h->close( $tag ) ],
-                );
-                return $child;
-            };
+    {
+        ## no critic(TestingAndDebugging::ProhibitNoStrict)
+        no strict qw{ refs };
+        *{ $full_add_name } = subname $full_add_name, $add_sub;
+        ## use critic
+    }
 
-            return reg_handler_( $method, $handler );
-        } ## end if
-        return;
-    } ## end if ( $method =~ m{\Anested_(.*)}xms)
+    my $nested_name      = join q{_},  qw{ nested }, $tag;
+    my $full_nested_name = join q{::}, __PACKAGE__, $nested_name;
 
-    return;
-} ## end sub automethod_
+    my $nested_sub = sub {
+        my ( $self, @args ) = @_;
+        croak qq{nested_${tag} too many arguments\n}
+            if 1 < scalar @args;
+        croak qq{nested_${tag} first arg must be a hash\n}
+            if 1 == scalar @args && q{HASH} ne reftype( $args[ 0 ] );
+
+        my $h     = $self->get_formatter();
+        my $wl    = $self->wl_();
+        my $child = $self->get_child_( $tag );
+
+        $wl->nested(
+            [ $h->open( $tag, @args ) ],
+            $child->wl_(),
+            [ $h->close( $tag ) ],
+        );
+        return $child;
+    };
+
+    {
+        ## no critic(TestingAndDebugging::ProhibitNoStrict)
+        no strict qw{ refs };
+        *{ $full_nested_name } = subname $full_nested_name, $nested_sub;
+        ## use critic
+    }
+} ## end foreach my $tag ( @KNOWN_ELEMENTS)
 
 1;
