@@ -1213,48 +1213,42 @@ sub dump_file_header {
     return;
 } ## end sub dump_file_header
 
-sub dump_table_one_region {
+sub dump_table_regions {
     my ( $writer, $filter ) = @_;
 
-    if ( $options->show_sect_grid() ) {
-        dump_grid_timeslice(
-            $writer, $filter,
-            $filter->get_selected_region()
-        );
-    } ## end if ( $options->show_sect_grid...)
-    if ( $options->show_sect_descriptions() ) {
-        dump_desc_timeslice(
-            $writer, $filter,
-            $filter->get_selected_region()
-        );
-    } ## end if ( $options->show_sect_descriptions...)
+    my $need_desc = $options->show_sect_descriptions();
+    my $any_desc_shown;
+    my $desc_are_last = $options->is_desc_loc_last();
 
-    return;
-} ## end sub dump_table_one_region
-
-sub dump_table_all_regions {
-    my ( $writer, $filter ) = @_;
-
-    my $need_all_desc = $options->show_sect_descriptions();
+    my @regions;
+    my $filter_region = $filter->get_selected_region();
+    if ( defined $filter_region ) {
+        push @regions, $filter_region;
+    }
+    else {
+        @regions = ( get_time_regions() );
+    }
+    undef $desc_are_last if 1 == scalar @regions;
 
     if ( $options->show_sect_grid() ) {
-        foreach my $region ( get_time_regions() ) {
+        foreach my $region ( @regions ) {
             dump_grid_timeslice( $writer, $filter, $region );
-            next unless $options->show_sect_descriptions();
-            next if $options->is_desc_loc_last();
+            next unless $need_desc;
+            next if $desc_are_last;
 
             dump_desc_timeslice( $writer, $filter, $region );
-            undef $need_all_desc;
-        } ## end foreach my $region ( get_time_regions...)
+            $any_desc_shown = 1;
+        } ## end foreach my $region ( @regions)
         return if $options->is_desc_loc_mixed();
     } ## end if ( $options->show_sect_grid...)
 
-    if ( $need_all_desc ) {
-        dump_desc_timeslice( $writer, $filter, undef );
-    }
+    return if $any_desc_shown;
+    return unless $need_desc;
+
+    dump_desc_timeslice( $writer, $filter, $filter_region );
 
     return;
-} ## end sub dump_table_all_regions
+} ## end sub dump_table_regions
 
 sub dump_tables {
     my ( $filter ) = @_;
@@ -1265,13 +1259,36 @@ sub dump_tables {
 
     dump_styles( $writer );
 
+    my @filters = ( $filter );
+    @filters = split_filter_by_panelist(
+        {   ranks => [
+                (     $options->is_section_by_guest()
+                    ? $Presenter::RANK_GUEST
+                    : ()
+                ),
+                (   $options->is_section_by_panelist()
+                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    : ()
+                ),
+            ],
+            is_by_desc => undef
+        },
+        @filters
+    );
+
+    @filters = split_filter_by_room(
+        [ get_rooms_for_region( $options ) ],
+        @filters
+    ) if $options->is_section_by_room();
+
+    @filters = split_filter_by_timestamp( @filters )
+        if $options->is_section_by_day();
+
     for my $copy ( 1 .. $options->get_copies() ) {
-        if ( defined $filter->get_selected_region() ) {
-            dump_table_one_region( $writer->get_body(), $filter );
+        foreach my $section_filter ( @filters ) {
+            dump_table_regions( $writer->get_body(), $section_filter );
         }
-        else {
-            dump_table_all_regions( $writer->get_body(), $filter );
-        }
+
     } ## end for my $copy ( 1 .. $options...)
 
     close_dump_file( $writer, $ofname );

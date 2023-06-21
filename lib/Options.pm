@@ -528,6 +528,118 @@ sub is_file_by_room {
     return;
 }
 
+## --section-by-day
+##     Generate separate section for each day
+## --section-all-days
+##     Do not generate a section for each day, default
+## --section-by-guest
+##     Generate a section for each guest
+## --no-section-by-guest
+##     Do not generate a section for each guest
+## --section-by-presenter
+##     Generate a section for each presenter, implies --section-by-guest
+## --no-section-by-presenter
+##     Do not generate a section for each presenter
+## --section-everyone-together
+##     Do not generate a section for each guest or presenters, default
+## --section-by-room
+##     Generate a section for each room
+## --section-all-rooms
+##     Do not generate a section for each room
+## --section-by-panelist
+##     Alias of --section-by-presenter
+## --no-section-by-panelist
+##     Alias of --no-section-by-presenter
+Readonly our $OPT_SECTION_BY_ => q{section-by};
+
+push @opt_parse,
+    [
+    $OPT_SECTION_BY_, [ qw{ section-everyone-together } ], $MOD_FLAG,
+    $VAL_EVERYONE_TOGETHER
+    ],
+    [
+    $OPT_SECTION_BY_, [ qw{ --all-days -!day } ], $MOD_SUB_FLAG,
+    $VAL_BY_DAY => 0
+    ],
+    [ $OPT_SECTION_BY_, [ qw{ -day } ], $MOD_SUB_FLAG, $VAL_BY_DAY => 1 ],
+    [
+    $OPT_SECTION_BY_, [ qw{ -!guest } ], $MOD_SUB_FLAG,
+    $VAL_BY_GUEST => 0
+    ],
+    [ $OPT_SECTION_BY_, [ qw{ -guest } ], $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [
+    $OPT_SECTION_BY_, [ qw{ -!presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 0
+    ],
+    [
+    $OPT_SECTION_BY_, [ qw{ -!panelist } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 0
+    ],
+    [
+    $OPT_SECTION_BY_, [ qw{ -presenter } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
+    [
+    $OPT_SECTION_BY_, [ qw{ -panelist } ], $MOD_SUB_FLAG,
+    $VAL_BY_PANELIST => 1
+    ],
+    [
+    $OPT_SECTION_BY_, [ qw{ --all-rooms -!room } ], $MOD_SUB_FLAG,
+    $VAL_BY_ROOM => 0
+    ],
+    [ $OPT_SECTION_BY_, [ qw{ -room } ], $MOD_SUB_FLAG, $VAL_BY_ROOM => 1 ],
+    ;
+
+push @opt_on_kiosk,
+    [ $OPT_SECTION_BY_, $MOD_FLAG ];
+
+sub is_section_everyone_together {
+    my ( $self ) = @_;
+    return if $self->is_section_by_panelist();
+    return if $self->is_section_by_guest();
+    return 1;
+} ## end sub is_section_everyone_together
+
+sub is_section_by_day {
+    my ( $self ) = @_;
+    return 1 if $self->{ $OPT_SECTION_BY_ }->{ $VAL_BY_DAY };
+    return;
+}
+
+sub is_section_by_guest {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_SECTION_BY_ };
+    if ( !defined $hash ) {
+        return 1 if $self->is_just_guest();
+        return;
+    }
+    return 1 if $hash->{ $VAL_BY_GUEST };
+    return   if defined $hash->{ $VAL_BY_GUEST };
+    return 1 if $self->is_just_guest();
+    return 1 if $hash->{ $VAL_BY_PANELIST };
+    return   if defined $hash->{ $VAL_BY_PANELIST };
+    return;
+} ## end sub is_section_by_guest
+
+sub is_section_by_panelist {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_SECTION_BY_ };
+    if ( !defined $hash ) {
+        return 1 if $self->is_just_panelist();
+        return;
+    }
+    return 1 if $hash->{ $VAL_BY_PANELIST };
+    return   if defined $hash->{ $VAL_BY_PANELIST };
+    return 1 if $self->is_just_panelist();
+    return;
+} ## end sub is_section_by_panelist
+
+sub is_section_by_room {
+    my ( $self ) = @_;
+    return 1 if $self->{ $OPT_SECTION_BY_ }->{ $VAL_BY_ROOM };
+    return;
+}
+
 ## --input _file_.txt
 ##     Source data for schedule, UTF-16 spreadsheet
 ## --input _file_.xlsx

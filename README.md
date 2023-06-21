@@ -13,6 +13,7 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 
 | Option                       | Meaning                                                                |
 | ---------------------------- | ---------------------------------------------------------------------- |
+| --copies _number_            | How many copies in the same html                                       |
 | --desc-by-guest              | Arrange descriptions by guest, showing just guest                      |
 | --desc-by-presenter          | Arrange descriptions by presenters, implies --desc-by-guest            |
 | --desc-everyone-together     | Do not sort descriptions by guest or presenters, default               |
@@ -56,8 +57,17 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 | --no-desc-by-presenter       | Do not arrange descriptions by presenter                               |
 | --no-file-by-guest           | Do not generate a file for each guest                                  |
 | --no-file-by-presenter       | Do not generate a file for each presenter                              |
+| --no-section-by-guest        | Do not generate a section for each guest                               |
+| --no-section-by-presenter    | Do not generate a section for each presenter                           |
 | --output _name_              | Output filename or directory if any --file-by-... used                 |
 | --room _name_                | Focus on matching room, may be given more than once                    |
+| --section-all-days           | Do not generate a section for each day, default                        |
+| --section-all-rooms          | Do not generate a section for each room                                |
+| --section-by-day             | Generate separate section for each day                                 |
+| --section-by-guest           | Generate a section for each guest                                      |
+| --section-by-presenter       | Generate a section for each presenter, implies --section-by-guest      |
+| --section-by-room            | Generate a section for each room                                       |
+| --section-everyone-together  | Do not generate a section for each guest or presenters, default        |
 | --show-all-rooms             | Show rooms even if they have no events scheduled                       |
 | --show-av                    | Include notes for Audio Visual                                         |
 | --show-breaks                | Includes descriptions for breaks                                       |
@@ -83,31 +93,35 @@ desc_tbl --input input/spreadsheet.xlsx --output output/
 
 ### Aliases
 
-| Alias                 | Equivalent to option            |
-| --------------------- | ------------------------------- |
-| --desc-by-panelist    | --desc-by-presenter             |
-| --descriptions        | --show-descriptions             |
-| --file-by-panelist    | --file-by-presenter             |
-| --flyer               | --mode-flyer                    |
-| --grid                | --show-grid                     |
-| --just-descriptions   | --show-descriptions --hide-grid |
-| --just-free           | --show-free --hide-premium      |
-| --just-grid           | --show-grid --hide-descriptions |
-| --just-panelist       | --just-presenter                |
-| --just-premium        | --show-premium --hide-free      |
-| --kiosk               | --mode-kiosk                    |
-| --no-desc-by-panelist | --no-desc-by-presenter          |
-| --no-embed-css        | --inline-css                    |
-| --no-file-by-day      | --file-all-days                 |
-| --no-file-by-panelist | --no-file-by-presenter          |
-| --no-file-by-room     | --file-all-rooms                |
-| --no-inline-css       | --embed-css                     |
-| --no-separate         | --desc-loc-mixed                |
-| --no-split            | --unified                       |
-| --postcard            | --mode-postcard                 |
-| --separate            | --desc-loc-last                 |
-| --show-unused-rooms   | --show-all-rooms                |
-| --split-half-day      | --split-timeregion              |
+| Alias                    | Equivalent to option            |
+| ------------------------ | ------------------------------- |
+| --desc-by-panelist       | --desc-by-presenter             |
+| --descriptions           | --show-descriptions             |
+| --file-by-panelist       | --file-by-presenter             |
+| --flyer                  | --mode-flyer                    |
+| --grid                   | --show-grid                     |
+| --just-descriptions      | --show-descriptions --hide-grid |
+| --just-free              | --show-free --hide-premium      |
+| --just-grid              | --show-grid --hide-descriptions |
+| --just-panelist          | --just-presenter                |
+| --just-premium           | --show-premium --hide-free      |
+| --kiosk                  | --mode-kiosk                    |
+| --no-desc-by-panelist    | --no-desc-by-presenter          |
+| --no-embed-css           | --inline-css                    |
+| --no-file-by-day         | --file-all-days                 |
+| --no-file-by-panelist    | --no-file-by-presenter          |
+| --no-file-by-room        | --file-all-rooms                |
+| --no-inline-css          | --embed-css                     |
+| --no-section-by-day      | --section-all-days              |
+| --no-section-by-panelist | --no-section-by-presenter       |
+| --no-section-by-room     | --section-all-rooms             |
+| --no-separate            | --desc-loc-mixed                |
+| --no-split               | --unified                       |
+| --postcard               | --mode-postcard                 |
+| --section-by-panelist    | --section-by-presenter          |
+| --separate               | --desc-loc-last                 |
+| --show-unused-rooms      | --show-all-rooms                |
+| --split-half-day         | --split-timeregion              |
 
 If no option is specified for either grids or descriptions both are included.
 

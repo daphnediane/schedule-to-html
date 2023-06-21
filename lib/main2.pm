@@ -318,7 +318,38 @@ sub dump_grid {
 
     dump_file_header( $writer );
 
-    dump_grid_regions();
+    my @filters = ( $local_filter );
+    @filters = split_filter_by_panelist(
+        {   ranks => [
+                (     $options->is_section_by_guest()
+                    ? $Presenter::RANK_GUEST
+                    : ()
+                ),
+                (   $options->is_section_by_panelist()
+                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    : ()
+                ),
+            ],
+            is_by_desc => undef
+        },
+        @filters
+    );
+
+    @filters = split_filter_by_room(
+        [ get_rooms_for_region( $options ) ],
+        @filters
+    ) if $options->is_section_by_room();
+
+    @filters = split_filter_by_timestamp( @filters )
+        if $options->is_section_by_day();
+
+    for my $copy ( 1 .. $options->get_copies() ) {
+        foreach my $section_filter ( @filters ) {
+            local $local_filter = $section_filter;
+            dump_grid_regions();
+        }
+
+    } ## end for my $copy ( 1 .. $options...)
 
     close_dump_file( $writer, $ofname );
 
@@ -395,8 +426,7 @@ sub main {
 
     foreach my $filter ( @filters ) {
         local $local_filter = $filter;
-
-        dump_grid();
+        dump_grid;
     }
 
     return;
