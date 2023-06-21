@@ -10,7 +10,8 @@ use File::Spec   qw{};
 use FindBin      qw{};
 use Getopt::Long qw{ GetOptionsFromArray };
 use HTML::Tiny   qw{};
-use List::Util   qw{ any };
+use List::MoreUtils qw{ firstidx };
+use List::Util      qw{ any };
 use Readonly;
 
 use lib "${FindBin::Bin}/lib";
@@ -148,9 +149,11 @@ sub dump_file_header {
 } ## end sub dump_file_header
 
 sub dump_grid_panel {
-    my ( $write, $panel_state, @rooms ) = @_;
+    my ( $writer, $panel_state, @rooms ) = @_;
 
     return unless defined $panel_state;
+    my $panel = $panel_state->get_active_panel();
+    return unless defined $panel;
 
     my @classes;
     push @classes, join q{}, qw{ time-start- },
@@ -158,6 +161,27 @@ sub dump_grid_panel {
     push @classes, join q{}, qw{ time-sop- },
         $panel_state->get_start_seconds();
 
+    $writer = $writer->nested_div( { out_class( qw{ panel } ) } );
+    $writer->add_h4( { out_class( qw{ panel-title } ) }, $panel->get_name() );
+    $writer->add_span(
+        { out_class( qw{ panel-time } ) },
+        join q{},
+        datetime_to_text( $panel->get_start_seconds(), qw{ time } ), q{ — },
+        datetime_to_text( $panel->get_end_seconds(),   qw{ time } )
+    );
+    $writer->add_span(
+        { out_class( qw{ panel-room } ) },
+        join q{, },
+        map { $_->get_long_room_name() } $panel->get_rooms()
+    );
+    $writer->add_span(
+        { out_class( qw{ panel-presenter } ) },
+        $panel->get_credits()
+    );
+    $writer->nested_p(
+        { out_class( qw{ panel-description } ) },
+    )->add_span( $panel->get_description() );
+    ## TODO ( notes, parts, conflict, etc)...
     return;
 
 } ## end sub dump_grid_panel
@@ -205,26 +229,28 @@ sub dump_grid_make_groups {
 sub dump_grid_time {
     my ( $writer, $same_day ) = @_;
 
+    my ( $day, $tm ) = datetime_to_text( $local_time_seconds );
+    my $is_same_day = $local_region->get_day_being_output() eq $day
+        && $local_region->get_last_output_time() != $local_time_seconds;
+    $local_region->set_day_being_output( $day );
+
     if ( $options->show_day_column() ) {
         $writer->add_h3(
             { out_class( qw{ time-slot } ) },
             $h->div(
                 { out_class( qw{ time-slot-day } ) },
-                datetime_to_text( $local_time_seconds, qw{ day } )
+                datetime_to_text( $local_time_seconds, $day )
                 )
                 . $h->div(
                 { out_class( qw{ time-slot-time } ) },
-                datetime_to_text( $local_time_seconds, qw{ time } )
+                datetime_to_text( $local_time_seconds, $tm )
                 )
         );
     } ## end if ( $options->show_day_column...)
     else {
         $writer->add_h3(
             { out_class( qw{ time-slot } ) },
-            datetime_to_text(
-                $local_time_seconds,
-                $same_day ? qw{ time } : qw{ both }
-            )
+            $is_same_day ? $tm : $day . $h->br() . $tm,
         );
     } ## end else [ if ( $options->show_day_column...)]
 
@@ -235,7 +261,9 @@ sub dump_grid_time {
 sub dump_grid_timeslice {
     my @times = sort { $a <=> $b } $local_region->get_unsorted_times();
     return unless @times;
-    my $is_one_day = same_day( $times[ 0 ], $times[ -1 ] );
+
+    $local_region->set_day_being_output( q{} );
+    $local_region->set_last_output_time( $times[ -1 ] );
 
     my @name = $local_filter->get_output_name_pieces();
     if ( !defined $local_filter->get_selected_region() ) {
@@ -249,15 +277,11 @@ sub dump_grid_timeslice {
     my $sch_class = canonical_class( join q{_}, qw{ schedule }, @name );
     $writer = $writer->nested_div( { out_class( $sch_class ) } );
 
-    my $last_time;
     foreach my $time ( @times ) {
         local $local_time_seconds = $time;
         local $local_time_slot
             = $local_region->get_time_slot( $local_time_seconds );
-        my $same_day
-            = $is_one_day || same_day( $last_time, $local_time_seconds );
-        dump_grid_time( $writer, $same_day );
-        $last_time = $local_time_seconds;
+        dump_grid_time( $writer );
     } ## end foreach my $time ( @times )
 
     return;
@@ -404,15 +428,10 @@ sub update_hide_shown {
     return;
 } ## end sub update_hide_shown
 
-sub main {
-    my ( @args ) = @_;
+sub main_arg_set {
+    my ( $args, $prev_file ) = @_;
 
-    if ( !@args ) {
-        Options::dump_help();
-        exit 1;
-    }
-
-    $options = Options->options_from( \@args );
+    $options = Options->options_from( $args );
 
     foreach my $style ( $options->get_styles() ) {
         next unless $style =~ $RE_COLOR_STYLE;
@@ -434,7 +453,7 @@ sub main {
 
     if ( $options->is_mode_kiosk() ) {
         dump_kiosk;
-        return;
+        return $prev_file;
     }
 
     my @filters = ( Data::Partion->unfiltered() );
@@ -467,7 +486,31 @@ sub main {
         dump_grid;
     }
 
-    return;
+    return $prev_file;
+} ## end sub main_arg_set
+
+sub main {
+    my ( @args ) = @_;
+
+    if ( !@args ) {
+        Options::dump_help();
+        exit 1;
+    }
+
+    my $split_idx = firstidx { $_ eq q{--} } @args;
+    my @before;
+    if ( defined $split_idx ) {
+        @before = @args[ 0 .. $split_idx - 1 ];
+        @args   = @args[ $split_idx + 1 .. $#args ];
+    }
+
+    my $prev_file;
+    do {
+        unshift @args, @before;
+        $prev_file = main_arg_set( \@args, $prev_file );
+    } while ( @args );
+
+    exit 0;
 } ## end sub main
 
 main( @ARGV );
