@@ -192,7 +192,10 @@ sub dump_grid_row_room_names {
                 $is_head ? $CLASS_GRID_COLUMN_TIME : ()
             )
         },
-        $HEADING_TIME
+        $options->show_presenter_as_time()
+            && defined $filter->get_selected_presenter()
+        ? $filter->get_selected_presenter()->get_presenter_name()
+        : $HEADING_TIME
     );
 
     my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }

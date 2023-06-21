@@ -106,6 +106,20 @@ args+=(
     --hide-unused-rooms
 )
 
+args+=(
+    --
+    --style print:guest-quarter.css 
+    --output output/flyers/postcards.html
+    --split-timeregion
+    --section-by-guest
+    --section-by-day
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-presenter-on-grid
+    --hide-descriptions
+    --hide-unused
+)
+
 ./schedule_html \
     --input input/Test.xlsx \
     "$@" \

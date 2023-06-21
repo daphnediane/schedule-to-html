@@ -55,6 +55,7 @@ versions of files with a single run.
 | --hide-grid                  | Does not includes the grid, implies --show-description                 |
 | --hide-paneltype _paneltype_ | Hide paneltype even if normally shown                                  |
 | --hide-premium               | Hide descriptions for panels that are premium                          |
+| --hide-presenter-on-grid     | Do not replace "time" with presenter name, default                     |
 | --hide-room _room_           | Hide room, even if normally shown                                      |
 | --hide-unused-rooms          | Only include rooms that have events scheduled, default                 |
 | --inline-css                 | Link to CSS files in the generated HTML, default unless --style        |
@@ -91,6 +92,7 @@ versions of files with a single run.
 | --show-grid                  | Includes the grid, implies --hide-description                          |
 | --show-paneltype _paneltype_ | Show paneltype even if normally hidden                                 |
 | --show-premium               | Show descriptions for panels that are premium, implies --hide-free     |
+| --show-presenter-on-grid     | Replace "time" with presenter name                                     |
 | --show-room _room_           | Show room, even if normally hidden                                     |
 | --split                      | Implies --split-timeregion if --split-day not set                      |
 | --split-day                  | Only split once per day                                                |

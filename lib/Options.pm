@@ -878,6 +878,10 @@ sub get_paneltypes_hidden {
 ##     Includes the grid, implies --hide-description
 ## --hide-grid
 ##     Does not includes the grid, implies --show-description
+## --show-presenter-on-grid
+##     Replace "time" with presenter name
+## --hide-presenter-on-grid
+##     Do not replace "time" with presenter name, default
 ## --just-descriptions
 ##     Alias of --show-descriptions --hide-grid
 ## --just-free
@@ -887,16 +891,17 @@ sub get_paneltypes_hidden {
 ## --just-premium
 ##     Alias of --show-premium --hide-free
 
-Readonly our $OPT_SHOW               => q{show/hide};
-Readonly our $VAL_SHOW_ALL_ROOMS_    => q{/all-rooms};
-Readonly our $VAL_SHOW_AV_           => q{/av};
-Readonly our $VAL_SHOW_BREAKS_       => q{/breaks};
-Readonly our $VAL_SHOW_COST_FREE_    => q{/free};
-Readonly our $VAL_SHOW_COST_PREMIUM_ => q{/premium};
-Readonly our $VAL_SHOW_DAY_COLUMN_   => q{/day-column};
-Readonly our $VAL_SHOW_DIFFICULTY_   => q{/difficulty};
-Readonly our $VAL_SHOW_SECT_DESC_    => q{/descriptions};
-Readonly our $VAL_SHOW_SECT_GRID_    => q{/grid};
+Readonly our $OPT_SHOW                 => q{show/hide};
+Readonly our $VAL_SHOW_ALL_ROOMS_      => q{/all-rooms};
+Readonly our $VAL_SHOW_AV_             => q{/av};
+Readonly our $VAL_SHOW_BREAKS_         => q{/breaks};
+Readonly our $VAL_SHOW_COST_FREE_      => q{/free};
+Readonly our $VAL_SHOW_COST_PREMIUM_   => q{/premium};
+Readonly our $VAL_SHOW_DAY_COLUMN_     => q{/day-column};
+Readonly our $VAL_SHOW_DIFFICULTY_     => q{/difficulty};
+Readonly our $VAL_SHOW_SECT_DESC_      => q{/descriptions};
+Readonly our $VAL_SHOW_SECT_GRID_      => q{/grid};
+Readonly our $VAL_SHOW_TIME_PRESENTER_ => q{/presenter-as-time};
 
 push @opt_parse,
     [
@@ -960,6 +965,14 @@ push @opt_parse,
     [
     $OPT_SHOW, [ qw{ just-grid } ], $MOD_SUB_FLAG,
     $VAL_SHOW_SECT_GRID_ => 1, $VAL_SHOW_SECT_DESC_ => 0
+    ],
+    [
+    $OPT_SHOW, [ qw{ -!presenter-on-grid } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_TIME_PRESENTER_ => 0
+    ],
+    [
+    $OPT_SHOW, [ qw{ -presenter-on-grid } ], $MOD_SUB_FLAG,
+    $VAL_SHOW_TIME_PRESENTER_ => 1
     ],
     ;
 
@@ -1065,6 +1078,12 @@ sub show_sect_grid {
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_DESC_ };
     return 1;
 } ## end sub show_sect_grid
+
+sub show_presenter_as_time {
+    my ( $self ) = @_;
+    return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_TIME_PRESENTER_ };
+    return;
+}
 
 ## --unified
 ##     Do not split table by SPLIT time segments or days
