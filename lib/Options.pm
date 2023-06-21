@@ -1406,12 +1406,12 @@ sub dump_help_markdown {
 } ## end sub dump_help_markdown
 
 sub options_from {
-    my ( $class, @args ) = @_;
+    my ( $class, $args ) = @_;
     $class = ref $class || $class;
 
     my $opt = bless {}, $class;
 
-    my @before_dashes = before { $_ eq q{--} } @args;
+    my @before_dashes = before { $_ eq q{--} } @{ $args };
 
     ## Special help option recognize anywhere
     dump_help_from_options( @before_dashes )
@@ -1420,14 +1420,11 @@ sub options_from {
         if any { $_ eq $OPT_HELP_MD_FLAG } @before_dashes;
 
     GetOptionsFromArray(
-        \@args,
+        $args,
         $opt,
 
         map { $opt->get_getopt_flag_( $_ ) } @opt_parse,
-    );
-
-    $opt->{ $OPT_INPUT_ }  //= shift @args;
-    $opt->{ $OPT_OUTPUT_ } //= shift @args;
+    ) or dump_help_from_options( @before_dashes );
 
     if ( $opt->is_mode_kiosk() ) {
         foreach my $opt_kiosk_set ( @opt_on_kiosk ) {

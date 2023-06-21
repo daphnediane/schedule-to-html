@@ -247,6 +247,11 @@ sub get_time_regions {
 sub populate_time_regions {
     my ( $options ) = @_;
 
+    # Reset information
+    %split_points_ = ();
+    %regions_      = ();
+    @sort_regions_ = ();
+
     foreach my $split ( get_split_panels() ) {
         $split_points_{ $split->get_start_seconds() }
             = $split->get_name();

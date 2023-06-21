@@ -1,95 +1,112 @@
-#!/bin/sh
+#!/bin/bash
 
+args=()
 for i in "" "break" "break_sm"; do
     mkdir -p output/flyers/byday"${i:+_${i}}"
-    ./schedule_html \
-        --style print:landscape"${i:+_${i}}".css \
-        --input input/Test.xlsx \
-        --output output/flyers/byday"${i:+_${i}}" \
-        --split-day \
-        --separate \
-        --hide-unused-rooms \
-        --file-by-day "$@"
+    args+=(
+        --
+        --style print:landscape"${i:+_${i}}".css
+        --output output/flyers/byday"${i:+_${i}}"
+        --split-day
+        --separate
+        --hide-unused-rooms
+        --file-by-day
+    )
 done
 
-mkdir -p output/flyers/guests
-./schedule_html \
-    --style print:landscape.css \
-    --input input/Test.xlsx \
-    --output output/flyers/guests/ \
-    --split-day \
-    --separate \
-    --hide-paneltype BR \
-    --show-paneltype SM \
-    --show-breaks \
-    --hide-unused-rooms \
-    --file-by-guest "$@"
-
 mkdir -p output/flyers/panelists
-./schedule_html \
-    --style print:landscape.css \
-    --input input/Test.xlsx \
-    --output output/flyers/panelists/ \
-    --split-day \
-    --separate \
-    --hide-unused-rooms \
-    --file-by-presenter \
-    --no-file-by-guest "$@"
+args+=(
+    --
+    --style print:landscape.css
+    --output output/flyers/panelists/
+    --split-day
+    --separate
+    --hide-unused-rooms
+    --file-by-presenter
+    --no-file-by-guest
+)
 
-./schedule_html \
-    --style print:landscape.css \
-    --input input/Test.xlsx \
-    --output output/flyers/single.html \
-    --split-day \
-    --separate \
-    --hide-unused-rooms "$@"
+args+=(
+    --
+    --style print:landscape.css
+    --output output/flyers/single.html
+    --split-day
+    --separate
+    --hide-unused-rooms
+)
 
 mkdir -p output/flyers/desc
-./schedule_html \
-    --style print:landscape.css \
-    --input input/Test.xlsx \
-    --output output/flyers/desc \
-    --split-day \
-    --show-descriptions \
-    --hide-grid \
-    --hide-unused-rooms \
-    --file-by-day "$@"
+args+=(
+    --
+    --style print:landscape.css
+    --output output/flyers/desc
+    --split-day
+    --show-descriptions
+    --hide-grid
+    --hide-unused-rooms
+    --file-by-day
+)
+
+args+=(
+    --
+    --style print:legal_grid.css
+    --output output/flyers/wide.html
+    --split-day
+    --show-grid
+    --hide-descriptions
+    --hide-unused-rooms
+)
+
+
+args+=(
+    --
+    --style print:portrait.css
+    --input input/Test.xlsx
+    --output output/flyers/workshop.html
+    --just-premium
+    --just-descriptions
+)
+
+mkdir -p output/flyers/guests
+args+=(
+    --
+    --style print:landscape.css
+    --output output/flyers/guests/
+    --split-day
+    --separate
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-breaks
+    --hide-unused-rooms
+    --file-by-guest
+)
+
+args+=(
+    --
+    --style print:landscape.css
+    --output output/flyers/single_staff.html
+    --split-day
+    --separate
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-breaks
+    --hide-unused-rooms
+)
+
+args+=(
+    --
+    --style print:legal_grid.css
+    --output output/flyers/staff.html
+    --split-day
+    --show-grid
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-breaks
+    --hide-descriptions
+    --hide-unused-rooms
+)
 
 ./schedule_html \
-    --style print:landscape.css \
     --input input/Test.xlsx \
-    --output output/flyers/single_staff.html \
-    --split-day \
-    --separate \
-    --hide-paneltype BR \
-    --show-paneltype SM \
-    --show-breaks \
-    --hide-unused-rooms "$@"
-
-./schedule_html \
-    --style print:legal_grid.css \
-    --input input/Test.xlsx \
-    --output output/flyers/wide.html \
-    --split-day \
-    --show-grid \
-    --hide-descriptions \
-    --hide-unused-rooms "$@"
-
-./schedule_html \
-    --style print:legal_grid.css \
-    --input input/Test.xlsx \
-    --output output/flyers/staff.html \
-    --split-day \
-    --show-grid \
-    --hide-paneltype BR \
-    --show-paneltype SM \
-    --show-breaks \
-    --hide-descriptions \
-    --hide-unused-rooms "$@"
-
-./schedule_html \
-    --style print:portrait.css \
-    --input input/Test.xlsx \
-    --output output/flyers/workshop.html \
-    --just-premium \
-    --just-descriptions "$@"
+    "$@" \
+    "${args[@]}"

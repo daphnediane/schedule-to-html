@@ -378,10 +378,41 @@ sub close_dump_file {
     return;
 } ## end sub close_dump_file
 
+sub update_hide_shown {
+    foreach my $room_name ( $options->get_rooms_shown() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_shown();
+    }
+    foreach my $room_name ( $options->get_rooms_hidden() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_hidden();
+    }
+
+    foreach my $paneltype_name ( $options->get_paneltypes_shown() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_shown();
+    }
+    foreach my $paneltype_name ( $options->get_paneltypes_hidden() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_hidden();
+    }
+
+    return;
+} ## end sub update_hide_shown
+
 sub main {
     my ( @args ) = @_;
 
-    $options = Options->options_from( @args );
+    if ( !@args ) {
+        Options::dump_help();
+        exit 1;
+    }
+
+    $options = Options->options_from( \@args );
 
     foreach my $style ( $options->get_styles() ) {
         next unless $style =~ $RE_COLOR_STYLE;
@@ -390,8 +421,15 @@ sub main {
         Table::PanelType::add_color_set( $color_set );
     } ## end foreach my $style ( $options...)
 
-    read_spreadsheet_file( $options );
+    if ( !defined $options->get_input_file() ) {
+        print qq{Missing --input option\n} or 0;
+        Options::dump_help( qw{ --input } );
+        exit 1;
+    }
 
+    read_spreadsheet_file( $options->get_input_file() );
+
+    update_hide_shown();
     populate_time_regions( $options );
 
     if ( $options->is_mode_kiosk() ) {

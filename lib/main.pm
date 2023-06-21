@@ -11,6 +11,7 @@ use FindBin      qw{};
 use Getopt::Long qw{ GetOptionsFromArray };
 use HTML::Tiny   qw{};
 use List::Util   qw{ any };
+use List::MoreUtils qw{ firstidx };
 use Readonly;
 use Scalar::Util qw{ blessed };
 
@@ -136,8 +137,8 @@ Readonly our $RE_COLOR_STYLE =>
     qr{ \A (?: all: | print: | screen: )? [+] (?i:(?:panel_)?color) (?: = | \z ) }xms;
 
 my $options;
-
-my $h = HTML::Tiny->new( mode => $HTML_SUFFIX_HTML );
+my $h          = HTML::Tiny->new( mode => $HTML_SUFFIX_HTML );
+my $output_idx = 0;
 
 sub join_subclass {
     my ( $base, @subclasses ) = @_;
@@ -586,8 +587,7 @@ sub desc_writer {
         }
     } ## end if ( defined $filter->...)
 
-    state $my_idx = 0;
-    my $alt_class = $CLASS_DESC_SECTION . ( ++$my_idx );
+    my $alt_class = $CLASS_DESC_SECTION . ( ++$output_idx );
     return $writer->nested_div(
         { out_class( $CLASS_DESC_SECTION, $alt_class ) } );
 } ## end sub desc_writer
@@ -1435,10 +1435,39 @@ sub dump_kiosk {
     return;
 } ## end sub dump_kiosk
 
-sub main {
-    my ( @args ) = @_;
+sub update_hide_shown {
+    foreach my $room_name ( $options->get_rooms_shown() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_shown();
+    }
+    foreach my $room_name ( $options->get_rooms_hidden() ) {
+        my $room = Table::Room::lookup( $room_name );
+        next unless defined $room;
+        $room->set_room_is_hidden();
+    }
 
-    $options = Options->options_from( @args );
+    foreach my $paneltype_name ( $options->get_paneltypes_shown() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_shown();
+    }
+    foreach my $paneltype_name ( $options->get_paneltypes_hidden() ) {
+        my $paneltype = Table::PanelType::lookup( $paneltype_name );
+        next unless defined $paneltype;
+        $paneltype->make_hidden();
+    }
+
+    return;
+} ## end sub update_hide_shown
+
+sub main_arg_set {
+    my ( $args, $prev_file ) = @_;
+
+    # Start output idx back from 0
+    $output_idx = 0;
+
+    $options = Options->options_from( $args );
 
     foreach my $style ( $options->get_styles() ) {
         next unless $style =~ $RE_COLOR_STYLE;
@@ -1447,13 +1476,28 @@ sub main {
         Table::PanelType::add_color_set( $color_set );
     } ## end foreach my $style ( $options...)
 
-    read_spreadsheet_file( $options );
+    if ( defined $options->get_input_file() ) {
+        if ( !defined $prev_file ) {
+            read_spreadsheet_file( $options->get_input_file() );
+            $prev_file = $options->get_input_file();
+        }
+        elsif ( $prev_file ne $options->get_input_file() ) {
+            Options::dump_help( qw{ --input } );
+            die
+                qq{--input file must all be the same for multiple option groups\n};
+        }
+    } ## end if ( defined $options->...)
+    elsif ( !defined $prev_file ) {
+        Options::dump_help( qw{ --input } );
+        die qq{Missing --input option\n};
+    }
 
+    update_hide_shown();
     populate_time_regions( $options );
 
     if ( $options->is_mode_kiosk() ) {
         dump_kiosk;
-        return;
+        return $prev_file;
     }
 
     my @filters = ( Data::Partion->unfiltered() );
@@ -1484,6 +1528,30 @@ sub main {
     foreach my $filter ( @filters ) {
         dump_tables( $filter );
     }
+
+    return $prev_file;
+} ## end sub main_arg_set
+
+sub main {
+    my ( @args ) = @_;
+
+    if ( !@args ) {
+        Options::dump_help();
+        exit 1;
+    }
+
+    my $split_idx = firstidx { $_ eq q{--} } @args;
+    my @before;
+    if ( defined $split_idx ) {
+        @before = @args[ 0 .. $split_idx - 1 ];
+        @args   = @args[ $split_idx + 1 .. $#args ];
+    }
+
+    my $prev_file;
+    do {
+        unshift @args, @before;
+        $prev_file = main_arg_set( \@args, $prev_file );
+    } while ( @args );
 
     exit 0;
 } ## end sub main
