@@ -7,7 +7,20 @@ Not very well documented sorry.
 
 ## Run:
 
-desc_tbl --input input/spreadsheet.xlsx --output output/
+desc_tbl --input input/spreadsheet.xlsx --output output/ [options]
+
+or
+
+```
+desc_tbl --input input/spreadsheet.xlsx [common options] \
+    -- --output a/ [optionset a]                         \
+    -- --option b/ [optionset b] ...
+```
+
+The options before the first -- are common state, then each group of options split by '--' are processed
+separately. Note there is a bug where --show/hide-paneltype and --show/hide-room propagate to the
+subsequent option sets. See dump_flyers for an example of this being used to generate a bunch of
+versions of files with a single run.
 
 ## Options:
 
