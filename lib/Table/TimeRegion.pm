@@ -12,7 +12,7 @@ use Options                  qw{};
 use Table::Panel             qw{ :all };
 use Table::TimeRegion::State qw{};
 use TimeDecoder              qw{ :to_text :timepoints };
-use TimeRegion               qw{ };
+use Data::RegionForTable     qw{ };
 
 our @EXPORT_OK = qw {
     get_time_regions
@@ -180,7 +180,7 @@ sub check_if_new_region_ {
     # Remove sort
     @sort_regions_ = ();
 
-    my $region = $regions_{ $time } //= TimeRegion->new(
+    my $region = $regions_{ $time } //= Data::RegionForTable->new(
         name => $split_points_{ $time }
             // q{From } . datetime_to_text( $time, qw{ both } ),
         start_time => $time,

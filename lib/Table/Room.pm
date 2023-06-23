@@ -14,11 +14,10 @@ use Table::Room::Focus qw{};
 
 our @EXPORT_OK = qw {
     all_rooms
+    visible_rooms
     lookup
     register
     read_from
-    get_rooms_for_region
-    room_id_focus_map
 };
 
 our %EXPORT_TAGS = (
@@ -86,6 +85,10 @@ sub all_rooms {
     return @rooms_;
 }
 
+sub visible_rooms {
+    return grep { !$_->get_room_is_hidden() } @rooms_;
+}
+
 sub lookup {
     my ( $name ) = @_;
     return unless defined $name;
@@ -141,55 +144,5 @@ sub read_from {
 
     return;
 } ## end sub read_from
-
-sub get_rooms_for_region {
-    my ( $options, $region ) = @_;
-
-    my @rooms = grep { !$_->get_room_is_hidden() } Table::Room::all_rooms();
-
-    return @rooms if $options->show_all_rooms();
-    return @rooms if !defined $region;
-    return grep { $region->is_room_active( $_ ) } @rooms;
-} ## end sub get_rooms_for_region
-
-sub room_id_focus_map {
-    my ( $options, $filter, $region ) = @_;
-
-    my @region_rooms = get_rooms_for_region( $options, $region );
-
-    if ( defined $filter->get_selected_room() ) {
-        my %res
-            = map { $_->get_room_id() => Table::Room::Focus->unfocused_room() }
-            @region_rooms;
-
-        # This unhides room as an intended side effect
-        $res{ $filter->get_selected_room()->get_room_id() }
-            = Table::Room::Focus->focused_room();
-
-        return %res;
-    } ## end if ( defined $filter->...)
-
-    if ( $options->has_rooms() ) {
-        my %res;
-        my $def_class = [];
-    ROOM:
-        foreach my $room ( @region_rooms ) {
-            my $room_id = $room->get_room_id();
-            my $name    = $room->get_long_room_name();
-            foreach my $match ( $options->get_rooms() ) {
-                if ( $name =~ m{\Q$match\E}xmsi ) {
-                    $res{ $room_id } = Table::Room::Focus->focused_room();
-                    next ROOM;
-                }
-            } ## end foreach my $match ( $options...)
-            $res{ $room_id } = Table::Room::Focus->unfocused_room();
-        } ## end ROOM: foreach my $room ( @region_rooms)
-        return %res;
-    } ## end if ( $options->has_rooms...)
-
-    return
-        map { $_->get_room_id() => Table::Room::Focus->normal_room() }
-        @region_rooms;
-} ## end sub room_id_focus_map
 
 1;

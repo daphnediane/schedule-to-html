@@ -15,7 +15,7 @@ use Table::TimeRegion qw{};
 
 my @region_
     :Field
-    :Type(TimeRegion)
+    :Type(Data::RegionForTable)
     :Arg(Name => q{region})
     :Get(Name => q{get_selected_region});
 

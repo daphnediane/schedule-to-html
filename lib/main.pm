@@ -16,29 +16,29 @@ use Readonly;
 use Scalar::Util qw{ blessed };
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel         qw{};
-use Canonical           qw{ :all };
-use Data::Panel         qw{};
-use Data::PanelType     qw{};
-use Data::Partion       qw{};
-use Data::Room          qw{};
-use Options             qw{};
-use PartionPanels       qw{ :all };
-use Presenter           qw{};
-use Table::Panel        qw{ :all };
-use Table::PanelType    qw{ :all };
-use Table::Room         qw{ :all };
-use Table::TimeRegion   qw{ :all };
-use TimeDecoder         qw{ :from_text :to_text :timepoints };
-use TimeRange           qw{};
-use TimeRegion          qw{};
-use TimeSlot            qw{};
-use Workbook            qw{};
-use Workbook::Sheet     qw{};
-use WriteLevel          qw{};
-use WriteLevel::CSS     qw{};
-use WriteLevel::HTML    qw{};
-use WriteLevel::WebPage qw{};
+use ActivePanel          qw{};
+use Canonical            qw{ :all };
+use Data::Panel          qw{};
+use Data::PanelType      qw{};
+use Data::Partion        qw{};
+use Data::Room           qw{};
+use Options              qw{};
+use PartionPanels        qw{ :all };
+use Presenter            qw{};
+use Table::Panel         qw{ :all };
+use Table::PanelType     qw{ :all };
+use Table::Room          qw{ :all };
+use Table::TimeRegion    qw{ :all };
+use TimeDecoder          qw{ :from_text :to_text :timepoints };
+use TimeRange            qw{};
+use Data::RegionForTable qw{};
+use TimeSlot             qw{};
+use Workbook             qw{};
+use Workbook::Sheet      qw{};
+use WriteLevel           qw{};
+use WriteLevel::CSS      qw{};
+use WriteLevel::HTML     qw{};
+use WriteLevel::WebPage  qw{};
 
 # HTML keywoards
 Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
@@ -546,7 +546,13 @@ sub dump_grid_timeslice {
 
     # todo(dpfister) Filter for times?
 
-    my %room_focus_map = room_id_focus_map( $options, $filter, $region );
+    my %room_focus_map = $region->room_focus_map_by_id(
+        show_all    => $options->show_all_rooms() ? 1 : 0,
+        select_room => $filter->get_selected_room(),
+        $options->has_rooms()
+        ? ( focus_rooms => [ $options->get_rooms() ] )
+        : ()
+    );
 
     $writer = dump_grid_header( $writer, $filter, $region, \%room_focus_map );
     foreach my $time ( @times ) {
@@ -972,7 +978,14 @@ sub dump_desc_body {
 sub dump_desc_body_regions {
     my ( $writer, $filter, $region, $show_unbusy_panels ) = @_;
     if ( defined $region ) {
-        my %room_focus_map = room_id_focus_map( $options, $filter, $region );
+        my %room_focus_map = $region->room_focus_map_by_id(
+            show_all    => $options->show_all_rooms() ? 1 : 0,
+            select_room => $filter->get_selected_room(),
+            $options->has_rooms()
+            ? ( focus_rooms => [ $options->get_rooms() ] )
+            : ()
+        );
+
         dump_desc_body(
             $writer, $filter, $region, \%room_focus_map,
             $show_unbusy_panels
@@ -981,7 +994,14 @@ sub dump_desc_body_regions {
     } ## end if ( defined $region )
 
     foreach my $region ( get_time_regions() ) {
-        my %room_focus_map = room_id_focus_map( $options, $filter, $region );
+        my %room_focus_map = $region->room_focus_map_by_id(
+            show_all    => $options->show_all_rooms() ? 1 : 0,
+            select_room => $filter->get_selected_room(),
+            $options->has_rooms()
+            ? ( focus_rooms => [ $options->get_rooms() ] )
+            : ()
+        );
+
         dump_desc_body(
             $writer, $filter, $region, \%room_focus_map,
             $show_unbusy_panels
@@ -1279,12 +1299,10 @@ sub dump_tables {
         @filters
     );
 
-    @filters = split_filter_by_room(
-        [ get_rooms_for_region( $options ) ],
-        @filters
-    ) if $options->is_section_by_room();
+    @filters = split_filter_by_room( [ visible_rooms() ], @filters )
+        if $options->is_section_by_room();
 
-    @filters = split_filter_by_timestamp( @filters )
+    @filters = split_filter_by_timestamp( [ get_time_regions() ], @filters )
         if $options->is_section_by_day();
 
     for my $copy ( 1 .. $options->get_copies() ) {
@@ -1301,9 +1319,14 @@ sub dump_tables {
 
 sub dump_kiosk_desc {
     my ( $writer, $region ) = @_;
+    die qq{Reqion required\n} unless defined $region;
 
-    my @times        = sort { $a <=> $b } $region->get_unsorted_times();
-    my @region_rooms = get_rooms_for_region( $options, $region );
+    my @times = sort { $a <=> $b } $region->get_unsorted_times();
+
+    my @region_rooms = visible_rooms();
+    @region_rooms = grep { $region->is_room_active( $_ ) } @region_rooms
+        unless $options->show_all_rooms();
+
     foreach my $time ( @times ) {
         my $time_id    = q{desc_id_} . datetime_to_kiosk_id( $time );
         my $time_table = $writer->nested_div( {
@@ -1520,12 +1543,10 @@ sub main_arg_set {
         @filters
     );
 
-    @filters = split_filter_by_room(
-        [ get_rooms_for_region( $options ) ],
-        @filters
-    ) if $options->is_file_by_room();
+    @filters = split_filter_by_room( [ [ visible_rooms() ] ], @filters )
+        if $options->is_file_by_room();
 
-    @filters = split_filter_by_timestamp( @filters )
+    @filters = split_filter_by_timestamp( [ get_time_regions() ], @filters )
         if $options->is_file_by_day();
 
     foreach my $filter ( @filters ) {

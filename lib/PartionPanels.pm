@@ -7,9 +7,8 @@ use utf8;
 
 use Carp qw{ croak };
 
-use Data::Room        qw{};
-use Presenter         qw{};
-use Table::TimeRegion qw{ :all };
+use Data::Room qw{};
+use Presenter  qw{};
 
 our @EXPORT_OK = qw {
     split_filter_by_timestamp
@@ -22,16 +21,16 @@ our %EXPORT_TAGS = (
 );
 
 sub split_filter_by_timestamp {
-    my ( @filters ) = @_;
+    my ( $regions, @filters ) = @_;
 
     my @res;
     foreach my $filter ( @filters ) {
-        foreach my $region ( get_time_regions() ) {
+        foreach my $region ( @{ $regions } ) {
             push @res, $filter->combine(
                 region      => $region,
                 output_name => $region->get_region_name()
             );
-        } ## end foreach my $region ( get_time_regions...)
+        } ## end foreach my $region ( @{ $regions...})
     } ## end foreach my $filter ( @filters)
 
     return @res;

@@ -15,29 +15,29 @@ use List::Util      qw{ any };
 use Readonly;
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel         qw{};
-use Canonical           qw{ :all };
-use Data::Panel         qw{};
-use Data::PanelType     qw{};
-use Data::Partion       qw{};
-use Data::Room          qw{};
-use Options             qw{};
-use PartionPanels       qw{ :all };
-use Presenter           qw{};
-use Table::Panel        qw{ :all };
-use Table::PanelType    qw{ :all };
-use Table::Room         qw{ :all };
-use Table::TimeRegion   qw{ :all };
-use TimeDecoder         qw{ :from_text :to_text :timepoints :utility };
-use TimeRange           qw{};
-use TimeRegion          qw{};
-use TimeSlot            qw{};
-use Workbook            qw{};
-use Workbook::Sheet     qw{};
-use WriteLevel          qw{};
-use WriteLevel::CSS     qw{};
-use WriteLevel::HTML    qw{};
-use WriteLevel::WebPage qw{};
+use ActivePanel          qw{};
+use Canonical            qw{ :all };
+use Data::Panel          qw{};
+use Data::PanelType      qw{};
+use Data::Partion        qw{};
+use Data::Room           qw{};
+use Options              qw{};
+use PartionPanels        qw{ :all };
+use Presenter            qw{};
+use Table::Panel         qw{ :all };
+use Table::PanelType     qw{ :all };
+use Table::Room          qw{ :all };
+use Table::TimeRegion    qw{ :all };
+use TimeDecoder          qw{ :from_text :to_text :timepoints :utility };
+use TimeRange            qw{};
+use Data::RegionForTable qw{};
+use TimeSlot             qw{};
+use Workbook             qw{};
+use Workbook::Sheet      qw{};
+use WriteLevel           qw{};
+use WriteLevel::CSS      qw{};
+use WriteLevel::HTML     qw{};
+use WriteLevel::WebPage  qw{};
 
 # HTML keywoards
 Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
@@ -308,9 +308,14 @@ sub dump_grid_regions {
 
     if ( $options->show_sect_grid() ) {
         foreach my $region ( @regions ) {
-            local $local_region = $region;
-            local %local_focus_map
-                = room_id_focus_map( $options, $local_filter, $local_region );
+            local $local_region    = $region;
+            local %local_focus_map = $local_region->room_focus_map_by_id(
+                show_all    => $options->show_all_rooms() ? 1 : 0,
+                select_room => $local_filter->get_selected_room(),
+                $options->has_rooms()
+                ? ( focus_rooms => [ $options->get_rooms() ] )
+                : ()
+            );
 
             dump_grid_timeslice();
             next unless $need_desc;
@@ -326,9 +331,15 @@ sub dump_grid_regions {
     return unless $need_desc;
 
     foreach my $region ( @regions ) {
-        local $local_region = $region;
-        local %local_focus_map
-            = room_id_focus_map( $options, $local_filter, $local_region );
+        local $local_region    = $region;
+        local %local_focus_map = $local_region->room_focus_map_by_id(
+            show_all    => $options->show_all_rooms() ? 1 : 0,
+            select_room => $local_filter->get_selected_room(),
+            $options->has_rooms()
+            ? ( focus_rooms => [ $options->get_rooms() ] )
+            : ()
+        );
+
         dump_desc_timeslice();
     } ## end foreach my $region ( @regions)
 
@@ -359,12 +370,10 @@ sub dump_grid {
         @filters
     );
 
-    @filters = split_filter_by_room(
-        [ get_rooms_for_region( $options ) ],
-        @filters
-    ) if $options->is_section_by_room();
+    @filters = split_filter_by_room( [ visible_rooms() ], @filters )
+        if $options->is_section_by_room();
 
-    @filters = split_filter_by_timestamp( @filters )
+    @filters = split_filter_by_timestamp( [ get_time_regions() ], @filters )
         if $options->is_section_by_day();
 
     for my $copy ( 1 .. $options->get_copies() ) {
@@ -473,12 +482,10 @@ sub main_arg_set {
         @filters
     );
 
-    @filters = split_filter_by_room(
-        [ get_rooms_for_region( $options ) ],
-        @filters
-    ) if $options->is_file_by_room();
+    @filters = split_filter_by_room( [ visible_rooms() ], @filters )
+        if $options->is_file_by_room();
 
-    @filters = split_filter_by_timestamp( @filters )
+    @filters = split_filter_by_timestamp( [ get_time_regions() ], @filters )
         if $options->is_file_by_day();
 
     foreach my $filter ( @filters ) {

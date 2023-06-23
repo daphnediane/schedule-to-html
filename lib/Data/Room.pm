@@ -5,7 +5,8 @@ use Object::InsideOut;
 use v5.36.0;
 use utf8;
 
-use Carp qw{ confess };
+use Carp       qw{ confess };
+use List::Util qw{ any };
 use Readonly;
 
 ## no critic (TooMuchCode::ProhibitDuplicateLiteral)
@@ -180,6 +181,14 @@ sub get_room_is_break {
     return 1 if $BREAK eq uc( $self->get_long_room_name()  // q{} );
     return;
 } ## end sub get_room_is_break
+
+sub name_matches {
+    my ( $self, @patterns ) = @_;
+
+    my $name = $self->get_long_room_name();
+    return 1 if any { $name =~ m{\Q$_\E}xmsi } @patterns;
+    return;
+}
 
 sub compare {
     my ( $self, $other, $swap ) = @_;

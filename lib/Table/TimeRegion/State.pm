@@ -5,15 +5,15 @@ use Object::InsideOut;
 use v5.36.0;
 use utf8;
 
-use ActivePanel qw{};
-use TimeRegion  qw{};
-use Data::Room  qw{};
+use ActivePanel          qw{};
+use Data::RegionForTable qw{};
+use Data::Room           qw{};
 
 ## no critic (ProhibitUnusedVariables)
 
 my @active_regions_
     :Field
-    :Type(TimeRegion)
+    :Type(Data::RegionForTable)
     :Set(Name => q{set_active_region})
     :Get(Name => q{get_active_region});
 
