@@ -1,42 +1,22 @@
 @charset "UTF-8";
-
 /* CSS Document */
 html {
   position: fixed;
   box-sizing: border-box;
   background-color: black;
 }
-
 ::-webkit-scrollbar {
   display: none;
 }
-
 #element {
   scrollbar-width: none;
 }
-
-.top_bar {
+.top_bar, .table_headers, .table_rows, .bottom_half {
   position: absolute;
   width: 100vw;
   left: 0vw;
   box-sizing: border-box;
 }
-
-.table_headers,
-.table_rows {
-  position: absolute;
-  width: 50vw;
-  left: 0vw;
-  box-sizing: border-box;
-}
-
-.bottom_half {
-  position: absolute;
-  width: 50vw;
-  left: 50vw;
-  box-sizing: border-box;
-}
-
 .top_bar {
   top: 0px;
   height: 42px;
@@ -44,14 +24,12 @@ html {
   color: white;
   border: 2px solid white;
 }
-
 .logo {
   position: absolute;
   left: 4px;
   top: 4px;
   height: 30px;
 }
-
 .time {
   position: absolute;
   display: table-cell;
@@ -62,7 +40,6 @@ html {
   vertical-align: middle;
   font-family: Arial, Helvetica, sans-serif;
 }
-
 .table_headers {
   position: absolute;
   display: block;
@@ -71,37 +48,31 @@ html {
   background-color: #18191C;
   color: #00BCDD;
 }
-
 .table_rows {
   position: absolute;
   display: block;
   top: 66px;
-  height: calc(100vh - 66px);
+  height: calc(50vh - 66px);
   background-color: #00BCDD;
   overflow-y: scroll;
   border-bottom: 4px solid #00BCDD;
 }
-
 .schedule {
   border-collapse: collapse;
   table-layout: fixed;
-  /*min-width: 390px;*/
+  min-width: 890px;
 }
-
 .schedule tfoot {
   display: none;
 }
-
 .schedHeader {
   font-family: Helvetica, Arial, sans-serif;
-  font-size: 12px;
+  font-size: 14px;
 }
-
 .schedTimeSlot {
   vertical-align: top;
   font-size: 10px;
 }
-
 .schedRowHeaders {
   position: fixed;
   top: 42px;
@@ -110,18 +81,13 @@ html {
   color: #00BCDD;
   text-align: center;
 }
-
 .schedColumnTime {
   width: 3em;
 }
-
 .schedColumnsRoom {
-  /*min-width: calc((390px - 3em) / 8);*/
-  width: calc((50vw - 3em) / 7);
-  /*min-width: calc((50vw - 3em) / 7);
-  max-width: calc((50vw - 3em) / 7);*/
+  min-width: calc((890px - 3em) / 8);
+  width: calc((100vw - 3em) / 8);
 }
-
 .schedRowTimeSlot {
   border: medium solid rgba(255, 255, 255, 0.2);
   border-left: none;
@@ -131,9 +97,7 @@ html {
   max-height: 30px;
   overflow: hidden;
 }
-
-.panel,
-.desc {
+.panel, .desc {
   color: black;
   vertical-align: top;
   break-inside: avoid;
@@ -143,108 +107,74 @@ html {
   font-family: Verdana, Arial, Helvetica, sans-serif;
   font-size: 9px;
 }
-
 .panel {
   border: thin solid #00BCDD;
 }
-
 .desc {
   border: thin solid black;
 }
-
-.panel a,
-.desc a {
+.panel a, .desc a {
   text-decoration: none;
   color: inherit;
 }
-
-.panelName,
-.descName {
+.panelName, .descName {
   font-weight: bolder;
 }
-
 .panelPanelist {
   font-weight: normal;
   display: block;
 }
-
-.panelID,
-.descID,
-.panelTokens,
-.descTokens,
-.descRoomName {
+.panelID, .descID, .panelTokens, .descTokens, .descRoomName {
   display: none;
 }
-
 .activeRow {
   background-color: white;
 }
-
 .bottom_half {
-  width: 50vw;
-  top: 42px;
-  height: calc(100vh - 42px);
+  width: 100vw;
+  height: 50vh;
+  top: 50vh;
   font-family: Verdana, Arial, Helvetica, sans-serif;
   font-size: 9px;
   color: white;
 }
-
 .inactiveDesc {
   display: none;
 }
-
-.panelFull,
-.descFull {
+.panelFull, .descFull {
   color: rgba(0, 0, 0, 0.5);
 }
-
-.panelFullLabel,
-.descFullLabel {
+.panelFullLabel, .descFullLabel {
   color: #D9292C;
 }
-
-.descName,
-.descPanelist,
-.descRoomName,
-.descTokens,
-.descStart {
+.descName, .descPanelist, .descRoomName, .descTokens, .descStart {
   margin-block-start: 0em;
   margin-block-end: 0em;
 }
-
 .descDescription {
   margin-block-start: 0.5em;
   margin-block-end: 0.5em;
 }
-
 .descStart {
   float: right;
 }
-
 .descColRoom {
   width: 8vw;
 }
-
-.descColCurrent,
-.descColNext {
+.descColCurrent, .descColNext {
   width: 46vw;
 }
-
 .descRoom {
   vertical-align: top;
   text-align: center;
 }
-
 .descRowHeadears {
   height: 2vh;
 }
-
 .descRowRoom {
-  height: 12vh;
+  height: 6vh;
 }
-
-.descCurrent div,
-.descNext div {
-  max-height: 12vh;
+.descCurrent div, .descNext div {
+  max-height: 6vh;
   overflow-y: scroll;
 }

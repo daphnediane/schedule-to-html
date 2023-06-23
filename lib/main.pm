@@ -1971,7 +1971,7 @@ sub dump_kiosk_desc {
     my ( $region ) = @_;
 
     my @times        = sort { $a <=> $b } $region->get_unsorted_times();
-    my @region_rooms = get_rooms_for_region( $region );
+    my @region_rooms = sort ( get_rooms_for_region( $region ) );
     foreach my $time ( @times ) {
         my $time_id = q{desc_id_} . datetime_to_kiosk_id( $time );
         out_open $HTML_DIV,
