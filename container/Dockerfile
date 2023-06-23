@@ -87,8 +87,8 @@ RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
     && mkdir -m 0640 -p /etc/sudoers.d \
     && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
     && chmod 0440 /etc/sudoers.d/"${USER_NAME}"
-COPY userhome/ /home/"$USER_NAME"/
-COPY userhome/.ssh/ /root/.ssh/
+#COPY userhome/ /home/"$USER_NAME"/
+#COPY userhome/.ssh/ /root/.ssh/
 
 # Create workspace tree
 RUN mkdir -p \
