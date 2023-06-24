@@ -165,14 +165,15 @@ sub out_class {
 } ## end sub out_class
 
 sub room_focus_class {
-    my ( @focuses ) = @_;
-    return $CLASS_GRID_CELL_FOCUS   if any { $_->is_focused() } @focuses;
-    return $CLASS_GRID_CELL_UNFOCUS if any { $_->is_unfocused() } @focuses;
+    my ( $room_focus_map, @rooms ) = @_;
+    return $CLASS_GRID_CELL_FOCUS if $room_focus_map->is_focused( @rooms );
+    return $CLASS_GRID_CELL_UNFOCUS
+        if $room_focus_map->is_unfocused( @rooms );
     return;
 } ## end sub room_focus_class
 
 sub dump_grid_row_room_names {
-    my ( $writer, $filter, $room_focus_map ) = @_;
+    my ( $writer, $filter, $region, $room_focus_map ) = @_;
 
     my $is_head = $writer->get_tag() =~ m{ thead [.] tr \z }xms;
 
@@ -198,13 +199,13 @@ sub dump_grid_row_room_names {
         : $HEADING_TIME
     );
 
-    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
-        keys %{ $room_focus_map };
+    foreach my $room ( visible_rooms() ) {
+        next
+            unless $options->show_all_rooms()
+            || $region->is_room_active( $room );
 
-    foreach my $room ( @rooms ) {
-        my $room_id = $room->get_room_id();
-        my $hotel   = $room->get_hotel_room();
-        my $name    = $room->get_long_room_name();
+        my $hotel = $room->get_hotel_room();
+        my $name  = $room->get_long_room_name();
         if ( defined $hotel && $hotel ne $name && !$options->is_mode_kiosk() )
         {
             $name = $name . $h->br() . $h->i( $hotel );
@@ -214,7 +215,7 @@ sub dump_grid_row_room_names {
                     $CLASS_GRID_CELL_HEADER,
                     $CLASS_GRID_COLUMN_ROOM,
                     $CLASS_GRID_CELL_ROOM_NAME,
-                    room_focus_class( $room_focus_map->{ $room_id } ),
+                    room_focus_class( $room_focus_map, $room ),
                     $is_head
                     ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
                         $room->get_sort_key()
@@ -224,7 +225,7 @@ sub dump_grid_row_room_names {
             },
             $name
         );
-    } ## end foreach my $room ( @rooms )
+    } ## end foreach my $room ( visible_rooms...)
 
     return;
 } ## end sub dump_grid_row_room_names
@@ -249,28 +250,29 @@ sub dump_grid_header {
     }
     $colgroup->add_col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
 
-    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
-        keys %{ $room_focus_map };
+    foreach my $room ( visible_rooms() ) {
+        next
+            unless $options->show_all_rooms()
+            || $region->is_room_active( $room );
 
-    foreach my $room ( @rooms ) {
         $colgroup->add_col( {
             out_class(
                 sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
                 $room->get_sort_key()
             )
         } );
-    } ## end foreach my $room ( @rooms )
+    } ## end foreach my $room ( visible_rooms...)
 
     my $head = $writer->nested_thead()
         ->nested_tr( { out_class( $CLASS_GRID_ROW_HEADER ) } );
-    dump_grid_row_room_names( $head, $filter, $room_focus_map );
+    dump_grid_row_room_names( $head, $filter, $region, $room_focus_map );
 
     my $body = $writer->nested_tbody();
 
     my $footer = $writer->nested_tfoot()
         ->nested_tr( { out_class( $CLASS_GRID_ROW_HEADER ) } );
 
-    dump_grid_row_room_names( $footer, $filter, $room_focus_map );
+    dump_grid_row_room_names( $footer, $filter, $region, $room_focus_map );
 
     return $body;
 } ## end sub dump_grid_header
@@ -351,8 +353,7 @@ sub dump_grid_row_cell_group {    ## no critic(Subroutines::ProhibitManyArgs)
     } ## end if ( defined $filter->...)
 
     push @subclasses,
-        room_focus_class( map { $room_focus_map->{ $_->get_room_id() } }
-            @rooms );
+        room_focus_class( $room_focus_map, @rooms );
 
     my $row_span = $panel_state->get_rows() // 1;
     my $col_span = @rooms                   // 1;
@@ -433,16 +434,17 @@ sub dump_grid_row_cell_group {    ## no critic(Subroutines::ProhibitManyArgs)
 sub dump_grid_row_make_cell_groups {
     my ( $writer, $filter, $region, $room_focus_map, $time_slot ) = @_;
 
-    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
-        keys %{ $room_focus_map };
-
     my $current = $time_slot->get_current();
 
     my @room_queue;
     my $last_room;
     my $last_state;
-    foreach my $room ( @rooms ) {
-        next unless defined $room;
+
+    foreach my $room ( visible_rooms() ) {
+        next
+            unless $options->show_all_rooms()
+            || $region->is_room_active( $room );
+
         my $state = $current->{ $room->get_room_id() };
         if (   scalar @room_queue
             && defined $state
@@ -450,9 +452,7 @@ sub dump_grid_row_make_cell_groups {
             && $state->get_active_panel() == $last_state->get_active_panel()
             && $state->get_start_seconds() == $last_state->get_start_seconds()
             && $state->get_end_seconds() == $last_state->get_end_seconds()
-            && $last_state->get_rows() == $state->get_rows()
-            && $room_focus_map->{ $last_room->get_room_id() }
-            == $room_focus_map->{ $room->get_room_id() } ) {
+            && $last_state->get_rows() == $state->get_rows() ) {
             push @room_queue, $room;
             next;
         } ## end if ( scalar @room_queue...)
@@ -465,7 +465,7 @@ sub dump_grid_row_make_cell_groups {
         @room_queue = ( $room );
         $last_room  = $room;
         $last_state = $state;
-    } ## end foreach my $room ( @rooms )
+    } ## end foreach my $room ( visible_rooms...)
 
     dump_grid_row_cell_group(
         $writer,     $filter, $room_focus_map, $time_slot,
@@ -546,18 +546,17 @@ sub dump_grid_timeslice {
 
     # todo(dpfister) Filter for times?
 
-    my %room_focus_map = $region->room_focus_map_by_id(
-        show_all    => $options->show_all_rooms() ? 1 : 0,
+    my $room_focus_map = $region->room_focus_map_by_id(
         select_room => $filter->get_selected_room(),
         $options->has_rooms()
         ? ( focus_rooms => [ $options->get_rooms() ] )
         : ()
     );
 
-    $writer = dump_grid_header( $writer, $filter, $region, \%room_focus_map );
+    $writer = dump_grid_header( $writer, $filter, $region, $room_focus_map );
     foreach my $time ( @times ) {
         dump_grid_row_time(
-            $writer, $filter, $region, \%room_focus_map,
+            $writer, $filter, $region, $room_focus_map,
             $region->get_time_slot( $time )
         );
     } ## end foreach my $time ( @times )
@@ -748,8 +747,7 @@ sub should_panel_desc_be_dumped {
 
     my $room = $panel_state->get_room();
     return unless defined $room;
-    my $id = $room->get_room_id();
-    return if $room_focus_map->{ $id }->are_descriptions_hidden();
+    return if $room_focus_map->is_unfocused( $room );
 
     my $panel = $panel_state->get_active_panel();
 
@@ -978,8 +976,7 @@ sub dump_desc_body {
 sub dump_desc_body_regions {
     my ( $writer, $filter, $region, $show_unbusy_panels ) = @_;
     if ( defined $region ) {
-        my %room_focus_map = $region->room_focus_map_by_id(
-            show_all    => $options->show_all_rooms() ? 1 : 0,
+        my $room_focus_map = $region->room_focus_map_by_id(
             select_room => $filter->get_selected_room(),
             $options->has_rooms()
             ? ( focus_rooms => [ $options->get_rooms() ] )
@@ -987,15 +984,14 @@ sub dump_desc_body_regions {
         );
 
         dump_desc_body(
-            $writer, $filter, $region, \%room_focus_map,
+            $writer, $filter, $region, $room_focus_map,
             $show_unbusy_panels
         );
         return;
     } ## end if ( defined $region )
 
     foreach my $region ( get_time_regions() ) {
-        my %room_focus_map = $region->room_focus_map_by_id(
-            show_all    => $options->show_all_rooms() ? 1 : 0,
+        my $room_focus_map = $region->room_focus_map_by_id(
             select_room => $filter->get_selected_room(),
             $options->has_rooms()
             ? ( focus_rooms => [ $options->get_rooms() ] )
@@ -1003,7 +999,7 @@ sub dump_desc_body_regions {
         );
 
         dump_desc_body(
-            $writer, $filter, $region, \%room_focus_map,
+            $writer, $filter, $region, $room_focus_map,
             $show_unbusy_panels
         );
     } ## end foreach my $region ( get_time_regions...)

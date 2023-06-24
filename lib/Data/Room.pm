@@ -188,7 +188,7 @@ sub name_matches {
     my $name = $self->get_long_room_name();
     return 1 if any { $name =~ m{\Q$_\E}xmsi } @patterns;
     return;
-}
+} ## end sub name_matches
 
 sub compare {
     my ( $self, $other, $swap ) = @_;

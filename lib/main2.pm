@@ -52,7 +52,7 @@ my $h = HTML::Tiny->new( mode => qw{ html } );
 
 # Current processing state
 ## no critic (Variables::ProhibitPackageVars)
-our %local_focus_map;
+our $local_focus_map;
 our $local_filter;
 our $local_region;
 our $local_time_seconds;
@@ -189,15 +189,17 @@ sub dump_grid_panel {
 sub dump_grid_make_groups {
     my ( $writer ) = @_;
 
-    my @rooms = sort map { Data::Room->find_by_room_id( $_ ) }
-        keys %local_focus_map;
     my $current = $local_time_slot->get_current();
 
     my @room_queue;
     my $last_room;
     my $last_state;
-    foreach my $room ( @rooms ) {
-        next unless defined $room;
+
+    foreach my $room ( visible_rooms() ) {
+        next
+            unless $options->show_all_rooms()
+            || $local_region->is_room_active( $room );
+
         my $state = $current->{ $room->get_room_id() };
         if (   scalar @room_queue
             && defined $state
@@ -205,9 +207,7 @@ sub dump_grid_make_groups {
             && $state->get_active_panel() == $last_state->get_active_panel()
             && $state->get_start_seconds() == $last_state->get_start_seconds()
             && $state->get_end_seconds() == $last_state->get_end_seconds()
-            && $last_state->get_rows() == $state->get_rows()
-            && $local_focus_map{ $last_room->get_room_id() }
-            == $local_focus_map{ $room->get_room_id() } ) {
+            && $last_state->get_rows() == $state->get_rows() ) {
             push @room_queue, $room;
             next;
         } ## end if ( scalar @room_queue...)
@@ -218,7 +218,7 @@ sub dump_grid_make_groups {
         @room_queue = ( $room );
         $last_room  = $room;
         $last_state = $state;
-    } ## end foreach my $room ( @rooms )
+    } ## end foreach my $room ( visible_rooms...)
 
     dump_grid_panel( $writer, $last_state, @room_queue )
         if @room_queue;
@@ -309,8 +309,7 @@ sub dump_grid_regions {
     if ( $options->show_sect_grid() ) {
         foreach my $region ( @regions ) {
             local $local_region    = $region;
-            local %local_focus_map = $local_region->room_focus_map_by_id(
-                show_all    => $options->show_all_rooms() ? 1 : 0,
+            local $local_focus_map = $local_region->room_focus_map_by_id(
                 select_room => $local_filter->get_selected_room(),
                 $options->has_rooms()
                 ? ( focus_rooms => [ $options->get_rooms() ] )
@@ -332,8 +331,7 @@ sub dump_grid_regions {
 
     foreach my $region ( @regions ) {
         local $local_region    = $region;
-        local %local_focus_map = $local_region->room_focus_map_by_id(
-            show_all    => $options->show_all_rooms() ? 1 : 0,
+        local $local_focus_map = $local_region->room_focus_map_by_id(
             select_room => $local_filter->get_selected_room(),
             $options->has_rooms()
             ? ( focus_rooms => [ $options->get_rooms() ] )

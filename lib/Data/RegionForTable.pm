@@ -7,10 +7,10 @@ use utf8;
 
 use Carp qw{croak};
 
-use Data::Room         qw{};
-use Table::Room        qw{ :all };
-use Table::Room::Focus qw{};
-use TimeSlot           qw{};
+use Data::Room      qw{};
+use Table::Room     qw{ :all };
+use Table::FocusMap qw{};
+use TimeSlot        qw{};
 
 ## no critic (ProhibitUnusedVariables)
 
@@ -96,7 +96,6 @@ sub get_time_slot {
 
 sub room_focus_map_by_id {
     my ( $self, %args ) = @_;
-    my $show_all    = delete $args{ show_all };
     my $select_room = delete $args{ select_room };
     my $focus_rooms = delete $args{ focus_rooms };
     croak q{Unsupported arguments: }, keys %args if %args;
@@ -104,30 +103,19 @@ sub room_focus_map_by_id {
     my @focus_rooms;
     @focus_rooms = @{ $focus_rooms } if defined $focus_rooms;
 
-    my @rooms = visible_rooms();
-    @rooms = grep { $self->is_room_active( $_ ) } @rooms unless $show_all;
+    my $focus_map = Table::FocusMap->new();
 
     if ( defined $select_room ) {
-        my %res
-            = map { $_->get_room_id() => Table::Room::Focus->unfocused_room() }
-            @rooms;
+        $focus_map->set_focused( $select_room );
+        return $focus_map;
+    }
 
-        # This unhides room as an intended side effect
-        $res{ $select_room->get_room_id() }
-            = Table::Room::Focus->focused_room();
+    if ( @focus_rooms ) {
+        $focus_map->set_focused( grep { $_->name_matches( @focus_rooms ) }
+                visible_rooms() );
+        return $focus_map;
+    }
 
-        return %res;
-    } ## end if ( defined $select_room)
-
-    if ( $focus_rooms ) {
-        return map {
-            $_->get_room_id() => $_->name_matches( @focus_rooms )
-                ? Table::Room::Focus->focus_room()
-                : Table::Room::Focus->unfocused_room()
-        } @rooms;
-    } ## end if ( $focus_rooms )
-
-    return
-        map { $_->get_room_id() => Table::Room::Focus->normal_room() } @rooms;
+    return $focus_map;
 } ## end sub room_focus_map_by_id
 1;
