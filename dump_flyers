@@ -67,6 +67,18 @@ args+=(
     --just-descriptions
 )
 
+mkdir -p output/flyers/rooms
+args+=(
+    --
+    --style print:poster17x11v3.css
+    --input input/Test.xlsx
+    --output output/flyers/rooms
+    --split-day
+    --hide-unused-rooms
+    --file-by-room
+    --file-by-day
+)
+
 mkdir -p output/flyers/guests
 args+=(
     --
