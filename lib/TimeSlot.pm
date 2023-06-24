@@ -69,7 +69,7 @@ sub is_presenter_hosting {
     foreach my $panel_state ( values %{ $res } ) {
         next unless defined $panel_state;
         my $panel = $panel_state->get_active_panel();
-        return 1 if $panel->is_presenter_hosting();
+        return 1 if $panel->is_presenter_hosting( $presenter );
     }
     return;
 } ## end sub is_presenter_hosting
@@ -84,7 +84,7 @@ sub is_presenter_credited {
     foreach my $panel_state ( values %{ $res } ) {
         next unless defined $panel_state;
         my $panel = $panel_state->get_active_panel();
-        return 1 if $panel->is_presenter_credited();
+        return 1 if $panel->is_presenter_credited( $presenter );
     }
     return;
 } ## end sub is_presenter_credited
@@ -99,7 +99,7 @@ sub is_presenter_unlisted {
     foreach my $panel_state ( values %{ $res } ) {
         next unless defined $panel_state;
         my $panel = $panel_state->get_active_panel();
-        return 1 if $panel->is_presenter_unlisted();
+        return 1 if $panel->is_presenter_unlisted( $presenter );
     }
     return;
 } ## end sub is_presenter_unlisted

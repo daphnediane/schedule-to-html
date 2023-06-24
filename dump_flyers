@@ -75,7 +75,7 @@ args+=(
     --output output/flyers/rooms
     --split-day
     --hide-unused-rooms
-    --file-by-room
+    --section-by-room
     --file-by-day
 )
 
