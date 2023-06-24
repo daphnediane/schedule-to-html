@@ -1539,7 +1539,7 @@ sub main_arg_set {
         @filters
     );
 
-    @filters = split_filter_by_room( [ [ visible_rooms() ] ], @filters )
+    @filters = split_filter_by_room( [ visible_rooms() ], @filters )
         if $options->is_file_by_room();
 
     @filters = split_filter_by_timestamp( [ get_time_regions() ], @filters )
