@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  schedule-to-html:
+  perl:
     build:
       args:
         USER_NAME: vscode

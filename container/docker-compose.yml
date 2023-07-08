@@ -1,12 +1,11 @@
 version: "3.9"
+name: "schedule-to-html"
 services:
-  schedule-to-html:
+  perl:
+    image: daphnediane/schedule-to-html:20230708
     build:
       context: .
       dockerfile: Dockerfile
-      platforms:
-        - "linux/amd64"
-    platform: "linux/amd64"
     cap_add:
       - SYS_PTRACE
     security_opt:

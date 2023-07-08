@@ -55,25 +55,27 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     zsh
 
 # TODO - Consider using Carton
+# Expensive perl modules
+RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
+    cpanm \
+    Perl::LanguageServer \
+    Spreadsheet::ParseXLSX
+
+# Other perl modules
 RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
     cpanm \
     common::sense \
     Date::Parse \
+    Devel::NYTProf \
     File::Slurp \
     HTML::Tiny \
     List::MoreUtils \
     Object::InsideOut \
     Perl::Critic \
-    Perl::LanguageServer \
+    Perl::Critic::TooMuchCode \
     Perl::Tidy \
     Readonly \
-    Readonly::XS \
-    Spreadsheet::ParseXLSX
-
-RUN --mount=type=cache,target=/root/.cpanm,sharing=locked \
-    cpanm \
-    Devel::NYTProf \
-    Perl::Critic::TooMuchCode
+    Readonly::XS
 
 ARG USER_NAME=devel
 ARG USER_ID=1000
