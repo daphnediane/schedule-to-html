@@ -11,9 +11,11 @@ services:
     volumes:
       - ..:/workspaces/schedule-to-html
       - userhome:/home/vscode
+      - vscode:/vscode-server
     # Overrides default command so things don't shut down after the process ends.
     command: /bin/sh -c "while sleep 1000; do :; done"
 
 volumes:
   userhome:
     name: vscode-user-home
+  vscode:
