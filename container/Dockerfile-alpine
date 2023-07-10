@@ -1,0 +1,171 @@
+ARG OSNAME="alpine"
+ARG OSLABEL="latest"
+
+FROM ${OSNAME}:${OSLABEL}
+
+ARG CACHE_APK="${OSNAME}-${OSLABEL}-apk"
+ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
+
+# Setup apk
+# Base applications
+RUN --mount=type=cache,id=${CACHE_APK},target=/var/cache/apk,sharing=locked \
+    ln -n -s -f /var/cache/apk /etc/apk/cache \
+    && apk update
+
+# Install perl
+# Based on https://github.com/Perl/docker-perl/
+# And issue #23/#24
+WORKDIR /usr/src/perl
+RUN --mount=type=cache,id=${CACHE_APK},target=/var/cache/apk,sharing=locked \
+    --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    --mount=type=tmpfs,target=/tmp \
+    true \
+    && apk add --virtual .build-deps \
+    build-base \
+    curl \
+    dpkg dpkg-dev \
+    expat expat-dev \
+    make \
+    openssl openssl-dev \
+    procps \
+    tar \
+    wget \
+    xz \
+    zlib zlib-dev \
+    && curl -fL https://www.cpan.org/src/5.0/perl-5.38.0.tar.xz -o perl-5.38.0.tar.xz \
+    && echo 'eca551caec3bc549a4e590c0015003790bdd1a604ffe19cc78ee631d51f7072e *perl-5.38.0.tar.xz' | sha256sum -c - \
+    && tar --strip-components=1 -xaf perl-5.38.0.tar.xz -C /usr/src/perl \
+    && rm perl-5.38.0.tar.xz \
+    && cat *.patch | patch -p1 \
+    && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+    && archBits="$(dpkg-architecture --query DEB_BUILD_ARCH_BITS)" \
+    && archFlag="$([ "$archBits" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
+    && ./Configure -Darchname="$gnuArch" "$archFlag" -Duseshrplib -Dvendorprefix=/usr/local  -des \
+    && make -j$(nproc) \
+    && TEST_JOBS=$(nproc) make test_harness \
+    && make install \
+    && cd /usr/src \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7046.tar.gz \
+    && echo '3e8c9d9b44a7348f9acc917163dbfc15bd5ea72501492cea3a35b346440ff862 *App-cpanminus-1.7046.tar.gz' | sha256sum -c - \
+    && tar -xzf App-cpanminus-1.7046.tar.gz && cd App-cpanminus-1.7046 && perl bin/cpanm . && cd /root \
+    && cpanm IO::Socket::SSL XML::Parser \
+    && curl -fL https://raw.githubusercontent.com/skaji/cpm/0.997011/cpm -o /usr/local/bin/cpm \
+    # sha256 checksum is from docker-perl team, cf https://github.com/docker-library/official-images/pull/12612#issuecomment-1158288299
+    && echo '7dee2176a450a8be3a6b9b91dac603a0c3a7e807042626d3fe6c93d843f75610 */usr/local/bin/cpm' | sha256sum -c - \
+    && chmod +x /usr/local/bin/cpm \
+    && runDeps="$( \
+    scanelf --needed --nobanner --recursive /usr/local \
+    | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+    | sort -u \
+    | xargs -r apk info --installed \
+    | sort -u \
+    | grep -v perl \
+    )" \
+    && apk add --virtual .perl-rundeps $runDeps make wget \
+    && apk del .build-deps \
+    && rm -fr /usr/src/perl /usr/src/App-cpanminus-1.7046* \
+    && cpanm --version && cpm --version
+WORKDIR /
+
+# Base applications
+RUN --mount=type=cache,id=${CACHE_APKCACHE},target=/var/cache/apk,sharing=locked \
+    apk add \
+    build-base \
+    curl \
+    diffutils \
+    expat expat-dev \
+    git \
+    gpg \
+    less \
+    lighttpd \
+    make \
+    man-db \
+    man-pages \
+    nodejs \
+    npm \
+    openssh-client-default openssh-keygen \
+    openssl openssl-dev \
+    procps-ng \
+    rsync \
+    shadow \
+    sudo \
+    tar \
+    tmux \
+    xz \
+    zlib zlib-dev \
+    zsh \
+    && apk list -I \
+    | cut -d' ' -f1 | rev | cut -d'-' -f3- | rev \
+    | grep -v -e '-doc$' | sed 's/$/-doc/' | xargs apk list \
+    | cut -d' ' -f1 | rev | cut -d'-' -f3- | rev \
+    | xargs apk add
+
+# TODO - Consider using Carton
+
+# Archive::Zip requires full unzip, not busybox for testing
+RUN --mount=type=cache,id=${CACHE_APKCACHE},target=/var/cache/apk,sharing=locked \
+    --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    apk add --virtual .test-deps unzip \
+    && cpanm Archive::Zip \
+    && apk del .test-deps
+
+# Modules with broken test
+#   IO::AIO - t/05_readdir.t
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    cpanm -n IO::AIO
+
+# Expensive perl modules
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    cpanm \
+    Perl::LanguageServer \
+    Spreadsheet::ParseXLSX
+
+# Other perl modules
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    cpanm \
+    common::sense \
+    Date::Parse \
+    Devel::NYTProf \
+    File::Slurp \
+    HTML::Tiny \
+    List::MoreUtils \
+    Object::InsideOut \
+    Perl::Critic \
+    Perl::Critic::TooMuchCode \
+    Perl::Tidy \
+    Readonly \
+    Readonly::XS
+
+ARG USER_NAME=devel
+ARG USER_ID=1000
+ARG USER_SHELL="/bin/bash"
+ARG GROUP_NAME=${USER_NAME}
+ARG GROUP_ID=${USER_ID}
+
+# Create the user
+RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
+    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" \
+    && mkdir -m 0640 -p /etc/sudoers.d \
+    && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
+    && chmod 0440 /etc/sudoers.d/"${USER_NAME}"
+#COPY userhome/ /home/"$USER_NAME"/
+#COPY userhome/.ssh/ /root/.ssh/
+
+# Create workspace tree
+RUN mkdir -p \
+    /home/"$USER_NAME"/.ssh \
+    /home/"$USER_NAME"/bin \
+    /home/vscode-server \
+    /workspaces \
+    && chmod -R go-rwx /root \
+    && chown -R "$USER_NAME":"$GROUP_NAME" \
+    /home/"$USER_NAME" \
+    /home/vscode-server \
+    /workspaces \
+    && chmod -R go-rwx /home/"$USER_NAME"/.ssh \
+    && chmod -R u+rwx /home/"$USER_NAME"/bin \
+    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server \
+    && git config --system push.default simple \
+    && git config --system init.defaultBranch main
+
+USER ${USER_NAME}
