@@ -3,20 +3,19 @@ ARG OSLABEL="latest"
 
 FROM ${OSNAME}:${OSLABEL}
 
-ARG CACHE_APK="${OSNAME}-${OSLABEL}-apk"
+ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apk"
 ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
 
 # Setup apk
-# Base applications
-RUN --mount=type=cache,id=${CACHE_APK},target=/var/cache/apk,sharing=locked \
+RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     ln -n -s -f /var/cache/apk /etc/apk/cache \
     && apk update
 
-# Install perl
+# Install perl, cpanm, and cpm
 # Based on https://github.com/Perl/docker-perl/
 # And issue #23/#24
 WORKDIR /usr/src/perl
-RUN --mount=type=cache,id=${CACHE_APK},target=/var/cache/apk,sharing=locked \
+RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     --mount=type=tmpfs,target=/tmp \
     true \
@@ -68,19 +67,20 @@ RUN --mount=type=cache,id=${CACHE_APK},target=/var/cache/apk,sharing=locked \
 WORKDIR /
 
 # Base applications
-RUN --mount=type=cache,id=${CACHE_APKCACHE},target=/var/cache/apk,sharing=locked \
+RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     apk add \
     build-base \
     curl \
     diffutils \
+    docs \
     expat expat-dev \
     git \
     gpg \
     less \
     lighttpd \
     make \
-    man-db \
     man-pages \
+    mandoc \
     nodejs \
     npm \
     openssh-client-default openssh-keygen \
@@ -93,17 +93,12 @@ RUN --mount=type=cache,id=${CACHE_APKCACHE},target=/var/cache/apk,sharing=locked
     tmux \
     xz \
     zlib zlib-dev \
-    zsh \
-    && apk list -I \
-    | cut -d' ' -f1 | rev | cut -d'-' -f3- | rev \
-    | grep -v -e '-doc$' | sed 's/$/-doc/' | xargs apk list \
-    | cut -d' ' -f1 | rev | cut -d'-' -f3- | rev \
-    | xargs apk add
+    zsh
 
 # TODO - Consider using Carton
 
 # Archive::Zip requires full unzip, not busybox for testing
-RUN --mount=type=cache,id=${CACHE_APKCACHE},target=/var/cache/apk,sharing=locked \
+RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     apk add --virtual .test-deps unzip \
     && cpanm Archive::Zip \

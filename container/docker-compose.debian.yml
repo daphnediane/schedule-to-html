@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  perl:
+    build:
+      context: .
+      dockerfile: Dockerfile-debian

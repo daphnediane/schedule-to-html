@@ -60,6 +60,9 @@
     },
     "dockerComposeFile": [
         "../container/docker-compose.yml",
+        // uncomment one to select an OS
+        "../container/docker-compose.alpine.yml",
+        //"../container/docker-compose.debian.yml",
         "docker-compose.extend.yml"
     ],
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
