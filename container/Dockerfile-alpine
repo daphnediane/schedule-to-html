@@ -1,15 +1,103 @@
 ARG OSNAME="alpine"
 ARG OSLABEL="latest"
 
-FROM ${OSNAME}:${OSLABEL}
+FROM ${OSNAME}:${OSLABEL} AS base
 
+ARG OSLABEL
+ARG OSNAME
 ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apk"
-ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
 
-# Setup apk
+# Setup apk and some base packages
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     ln -n -s -f /var/cache/apk /etc/apk/cache \
-    && apk update
+    && apk update \
+    && apk add \
+    docs \
+    git \
+    man-pages \
+    mandoc \
+    mandoc-apropos \
+    shadow
+
+FROM base AS initial-user-env
+
+ARG CACHE_PKG_VAR
+ARG OSLABEL
+ARG OSNAME
+ARG USER_NAME=devel
+ARG USER_ID=1000
+ARG USER_SHELL="/bin/bash"
+ARG GROUP_NAME=${USER_NAME}
+ARG GROUP_ID=${USER_ID}
+
+# Create the user
+RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
+    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" \
+    && mkdir -m 0640 -p /etc/sudoers.d \
+    && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
+    && chmod 0440 /etc/sudoers.d/"${USER_NAME}" \
+    && mkdir -p \
+    /home/"$USER_NAME"/.ssh \
+    /home/"$USER_NAME"/bin \
+    /home/vscode-server \
+    /workspaces \
+    && chmod -R go-rwx /root \
+    && chown -R "$USER_NAME":"$GROUP_NAME" \
+    /home/"$USER_NAME" \
+    /home/vscode-server \
+    /workspaces \
+    && chmod -R go-rwx /home/"$USER_NAME"/.ssh \
+    && chmod -R u+rwx /home/"$USER_NAME"/bin \
+    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server \
+    && git config --system push.default simple \
+    && git config --system init.defaultBranch main
+
+FROM initial-user-env AS add-packages
+
+ARG CACHE_PKG_VAR
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG OSLABEL
+ARG OSNAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
+
+# Base applications
+RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
+    apk add \
+    build-base \
+    curl \
+    diffutils \
+    expat expat-dev \
+    gpg \
+    less \
+    lighttpd \
+    make \
+    nodejs \
+    npm \
+    openssh-client-default openssh-keygen \
+    openssl openssl-dev \
+    procps-ng \
+    rsync \
+    sudo \
+    tar \
+    tmux \
+    xz \
+    zlib zlib-dev \
+    zsh
+
+FROM add-packages AS add-cpanm
+
+ARG CACHE_PKG_VAR
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG OSLABEL
+ARG OSNAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
+ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
 
 # Install perl, cpanm, and cpm
 # Based on https://github.com/Perl/docker-perl/
@@ -18,8 +106,7 @@ WORKDIR /usr/src/perl
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     --mount=type=tmpfs,target=/tmp \
-    true \
-    && apk add --virtual .build-deps \
+    apk add --virtual .build-deps \
     build-base \
     curl \
     dpkg dpkg-dev \
@@ -66,54 +153,34 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && cpanm --version && cpm --version
 WORKDIR /
 
-# Base applications
-RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
-    apk add \
-    build-base \
-    curl \
-    diffutils \
-    docs \
-    expat expat-dev \
-    git \
-    gpg \
-    less \
-    lighttpd \
-    make \
-    man-pages \
-    mandoc \
-    nodejs \
-    npm \
-    openssh-client-default openssh-keygen \
-    openssl openssl-dev \
-    procps-ng \
-    rsync \
-    shadow \
-    sudo \
-    tar \
-    tmux \
-    xz \
-    zlib zlib-dev \
-    zsh
+FROM add-cpanm AS add-perl-modules
+
+ARG CACHE_CPANM
+ARG CACHE_PKG_VAR
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG OSLABEL
+ARG OSNAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
 
 # TODO - Consider using Carton
+# https://metacpan.org/pod/Carton
 
+# Perl modules requiring special handling
 # Archive::Zip requires full unzip, not busybox for testing
+# IO::AIO - t/05_readdir.t  -- test fails so disable testing for now
+# Perl::LanguageServer and Spreadsheet::ParseXLSX take a lot of time to install
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     apk add --virtual .test-deps unzip \
     && cpanm Archive::Zip \
-    && apk del .test-deps
-
-# Modules with broken test
-#   IO::AIO - t/05_readdir.t
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm -n IO::AIO
-
-# Expensive perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
+    && cpanm -n IO::AIO \
+    && cpanm \
     Perl::LanguageServer \
-    Spreadsheet::ParseXLSX
+    Spreadsheet::ParseXLSX \
+    && apk del .test-deps
 
 # Other perl modules
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
@@ -131,36 +198,26 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     Readonly \
     Readonly::XS
 
-ARG USER_NAME=devel
-ARG USER_ID=1000
-ARG USER_SHELL="/bin/bash"
-ARG GROUP_NAME=${USER_NAME}
-ARG GROUP_ID=${USER_ID}
+FROM add-perl-modules AS user-env
 
-# Create the user
-RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
-    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" \
-    && mkdir -m 0640 -p /etc/sudoers.d \
-    && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
-    && chmod 0440 /etc/sudoers.d/"${USER_NAME}"
-#COPY userhome/ /home/"$USER_NAME"/
-#COPY userhome/.ssh/ /root/.ssh/
+ARG CACHE_CPANM
+ARG CACHE_PKG_VAR
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG OSLABEL
+ARG OSNAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
 
-# Create workspace tree
-RUN mkdir -p \
-    /home/"$USER_NAME"/.ssh \
-    /home/"$USER_NAME"/bin \
+# Set up VS Code directories
+RUN true \
+    && mkdir -p \
     /home/vscode-server \
     /workspaces \
-    && chmod -R go-rwx /root \
     && chown -R "$USER_NAME":"$GROUP_NAME" \
-    /home/"$USER_NAME" \
     /home/vscode-server \
     /workspaces \
-    && chmod -R go-rwx /home/"$USER_NAME"/.ssh \
-    && chmod -R u+rwx /home/"$USER_NAME"/bin \
-    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server \
-    && git config --system push.default simple \
-    && git config --system init.defaultBranch main
+    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server
 
 USER ${USER_NAME}

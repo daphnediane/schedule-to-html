@@ -1,0 +1,44 @@
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output/desc.hhtml --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output output/desc.hhtml --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output output/desc --file-by-day --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output/desc.hhtml --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output output/desc.hhtml --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output output/desc --file-by-day --descriptions --split-day 
+./desc_tbl --input input/Test.xlsx --output kiosk/ --mode-kiosk
+./desc_tbl --input input/Test.xlsx --output kiosk/index.html --mode-kiosk
+./desc_tbl --input input/Test.xlsx --output output/kiosk/ --mode-kiosk
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --unified --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-by-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-per-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css --style color.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css --style color.css  --style +color --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style color.css  --style +color --postcards --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style color.css  --style +color --postcard --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style bw.css --postcard --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style bw.css --postcard --input input/Test.xlsx --output report/postcards --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output/desc.hhtml --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output output/desc.hhtml --descriptions --split-day 
+./desc_tbl --style common.css --style color.css --style +color  --input input/Test.xlsx --output output/desc --file-by-day --descriptions --split-day 
+./desc_tbl --input input/Test.xlsx --output kiosk/ --mode-kiosk
+./desc_tbl --input input/Test.xlsx --output kiosk/index.html --mode-kiosk
+./desc_tbl --input input/Test.xlsx --output output/kiosk/ --mode-kiosk
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --unified --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-by-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-per-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css --style color.css  --style +color --style print:portrait_break.css --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style print:guest4x6.css --style color.css  --style +color --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style color.css  --style +color --postcards --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style color.css  --style +color --postcard --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style bw.css --postcard --input input/Test.xlsx --output report/postcards --split-day --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style bw.css --postcard --input input/Test.xlsx --output report/postcards --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --input input/Test.xlsx --output output/kiosk/ --mode-kiosk
+./desc_tbl --input input/Test.xlsx --output kiosk/ --mode-kiosk
+./desc_tbl --input input/Test.xlsx --output output/kiosk/ --mode-kiosk
+./desc_tbl --show-room xyz
+./desc_tbl --show-room xyz --hide-room xyz --show-roow abc
+./desc_tbl --show-room xyz --hide-room xyz --show-room abc
+./desc_tbl --show-room xyz --hide-room xyz --show-room abc --show-room xyz
+./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style bw.css --postcard --input input/Test.xlsx --output report/postcards --file-by-guest --just-guest --hide-unused --hide-descriptions
+./desc_tbl --help-markdown >> README.md
