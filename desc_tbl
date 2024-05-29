@@ -1,4 +1,4 @@
 #!/bin/sh
 
 dir=$(dirname "$0")
-perl -I "${dir}/lib" -- "${dir}/lib/main.pm" "$@"
+perl -I "${dir}/lib" -I "${dir}/local/lib/perl5" -- "${dir}/lib/main.pm" "$@"

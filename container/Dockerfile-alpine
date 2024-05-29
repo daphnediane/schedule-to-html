@@ -185,6 +185,7 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
 # Other perl modules
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     cpanm \
+    Carton \
     common::sense \
     Date::Parse \
     Devel::NYTProf \

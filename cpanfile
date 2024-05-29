@@ -1,0 +1,16 @@
+requires 'Archive::Zip';
+requires 'common::sense';
+requires 'Date::Parse';
+requires 'Devel::NYTProf';
+requires 'File::Slurp';
+requires 'HTML::Tiny';
+requires 'IO::AIO';
+requires 'List::MoreUtils';
+requires 'Object::InsideOut';
+requires 'Perl::Critic::TooMuchCode';
+requires 'Perl::Critic';
+requires 'Perl::LanguageServer';
+requires 'Perl::Tidy';
+requires 'Readonly::XS';
+requires 'Readonly';
+requires 'Spreadsheet::ParseXLSX';
