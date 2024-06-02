@@ -3,42 +3,42 @@
 use v5.36.0;
 use utf8;
 
-use Carp         qw{ verbose croak };      ## no critic (ProhibitUnusedImport)
-use English      qw{ -no_match_vars };
-use File::Slurp  qw{ read_file };
-use File::Spec   qw{};
-use FindBin      qw{};
+use Carp qw{ verbose croak };    ## no critic (ProhibitUnusedImport)
+use English qw{ -no_match_vars };
+use File::Slurp qw{ read_file };
+use File::Spec qw{};
+use FindBin qw{};
 use Getopt::Long qw{ GetOptionsFromArray };
-use HTML::Tiny   qw{};
-use List::Util   qw{ any };
+use HTML::Tiny qw{};
+use List::Util qw{ any };
 use List::MoreUtils qw{ firstidx };
 use Readonly;
 use Scalar::Util qw{ blessed };
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel          qw{};
-use Canonical            qw{ :all };
-use Data::Panel          qw{};
-use Data::PanelType      qw{};
-use Data::Partion        qw{};
-use Data::Room           qw{};
-use Options              qw{};
-use PartionPanels        qw{ :all };
-use Presenter            qw{};
-use Table::Panel         qw{ :all };
-use Table::PanelType     qw{ :all };
-use Table::Room          qw{ :all };
-use Table::TimeRegion    qw{ :all };
-use TimeDecoder          qw{ :from_text :to_text :timepoints };
-use TimeRange            qw{};
+use ActivePanel qw{};
+use Canonical qw{ :all };
+use Data::Panel qw{};
+use Data::PanelType qw{};
+use Data::Partion qw{};
+use Data::Room qw{};
+use Options qw{};
+use PartionPanels qw{ :all };
+use Presenter qw{};
+use Table::Panel qw{ :all };
+use Table::PanelType qw{ :all };
+use Table::Room qw{ :all };
+use Table::TimeRegion qw{ :all };
+use TimeDecoder qw{ :from_text :to_text :timepoints };
+use TimeRange qw{};
 use Data::RegionForTable qw{};
-use TimeSlot             qw{};
-use Workbook             qw{};
-use Workbook::Sheet      qw{};
-use WriteLevel           qw{};
-use WriteLevel::CSS      qw{};
-use WriteLevel::HTML     qw{};
-use WriteLevel::WebPage  qw{};
+use TimeSlot qw{};
+use Workbook qw{};
+use Workbook::Sheet qw{};
+use WriteLevel qw{};
+use WriteLevel::CSS qw{};
+use WriteLevel::HTML qw{};
+use WriteLevel::WebPage qw{};
 
 # HTML keywoards
 Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
@@ -113,6 +113,7 @@ Readonly our $SUBCLASS_GUEST_PANEL       => q{SelectedGuest};
 Readonly our $SUBCLASS_NEED_COST         => q{NeedCost};
 Readonly our $SUBCLASS_PIECE_COST        => q{Cost};
 Readonly our $SUBCLASS_PIECE_DESCRIPTION => q{Description};
+Readonly our $SUBCLASS_PIECE_DESC_TBD    => q{DescTBD};
 Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
 Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
 Readonly our $SUBCLASS_PIECE_ID          => q{ID};
@@ -895,12 +896,14 @@ sub dump_desc_panel_body {
         );
     } ## end if ( defined $credited_presenter)
 
+    my $desc = $panel->get_description();
     $writer->add_p(
         {   out_class( join_subclass(
-                $CLASS_DESC_BASE, $SUBCLASS_PIECE_DESCRIPTION
+                $CLASS_DESC_BASE, $SUBCLASS_PIECE_DESCRIPTION,
+                ( defined $desc ? () : $SUBCLASS_PIECE_DESC_TBD )
             ) )
         },
-        $panel->get_description()
+        $desc // q{Description pending}
     );
 
     dump_desc_panel_note( $writer, $panel, $conflict );

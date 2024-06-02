@@ -4,12 +4,13 @@ use base qw{Exporter};
 
 use v5.36.0;
 use utf8;
+use Carp qw{ croak };
 
-use Canonical     qw{ :all };
+use Canonical qw{ :all };
 use Data::Partion qw{};
-use Data::Room    qw{};
-use Field::Room   qw{};
-use Workbook      qw{};
+use Data::Room qw{};
+use Field::Room qw{};
+use Workbook qw{};
 
 our @EXPORT_OK = qw {
     all_rooms
@@ -44,21 +45,13 @@ sub read_room_ {
 
     my %room_data;
 
-    foreach my $column ( keys @{ $raw } ) {
-        my $header_text = $header->[ $column ];
-        my $header_alt  = $san_header->[ $column ];
-
-        my $raw_text = $raw->[ $column ];
-        if ( defined $raw_text ) {
-            if ( $raw_text =~ m{\s}xms ) {
-                $raw_text =~ s{\A \s*}{}xms;
-                $raw_text =~ s{\s* \z}{}xms;
-            }
-            undef $raw_text if $raw_text eq q{};
-        } ## end if ( defined $raw_text)
-        $room_data{ $header_text } = $raw_text;
-        $room_data{ $header_alt }  = $raw_text;
-    } ## end foreach my $column ( keys @...)
+    canonical_data(
+        \%room_data,
+        $header,
+        $san_header,
+        $raw,
+        undef,
+    );
 
     my $short_name = $room_data{ $Field::Room::NAME };
     my $long_name  = $room_data{ $Field::Room::LONG_NAME } // $short_name;
@@ -134,7 +127,7 @@ sub read_from {
 
     my $header = $sheet->get_next_line();
     return unless defined $header;
-    my @san_header = map { canonical_header( $_ ) } @{ $header };
+    my @san_header = canonical_headers( @{ $header } );
 
     while ( my $raw = $sheet->get_next_line() ) {
         last unless defined $raw;

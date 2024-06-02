@@ -1218,7 +1218,7 @@ push @opt_parse,
 
 sub get_title {
     my ( $self ) = @_;
-    return $self->{ $OPT_TITLE_ } // q{Cosplay America 2023 Schedule};
+    return $self->{ $OPT_TITLE_ } // q{Cosplay America 2024 Schedule};
 }
 
 ## --copies _number_

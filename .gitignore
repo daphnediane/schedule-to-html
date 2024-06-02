@@ -20,10 +20,6 @@ css/license-fonts.css
 # Allow a test document in the .css directory
 css/index.html
 
-# Save output flyers directory
-!output/flyers
-output/flyers/*
-
 # Keep some vscode files
 !.vscode
 .vscode/*

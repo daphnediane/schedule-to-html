@@ -105,12 +105,12 @@ sub get_head_style_ {
 
 sub get_html_style {
     my ( $self ) = @_;
-    my $active = $self->get_active_style();
+    my $active = $self->get_active_style_();
     if ( defined $active && !$self->get_style_is_css_() ) {
         return $active;
     }
 
-    $active = $self->get_head_style_()->get_new_inline();
+    $active = $self->get_head_style_()->nested_inline();
     $self->set_style_is_css_( 0 );
     $self->set_style_base_( $active );
     $self->set_active_style_( $active );

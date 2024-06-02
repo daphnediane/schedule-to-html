@@ -5,10 +5,12 @@ use base qw{Exporter};
 use v5.36.0;
 use utf8;
 
-use Canonical        qw{ :all };
-use Data::PanelType  qw{};
+use Carp qw{ croak };
+
+use Canonical qw{ :all };
+use Data::PanelType qw{};
 use Field::PanelType qw{};
-use Workbook         qw{};
+use Workbook qw{};
 
 our @EXPORT_OK = qw {
     all_types
@@ -42,26 +44,19 @@ sub read_panel_type_ {
     my %paneltype_data;
     my %colors;
 
-    foreach my $column ( keys @{ $raw } ) {
-        my $header_text = $header->[ $column ];
-        my $header_alt  = $san_header->[ $column ];
-
-        my $raw_text = $raw->[ $column ];
-        if ( defined $raw_text ) {
-            if ( $raw_text =~ m{\s}xms ) {
-                $raw_text =~ s{\A \s*}{}xms;
-                $raw_text =~ s{\s* \z}{}xms;
-            }
-            undef $raw_text if $raw_text eq q{};
-        } ## end if ( defined $raw_text)
-        $paneltype_data{ $header_text } = $raw_text;
-        $paneltype_data{ $header_alt }  = $raw_text;
-
-        if ( exists $known_color_sets_{ lc $header_alt }
-            && defined $raw_text ) {
+    canonical_data(
+        \%paneltype_data,
+        $header,
+        $san_header,
+        $raw,
+        sub {
+            my ( $raw_text, $column, $header_text, $header_alt ) = @_;
+            return unless defined $raw_text;
+            return unless exists $known_color_sets_{ lc $header_alt };
             $colors{ $header_alt } = $raw_text;
-        }
-    } ## end foreach my $column ( keys @...)
+            return;
+        },
+    );
 
     my $prefix = $paneltype_data{ $Field::PanelType::PREFIX } // q{};
     my $kind   = $paneltype_data{ $Field::PanelType::KIND };
@@ -134,7 +129,7 @@ sub read_from {
 
     my $header = $sheet->get_next_line();
     return unless defined $header;
-    my @san_header = map { canonical_header( $_ ) } @{ $header };
+    my @san_header = canonical_headers( @{ $header } );
 
     while ( my $raw = $sheet->get_next_line() ) {
         last unless defined $raw;

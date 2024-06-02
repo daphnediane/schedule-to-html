@@ -1,16 +1,20 @@
-requires 'Archive::Zip';
+# cpanfile for desc_tbl
+requires 'perl', '>= 5.036';
 requires 'common::sense';
 requires 'Date::Parse';
-requires 'Devel::NYTProf';
 requires 'File::Slurp';
 requires 'HTML::Tiny';
-requires 'IO::AIO';
 requires 'List::MoreUtils';
 requires 'Object::InsideOut';
-requires 'Perl::Critic::TooMuchCode';
-requires 'Perl::Critic';
-requires 'Perl::LanguageServer';
-requires 'Perl::Tidy';
-requires 'Readonly::XS';
 requires 'Readonly';
+requires 'Readonly::XS';
 requires 'Spreadsheet::ParseXLSX';
+
+on 'develop' => sub {
+    # should this be recommends
+    requires 'Devel::NYTProf';
+    requires 'Perl::Critic';
+    requires 'Perl::Critic::TooMuchCode';
+    requires 'Perl::LanguageServer';
+    requires 'Perl::Tidy';
+};

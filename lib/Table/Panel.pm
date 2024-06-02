@@ -7,14 +7,14 @@ use utf8;
 
 use List::Util qw{ any };
 
-use Canonical    qw{ :all };
-use Data::Room   qw{};
+use Canonical qw{ :all };
+use Data::Room qw{};
 use Field::Panel qw{};
-use Field::Room  qw{};
-use Presenter    qw{};
+use Field::Room qw{};
+use Presenter qw{};
 use PresenterSet qw{};
-use TimeDecoder  qw{ :from_text :timepoints };
-use Workbook     qw{};
+use TimeDecoder qw{ :from_text :timepoints };
+use Workbook qw{};
 
 our @EXPORT_OK = qw {
     get_split_panels
@@ -145,27 +145,23 @@ sub read_panel_ {
 
     my %panel_data;
     my $presenter_set = PresenterSet->new();
-    foreach my $column ( keys @{ $raw } ) {
-        my $header_text = $header->[ $column ];
-        my $header_alt  = $san_header->[ $column ];
 
-        my $raw_text = $raw->[ $column ];
-        if ( defined $raw_text ) {
-            $raw_text =~ s{\A \s++}{}xms;
-            $raw_text =~ s{\s++ \z}{}xms;
-            undef $raw_text if $raw_text eq q{};
-        }
-        $panel_data{ $header_text } = $raw_text;
-        $panel_data{ $header_alt }  = $raw_text;
-
-        if ( defined $presenters_by_column->[ $column ] && defined $raw_text )
-        {
+    canonical_data(
+        \%panel_data,
+        $header,
+        $san_header,
+        $raw,
+        sub {
+            my ( $raw_text, $column, $header_text, $header_alt ) = @_;
+            return unless defined $raw_text;
+            return unless defined $presenters_by_column->[ $column ];
             read_presenter_column_(
                 $presenter_set,
                 $presenters_by_column->[ $column ], $raw_text
             );
-        } ## end if ( defined $presenters_by_column...)
-    } ## end foreach my $column ( keys @...)
+            return;
+        },
+    );
 
     $presenter_set->set_are_credits_hidden( 1 )
         if defined $panel_data{ $Field::Panel::PANELIST_HIDE };
@@ -254,7 +250,7 @@ sub read_from {
 
     my $header = $main_sheet->get_next_line()
         or die q{Missing header in: }, $wb->get_filename(), qq{\n};
-    my @san_header = map { canonical_header( $_ ) } @{ $header };
+    my @san_header = canonical_headers( @{ $header } );
 
     my @presenters_by_column = ();
 

@@ -8,9 +8,9 @@ use utf8;
 use Carp qw{croak};
 use Readonly;
 
-use Data::PanelType  qw{};
-use Data::Room       qw{};
-use PresenterSet     qw{};
+use Data::PanelType qw{};
+use Data::Room qw{};
+use PresenterSet qw{};
 use Table::PanelType qw{};
 
 Readonly our $COST_FREE  => q{$} . q{0};
@@ -345,9 +345,11 @@ sub get_cost {
 
 sub get_cost_is_model {
     my ( $self ) = @_;
-    return 1 if $self->_get_cost() eq $COST_MODEL;
+    my $cost = $self->_get_cost();
+    return unless defined $cost;
+    return 1 if $cost eq $COST_MODEL;
     return;
-}
+} ## end sub get_cost_is_model
 
 sub get_cost_is_missing {
     my ( $self ) = @_;
