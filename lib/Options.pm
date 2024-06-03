@@ -1221,6 +1221,19 @@ sub get_title {
     return $self->{ $OPT_TITLE_ } // q{Cosplay America 2024 Schedule};
 }
 
+## --pre-title _name_
+##     Sets the prefix for the title
+
+Readonly our $OPT_TITLE_PREFIX_ => q{title_prefix};
+
+push @opt_parse,
+    [ $OPT_TITLE_PREFIX_, [ qw{ pre-title } ], $MOD_VALUE_STR ];
+
+sub get_pre_title {
+    my ( $self ) = @_;
+    return $self->{ $OPT_TITLE_PREFIX_ } // q{Cosplay America 2024 Schedule};
+}
+
 ## --copies _number_
 ##     How many copies in the same html
 

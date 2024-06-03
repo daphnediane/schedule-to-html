@@ -74,6 +74,7 @@ versions of files with a single run.
 | --no-section-by-guest        | Do not generate a section for each guest                               |
 | --no-section-by-presenter    | Do not generate a section for each presenter                           |
 | --output _name_              | Output filename or directory if any --file-by-... used                 |
+| --pre-title _name_           | Sets the prefix for the title                                          |
 | --room _name_                | Focus on matching room, may be given more than once                    |
 | --section-all-days           | Do not generate a section for each day, default                        |
 | --section-all-rooms          | Do not generate a section for each room                                |

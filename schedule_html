@@ -2,7 +2,6 @@
 
 dir=$(dirname "$0")
 perl -I "${dir}/lib" -- "${dir}/lib/main.pm" \
-    --style license-fonts.css \
     --style common.css \
     --style screen.css \
     --style screen:color.css \

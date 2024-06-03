@@ -3,42 +3,42 @@
 use v5.36.0;
 use utf8;
 
-use Carp qw{ verbose croak };    ## no critic (ProhibitUnusedImport)
-use English qw{ -no_match_vars };
-use File::Slurp qw{ read_file };
-use File::Spec qw{};
-use FindBin qw{};
-use Getopt::Long qw{ GetOptionsFromArray };
-use HTML::Tiny qw{};
-use List::Util qw{ any };
+use Carp            qw{ verbose croak };         ## no critic (ProhibitUnusedImport)
+use English         qw{ -no_match_vars };
+use File::Slurp     qw{ read_file };
+use File::Spec      qw{};
+use FindBin         qw{};
+use Getopt::Long    qw{ GetOptionsFromArray };
+use HTML::Tiny      qw{};
+use List::Util      qw{ any };
 use List::MoreUtils qw{ firstidx };
 use Readonly;
 use Scalar::Util qw{ blessed };
 
 use lib "${FindBin::Bin}/lib";
-use ActivePanel qw{};
-use Canonical qw{ :all };
-use Data::Panel qw{};
-use Data::PanelType qw{};
-use Data::Partion qw{};
-use Data::Room qw{};
-use Options qw{};
-use PartionPanels qw{ :all };
-use Presenter qw{};
-use Table::Panel qw{ :all };
-use Table::PanelType qw{ :all };
-use Table::Room qw{ :all };
-use Table::TimeRegion qw{ :all };
-use TimeDecoder qw{ :from_text :to_text :timepoints };
-use TimeRange qw{};
+use ActivePanel          qw{};
+use Canonical            qw{ :all };
+use Data::Panel          qw{};
+use Data::PanelType      qw{};
+use Data::Partion        qw{};
+use Data::Room           qw{};
+use Options              qw{};
+use PartionPanels        qw{ :all };
+use Presenter            qw{};
+use Table::Panel         qw{ :all };
+use Table::PanelType     qw{ :all };
+use Table::Room          qw{ :all };
+use Table::TimeRegion    qw{ :all };
+use TimeDecoder          qw{ :from_text :to_text :timepoints };
+use TimeRange            qw{};
 use Data::RegionForTable qw{};
-use TimeSlot qw{};
-use Workbook qw{};
-use Workbook::Sheet qw{};
-use WriteLevel qw{};
-use WriteLevel::CSS qw{};
-use WriteLevel::HTML qw{};
-use WriteLevel::WebPage qw{};
+use TimeSlot             qw{};
+use Workbook             qw{};
+use Workbook::Sheet      qw{};
+use WriteLevel           qw{};
+use WriteLevel::CSS      qw{};
+use WriteLevel::HTML     qw{};
+use WriteLevel::WebPage  qw{};
 
 # HTML keywoards
 Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
@@ -1219,10 +1219,15 @@ sub dump_file_header {
     $writer->get_head()
         ->add_meta( { name => $HTML_APP_OKAY, content => $HTML_YES } );
 
-    my @subnames = $filter->get_output_name_pieces();
-    my $title    = $options->get_title();
+    my @subnames  = $filter->get_output_name_pieces();
+    my $title     = $options->get_title();
+    my $pre_title = $options->get_pre_title();
     if ( @subnames ) {
-        $title .= q{: } . join q{, }, @subnames;
+        my $prefix = join q{, }, @subnames;
+        $title = join q{: }, $prefix, $title;
+    }
+    if ( defined $pre_title ) {
+        $title = join q{: }, $pre_title, $title;
     }
 
     $writer->get_head()->add_title( $title );

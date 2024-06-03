@@ -43,8 +43,6 @@ main() {
         esac
     done
 
-    set -v
-
     [[ -d "${OUTPUT_DIR}" ]] || fail "output/flyers not found"
 
     # Remove old schedule
@@ -52,10 +50,10 @@ main() {
 
     # Update schedule from one drive
     cmd rsync -aPHAX "${SRC_DIR}/${EXCEL_FILE}" "input/${EXCEL_FILE}"
-    SRC_DATE="$(date -r "input/${EXCEL_FILE}" +'%c')"
+    SRC_DATE="$(date -r "input/${EXCEL_FILE}" +'%b %d %I:%M %p')"
 
     # Generate new schedule
-    cmd ./dump_flyers --title "Cosplay America ${YEAR} Schedule Draft as of: ${SRC_DATE}"
+    cmd ./dump_flyers --title "Cosplay America ${YEAR} Schedule Draft, Updated: ${SRC_DATE}"
 
     # Output schedule
     cmd rsync -aPHAX --delete-after "${OUTPUT_DIR}/" "${SRC_DIR}/COS${YEAR}Schedule/html/"

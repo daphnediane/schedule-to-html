@@ -5,6 +5,7 @@ for i in "" "break" "break_sm"; do
     mkdir -p output/flyers/byday"${i:+_${i}}"
     args+=(
         --
+        --pre-title 'day'
         --style print:landscape"${i:+_${i}}".css
         --output output/flyers/byday"${i:+_${i}}"
         --split-day
@@ -17,6 +18,7 @@ done
 mkdir -p output/flyers/panelists
 args+=(
     --
+    --pre-title 'panelist'
     --style print:landscape.css
     --output output/flyers/panelists/
     --split-day
@@ -38,6 +40,7 @@ args+=(
 mkdir -p output/flyers/desc
 args+=(
     --
+    --pre-title 'day'
     --style print:landscape.css
     --output output/flyers/desc
     --split-day
@@ -57,7 +60,6 @@ args+=(
     --hide-unused-rooms
 )
 
-
 args+=(
     --
     --style print:portrait.css
@@ -70,6 +72,7 @@ args+=(
 mkdir -p output/flyers/rooms
 args+=(
     --
+    --pre-title 'room-posters'
     --style print:poster17x11v3.css
     --input input/Test.xlsx
     --output output/flyers/rooms
@@ -82,6 +85,7 @@ args+=(
 mkdir -p output/flyers/guests
 args+=(
     --
+    --pre-title 'guests'
     --style print:landscape.css
     --output output/flyers/guests/
     --split-day
@@ -120,7 +124,7 @@ args+=(
 
 args+=(
     --
-    --style print:guest-quarter.css 
+    --style print:guest-quarter.css
     --output output/flyers/postcards.html
     --split-timeregion
     --section-by-guest
