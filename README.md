@@ -24,91 +24,97 @@ versions of files with a single run.
 
 ## Options:
 
-| Option                       | Meaning                                                                |
-| ---------------------------- | ---------------------------------------------------------------------- |
-| --copies _number_            | How many copies in the same html                                       |
-| --desc-by-guest              | Arrange descriptions by guest, showing just guest                      |
-| --desc-by-presenter          | Arrange descriptions by presenters, implies --desc-by-guest            |
-| --desc-everyone-together     | Do not sort descriptions by guest or presenters, default               |
-| --desc-form-div              | Output descriptions in paragraphs. _Needs CSS work_                    |
-| --desc-form-table            | Output descriptions in a table. Default                                |
-| --desc-loc-last              | Output descriptions after all grids                                    |
-| --desc-loc-mixed             | Output descriptions between grids. Default                             |
-| --embed-css                  | Embed any CSS files in the generated HTML, default if --style          |
-| --end-time _time_            | Exclude any panels after _time_                                        |
-| --everyone                   | Show descriptions for all presenters, default                          |
-| --file-all-days              | Do not generate a file for each day, default                           |
-| --file-all-rooms             | Do not generate a file for each room                                   |
-| --file-by-day                | Generate separate file for each day                                    |
-| --file-by-guest              | Generate a file for each guest                                         |
-| --file-by-presenter          | Generate a file for each presenter, implies --file-by-guest            |
-| --file-by-room               | Generate a file for each room                                          |
-| --file-everyone-together     | Do not generate a file for each guest or presenters, default           |
-| --help                       | Display options                                                        |
-| --help-markdown              | Generate option summary for README.md                                  |
-| --hide-av                    | Do not include notes for Audio Visual, default                         |
-| --hide-breaks                | Hide descriptions for breaks, default                                  |
-| --hide-day                   | Does not include a column for week day, default                        |
-| --hide-descriptions          | Does not include description, implies --show-grid                      |
-| --hide-difficulty            | Hide difficulty information                                            |
-| --hide-free                  | Hide descriptions for panels that are free                             |
-| --hide-grid                  | Does not includes the grid, implies --show-description                 |
-| --hide-paneltype _paneltype_ | Hide paneltype even if normally shown                                  |
-| --hide-premium               | Hide descriptions for panels that are premium                          |
-| --hide-presenter-on-grid     | Do not replace "time" with presenter name, default                     |
-| --hide-room _room_           | Hide room, even if normally shown                                      |
-| --hide-unused-rooms          | Only include rooms that have events scheduled, default                 |
-| --inline-css                 | Link to CSS files in the generated HTML, default unless --style        |
-| --input _file_.txt           | Source data for schedule, UTF-16 spreadsheet                           |
-| --input _file_.xlsx          | Source data for schedule, xlsx file                                    |
-| --input _file_.xlsx:_num_    | May have a _num_ suffix to select a sheet by index                     |
-| --just-guest                 | Hide descriptions for other presenters, implies --file-by-guest        |
-| --just-presenter             | Hide descriptions for other presenters, implies --file-by-presenter    |
-| --mode-flyer                 | Generate flyers, default mode                                          |
-| --mode-kiosk                 | Generate files for use in a realtime kiosk                             |
-| --mode-postcard              | Output for use in schedule postcards                                   |
-| --no-desc-by-guest           | Do not arrange by guest, exclude guest if --desc-by-presenter is given |
-| --no-desc-by-presenter       | Do not arrange descriptions by presenter                               |
-| --no-file-by-guest           | Do not generate a file for each guest                                  |
-| --no-file-by-presenter       | Do not generate a file for each presenter                              |
-| --no-section-by-guest        | Do not generate a section for each guest                               |
-| --no-section-by-presenter    | Do not generate a section for each presenter                           |
-| --output _name_              | Output filename or directory if any --file-by-... used                 |
-| --pre-title _name_           | Sets the prefix for the title                                          |
-| --room _name_                | Focus on matching room, may be given more than once                    |
-| --section-all-days           | Do not generate a section for each day, default                        |
-| --section-all-rooms          | Do not generate a section for each room                                |
-| --section-by-day             | Generate separate section for each day                                 |
-| --section-by-guest           | Generate a section for each guest                                      |
-| --section-by-presenter       | Generate a section for each presenter, implies --section-by-guest      |
-| --section-by-room            | Generate a section for each room                                       |
-| --section-everyone-together  | Do not generate a section for each guest or presenters, default        |
-| --show-all-rooms             | Show rooms even if they have no events scheduled                       |
-| --show-av                    | Include notes for Audio Visual                                         |
-| --show-breaks                | Includes descriptions for breaks                                       |
-| --show-day                   | Include a column for week day                                          |
-| --show-descriptions          | Includes panel descriptions, implies --hide-grid                       |
-| --show-difficulty            | Show difficulty information, default                                   |
-| --show-free                  | Show descriptions for panels that are free, implies --hide-premium     |
-| --show-grid                  | Includes the grid, implies --hide-description                          |
-| --show-paneltype _paneltype_ | Show paneltype even if normally hidden                                 |
-| --show-premium               | Show descriptions for panels that are premium, implies --hide-free     |
-| --show-presenter-on-grid     | Replace "time" with presenter name                                     |
-| --show-room _room_           | Show room, even if normally hidden                                     |
-| --split                      | Implies --split-timeregion if --split-day not set                      |
-| --split-day                  | Only split once per day                                                |
-| --split-timeregion           | Split the grids by SPLIT time segments, default                        |
-| --start-time _time_          | Exclude any panels before _time_                                       |
-| --style _filename_           | CSS file to include, may be given more than once, implies --embed-css  |
-| --style +color[=_set_]       | Use colors from the panel type sheet, _set_ is "Color" if not given.   |
-| --style all:_style_          | Apply style to all media                                               |
-| --style screen:_style_       | Apply style to when viewing on a screen, normal web view               |
-| --style print:_style_        | Apply style to when printing, normal web view                          |
-| --title _name_               | Sets the page titles                                                   |
-| --unified                    | Do not split table by SPLIT time segments or days                      |
+| Option                       | Meaning                                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| --copies _number_            | How many copies in the same html                                                                      |
+| --desc-by-guest              | Arrange descriptions by guest, showing just guest, implies --no-desc-by-judge, --no-desc-by-presenter |
+| --desc-by-judge              | Arrange descriptions by guest, showing just guest, implies --no-desc-by-guest, --no-desc-by-presenter |
+| --desc-by-presenter          | Arrange descriptions by presenters, implies --desc-by-guest, --desc-by-judge                          |
+| --desc-everyone-together     | Do not sort descriptions by guest or presenters, default                                              |
+| --desc-form-div              | Output descriptions in paragraphs. _Needs CSS work_                                                   |
+| --desc-form-table            | Output descriptions in a table. Default                                                               |
+| --desc-loc-last              | Output descriptions after all grids                                                                   |
+| --desc-loc-mixed             | Output descriptions between grids. Default                                                            |
+| --embed-css                  | Embed any CSS files in the generated HTML, default if --style                                         |
+| --end-time _time_            | Exclude any panels after _time_                                                                       |
+| --everyone                   | Show descriptions for all presenters, default                                                         |
+| --file-all-days              | Do not generate a file for each day, default                                                          |
+| --file-all-rooms             | Do not generate a file for each room                                                                  |
+| --file-by-day                | Generate separate file for each day                                                                   |
+| --file-by-guest              | Generate a file for each guest, implies --no-file-by-judge, --no-file-by-presenter                    |
+| --file-by-judge              | Generate a file for each judge, implies --no-file-by-guest, --no-file-by-presenter                    |
+| --file-by-presenter          | Generate a file for each presenter, implies --file-by-guest, --file-by-judge                          |
+| --file-by-room               | Generate a file for each room                                                                         |
+| --file-everyone-together     | Do not generate a file for each guest or presenters, default                                          |
+| --help                       | Display options                                                                                       |
+| --help-markdown              | Generate option summary for README.md                                                                 |
+| --hide-av                    | Do not include notes for Audio Visual, default                                                        |
+| --hide-breaks                | Hide descriptions for breaks, default                                                                 |
+| --hide-day                   | Does not include a column for week day, default                                                       |
+| --hide-descriptions          | Does not include description, implies --show-grid                                                     |
+| --hide-difficulty            | Hide difficulty information                                                                           |
+| --hide-free                  | Hide descriptions for panels that are free                                                            |
+| --hide-grid                  | Does not includes the grid, implies --show-description                                                |
+| --hide-paneltype _paneltype_ | Hide paneltype even if normally shown                                                                 |
+| --hide-premium               | Hide descriptions for panels that are premium                                                         |
+| --hide-presenter-on-grid     | Do not replace "time" with presenter name, default                                                    |
+| --hide-room _room_           | Hide room, even if normally shown                                                                     |
+| --hide-unused-rooms          | Only include rooms that have events scheduled, default                                                |
+| --inline-css                 | Link to CSS files in the generated HTML, default unless --style                                       |
+| --input _file_.txt           | Source data for schedule, UTF-16 spreadsheet                                                          |
+| --input _file_.xlsx          | Source data for schedule, xlsx file                                                                   |
+| --input _file_.xlsx:_num_    | May have a _num_ suffix to select a sheet by index                                                    |
+| --just-guest                 | Hide descriptions for other presenters, implies --file-by-guest                                       |
+| --just-judge                 | Hide descriptions for other presenters, implies --file-by-judge                                       |
+| --just-presenter             | Hide descriptions for other presenters, implies --file-by-presenter                                   |
+| --mode-flyer                 | Generate flyers, default mode                                                                         |
+| --mode-kiosk                 | Generate files for use in a realtime kiosk                                                            |
+| --mode-postcard              | Output for use in schedule postcards                                                                  |
+| --no-desc-by-guest           | Do not arrange by guest, exclude guest if --desc-by-presenter is given                                |
+| --no-desc-by-judge           | Do not arrange by guest, exclude judge if --desc-by-presenter is given                                |
+| --no-desc-by-presenter       | Do not arrange descriptions by presenter                                                              |
+| --no-file-by-guest           | Do not generate a file for each guest                                                                 |
+| --no-file-by-judge           | Do not generate a file for each judge                                                                 |
+| --no-file-by-presenter       | Do not generate a file for each presenter                                                             |
+| --no-section-by-guest        | Do not generate a section for each guest                                                              |
+| --no-section-by-judge        | Do not generate a section for each judge                                                              |
+| --no-section-by-presenter    | Do not generate a section for each presenter                                                          |
+| --output _name_              | Output filename or directory if any --file-by-... used                                                |
+| --pre-title _name_           | Sets the prefix for the title                                                                         |
+| --room _name_                | Focus on matching room, may be given more than once                                                   |
+| --section-all-days           | Do not generate a section for each day, default                                                       |
+| --section-all-rooms          | Do not generate a section for each room                                                               |
+| --section-by-day             | Generate separate section for each day                                                                |
+| --section-by-guest           | Generate a section for each guest                                                                     |
+| --section-by-judge           | Generate a section for each judge                                                                     |
+| --section-by-presenter       | Generate a section for each presenter, implies --section-by-guest                                     |
+| --section-by-room            | Generate a section for each room                                                                      |
+| --section-everyone-together  | Do not generate a section for each guest or presenters, default                                       |
+| --show-all-rooms             | Show rooms even if they have no events scheduled                                                      |
+| --show-av                    | Include notes for Audio Visual                                                                        |
+| --show-breaks                | Includes descriptions for breaks                                                                      |
+| --show-day                   | Include a column for week day                                                                         |
+| --show-descriptions          | Includes panel descriptions, implies --hide-grid                                                      |
+| --show-difficulty            | Show difficulty information, default                                                                  |
+| --show-free                  | Show descriptions for panels that are free, implies --hide-premium                                    |
+| --show-grid                  | Includes the grid, implies --hide-description                                                         |
+| --show-paneltype _paneltype_ | Show paneltype even if normally hidden                                                                |
+| --show-premium               | Show descriptions for panels that are premium, implies --hide-free                                    |
+| --show-presenter-on-grid     | Replace "time" with presenter name                                                                    |
+| --show-room _room_           | Show room, even if normally hidden                                                                    |
+| --split                      | Implies --split-timeregion if --split-day not set                                                     |
+| --split-day                  | Only split once per day                                                                               |
+| --split-timeregion           | Split the grids by SPLIT time segments, default                                                       |
+| --start-time _time_          | Exclude any panels before _time_                                                                      |
+| --style _filename_           | CSS file to include, may be given more than once, implies --embed-css                                 |
+| --style +color[=_set_]       | Use colors from the panel type sheet, _set_ is "Color" if not given.                                  |
+| --style all:_style_          | Apply style to all media                                                                              |
+| --style screen:_style_       | Apply style to when viewing on a screen, normal web view                                              |
+| --style print:_style_        | Apply style to when printing, normal web view                                                         |
+| --title _name_               | Sets the page titles                                                                                  |
+| --unified                    | Do not split table by SPLIT time segments or days                                                     |
 
 ### Aliases
-
 | Alias                    | Equivalent to option            |
 | ------------------------ | ------------------------------- |
 | --desc-by-panelist       | --desc-by-presenter             |
