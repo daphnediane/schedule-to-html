@@ -15,13 +15,15 @@ use overload
 ## use critic
 
 Readonly our $RANK_GUEST         => 0;
-Readonly our $RANK_STAFF         => 1;
-Readonly our $RANK_INVITED_GUEST => 2;
-Readonly our $RANK_FAN_PANELIST  => 3;
+Readonly our $RANK_JUDGE         => 1;
+Readonly our $RANK_STAFF         => 2;
+Readonly our $RANK_INVITED_GUEST => 3;
+Readonly our $RANK_FAN_PANELIST  => 4;
 
 # Presenter headers
 Readonly::Hash our %PREFIX_TO_RANK => (
     g => $RANK_GUEST,
+    j => $RANK_JUDGE,
     s => $RANK_STAFF,
     i => $RANK_INVITED_GUEST,
     p => $RANK_FAN_PANELIST,

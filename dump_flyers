@@ -15,6 +15,21 @@ for i in "" "break" "break_sm"; do
     )
 done
 
+mkdir -p output/flyers/byroom
+args+=(
+    --
+    --pre-title 'rooms'
+    --style print:landscape.css
+    --output output/flyers/byroom
+    --split-day
+    --separate
+    --hide-unused-rooms
+    --file-by-room
+    --hide-unused-rooms
+    --section-by-room
+    --show-av
+)
+
 mkdir -p output/flyers/panelists
 args+=(
     --
@@ -26,6 +41,7 @@ args+=(
     --hide-unused-rooms
     --file-by-presenter
     --no-file-by-guest
+    --no-file-by-judge
 )
 
 args+=(
@@ -96,6 +112,21 @@ args+=(
     --hide-unused-rooms
     --file-by-guest
 )
+
+mkdir -p output/flyers/judges
+args+=(
+    --
+    --pre-title 'judges'
+    --style print:landscape.css
+    --output output/flyers/judges/
+    --split-day
+    --separate
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-breaks
+    --hide-unused-rooms
+    --file-by-judge
+)   
 
 args+=(
     --

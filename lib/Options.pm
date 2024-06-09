@@ -304,11 +304,15 @@ sub is_desc_loc_mixed {
 }
 
 ## --desc-by-guest
-##     Arrange descriptions by guest, showing just guest
+##     Arrange descriptions by guest, showing just guest, implies --no-desc-by-judge, --no-desc-by-presenter
 ## --no-desc-by-guest
 ##     Do not arrange by guest, exclude guest if --desc-by-presenter is given
+## --desc-by-judge
+##     Arrange descriptions by guest, showing just guest, implies --no-desc-by-guest, --no-desc-by-presenter
+## --no-desc-by-judge
+##     Do not arrange by guest, exclude judge if --desc-by-presenter is given
 ## --desc-by-presenter
-##     Arrange descriptions by presenters, implies --desc-by-guest
+##     Arrange descriptions by presenters, implies --desc-by-guest, --desc-by-judge
 ## --no-desc-by-presenter
 ##     Do not arrange descriptions by presenter
 ## --desc-everyone-together
@@ -320,6 +324,7 @@ sub is_desc_loc_mixed {
 Readonly our $OPT_DESC_BY_          => q{desc-by};
 Readonly our $VAL_EVERYONE_TOGETHER => undef;
 Readonly our $VAL_BY_GUEST          => q{guest};
+Readonly our $VAL_BY_JUDGE          => q{judge};
 Readonly our $VAL_BY_PANELIST       => q{panelist};
 
 push @opt_parse,
@@ -329,6 +334,8 @@ push @opt_parse,
     ],
     [ $OPT_DESC_BY_, [ qw{ -!guest } ], $MOD_SUB_FLAG, $VAL_BY_GUEST => 0 ],
     [ $OPT_DESC_BY_, [ qw{ -guest } ],  $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [ $OPT_DESC_BY_, [ qw{ -!judge } ], $MOD_SUB_FLAG, $VAL_BY_JUDGE => 0 ],
+    [ $OPT_DESC_BY_, [ qw{ -judge } ],  $MOD_SUB_FLAG, $VAL_BY_JUDGE => 1 ],
     [
     $OPT_DESC_BY_, [ qw{ -!presenter } ], $MOD_SUB_FLAG,
     $VAL_BY_PANELIST => 0
@@ -355,6 +362,7 @@ sub is_desc_everyone_together {
     my $hash = $self->{ $OPT_DESC_BY_ };
     return 1 unless defined $hash;
     return if $hash->{ $VAL_BY_GUEST };
+    return if $hash->{ $VAL_BY_JUDGE };
     return if $hash->{ $VAL_BY_PANELIST };
     return 1;
 } ## end sub is_desc_everyone_together
@@ -365,9 +373,21 @@ sub is_desc_by_guest {
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_GUEST };
     return   if defined $hash->{ $VAL_BY_GUEST };
+    return   if $hash->{ $VAL_BY_JUDGE };
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return;
 } ## end sub is_desc_by_guest
+
+sub is_desc_by_judge {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_DESC_BY_ };
+    return unless defined $hash;
+    return 1 if $hash->{ $VAL_BY_JUDGE };
+    return   if defined $hash->{ $VAL_BY_JUDGE };
+    return   if $hash->{ $VAL_BY_GUEST };
+    return 1 if $hash->{ $VAL_BY_PANELIST };
+    return;
+} ## end sub is_desc_by_judge
 
 sub is_desc_by_panelist {
     my ( $self ) = @_;
@@ -422,11 +442,15 @@ sub is_css_loc_linked {
 ## --file-all-days
 ##     Do not generate a file for each day, default
 ## --file-by-guest
-##     Generate a file for each guest
+##     Generate a file for each guest, implies --no-file-by-judge, --no-file-by-presenter
 ## --no-file-by-guest
 ##     Do not generate a file for each guest
+## --file-by-judge
+##     Generate a file for each judge, implies --no-file-by-guest, --no-file-by-presenter
+## --no-file-by-judge
+##     Do not generate a file for each judge
 ## --file-by-presenter
-##     Generate a file for each presenter, implies --file-by-guest
+##     Generate a file for each presenter, implies --file-by-guest, --file-by-judge
 ## --no-file-by-presenter
 ##     Do not generate a file for each presenter
 ## --file-everyone-together
@@ -455,6 +479,8 @@ push @opt_parse,
     [ $OPT_FILE_BY_, [ qw{ -day } ],    $MOD_SUB_FLAG, $VAL_BY_DAY   => 1 ],
     [ $OPT_FILE_BY_, [ qw{ -!guest } ], $MOD_SUB_FLAG, $VAL_BY_GUEST => 0 ],
     [ $OPT_FILE_BY_, [ qw{ -guest } ],  $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [ $OPT_FILE_BY_, [ qw{ -!judge } ], $MOD_SUB_FLAG, $VAL_BY_JUDGE => 0 ],
+    [ $OPT_FILE_BY_, [ qw{ -judge } ],  $MOD_SUB_FLAG, $VAL_BY_JUDGE => 1 ],
     [
     $OPT_FILE_BY_, [ qw{ -!presenter } ], $MOD_SUB_FLAG,
     $VAL_BY_PANELIST => 0
@@ -485,6 +511,7 @@ sub is_file_everyone_together {
     my ( $self ) = @_;
     return if $self->is_file_by_panelist();
     return if $self->is_file_by_guest();
+    return if $self->is_file_by_judge();
     return 1;
 } ## end sub is_file_everyone_together
 
@@ -504,10 +531,29 @@ sub is_file_by_guest {
     return 1 if $hash->{ $VAL_BY_GUEST };
     return   if defined $hash->{ $VAL_BY_GUEST };
     return 1 if $self->is_just_guest();
+    return   if $hash->{ $VAL_BY_JUDGE };
+    return   if $self->is_just_judge();
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return   if defined $hash->{ $VAL_BY_PANELIST };
     return;
 } ## end sub is_file_by_guest
+
+sub is_file_by_judge {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_FILE_BY_ };
+    if ( !defined $hash ) {
+        return 1 if $self->is_just_judge();
+        return;
+    }
+    return 1 if $hash->{ $VAL_BY_JUDGE };
+    return   if defined $hash->{ $VAL_BY_JUDGE };
+    return 1 if $self->is_just_judge();
+    return   if $hash->{ $VAL_BY_GUEST };
+    return   if $self->is_just_guest();
+    return 1 if $hash->{ $VAL_BY_PANELIST };
+    return   if defined $hash->{ $VAL_BY_PANELIST };
+    return;
+} ## end sub is_file_by_judge
 
 sub is_file_by_panelist {
     my ( $self ) = @_;
@@ -536,6 +582,10 @@ sub is_file_by_room {
 ##     Generate a section for each guest
 ## --no-section-by-guest
 ##     Do not generate a section for each guest
+## --section-by-judge
+##     Generate a section for each judge
+## --no-section-by-judge
+##     Do not generate a section for each judge
 ## --section-by-presenter
 ##     Generate a section for each presenter, implies --section-by-guest
 ## --no-section-by-presenter
@@ -568,6 +618,11 @@ push @opt_parse,
     ],
     [ $OPT_SECTION_BY_, [ qw{ -guest } ], $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
     [
+    $OPT_SECTION_BY_, [ qw{ -!judge } ], $MOD_SUB_FLAG,
+    $VAL_BY_JUDGE => 0
+    ],
+    [ $OPT_SECTION_BY_, [ qw{ -judge } ], $MOD_SUB_FLAG, $VAL_BY_JUDGE => 1 ],
+    [
     $OPT_SECTION_BY_, [ qw{ -!presenter } ], $MOD_SUB_FLAG,
     $VAL_BY_PANELIST => 0
     ],
@@ -597,6 +652,7 @@ sub is_section_everyone_together {
     my ( $self ) = @_;
     return if $self->is_section_by_panelist();
     return if $self->is_section_by_guest();
+    return if $self->is_section_by_judge();
     return 1;
 } ## end sub is_section_everyone_together
 
@@ -616,10 +672,29 @@ sub is_section_by_guest {
     return 1 if $hash->{ $VAL_BY_GUEST };
     return   if defined $hash->{ $VAL_BY_GUEST };
     return 1 if $self->is_just_guest();
+    return   if $hash->{ $VAL_BY_JUDGE };
+    return   if $self->is_just_judge();
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return   if defined $hash->{ $VAL_BY_PANELIST };
     return;
 } ## end sub is_section_by_guest
+
+sub is_section_by_judge {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_SECTION_BY_ };
+    if ( !defined $hash ) {
+        return 1 if $self->is_just_judge();
+        return;
+    }
+    return 1 if $hash->{ $VAL_BY_JUDGE };
+    return   if defined $hash->{ $VAL_BY_JUDGE };
+    return 1 if $self->is_just_judge();
+    return   if $hash->{ $VAL_BY_GUEST };
+    return   if $self->is_just_guest();
+    return 1 if $hash->{ $VAL_BY_PANELIST };
+    return   if defined $hash->{ $VAL_BY_PANELIST };
+    return;
+}
 
 sub is_section_by_panelist {
     my ( $self ) = @_;
@@ -659,6 +734,8 @@ sub get_input_file {
 
 ## --just-guest
 ##     Hide descriptions for other presenters, implies --file-by-guest
+## --just-judge
+##     Hide descriptions for other presenters, implies --file-by-judge
 ## --just-presenter
 ##     Hide descriptions for other presenters, implies --file-by-presenter
 ## --just-panelist
@@ -670,6 +747,7 @@ Readonly our $OPT_JUST_ => q{just};
 push @opt_parse,
     [ $OPT_JUST_, [ qw{ everyone } ], $MOD_FLAG,     $VAL_EVERYONE_TOGETHER ],
     [ $OPT_JUST_, [ qw{ -guest } ],   $MOD_SUB_FLAG, $VAL_BY_GUEST => 1 ],
+    [ $OPT_JUST_, [ qw{ -judge } ],   $MOD_SUB_FLAG, $VAL_BY_JUDGE => 1 ],
     [
     $OPT_JUST_, [ qw{ -presenter } ], $MOD_SUB_FLAG,
     $VAL_BY_PANELIST => 1
@@ -685,6 +763,7 @@ sub is_just_everyone {
     my $hash = $self->{ $OPT_JUST_ };
     return 1 unless defined $hash;
     return if $hash->{ $VAL_BY_GUEST };
+    return if $hash->{ $VAL_BY_JUDGE };
     return if $hash->{ $VAL_BY_PANELIST };
     return 1;
 } ## end sub is_just_everyone
@@ -695,9 +774,21 @@ sub is_just_guest {
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_GUEST };
     return   if defined $hash->{ $VAL_BY_GUEST };
+    return   if $hash->{ $VAL_BY_JUDGE };
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return;
 } ## end sub is_just_guest
+
+sub is_just_judge {
+    my ( $self ) = @_;
+    my $hash = $self->{ $OPT_JUST_ };
+    return unless defined $hash;
+    return 1 if $hash->{ $VAL_BY_JUDGE };
+    return   if defined $hash->{ $VAL_BY_JUDGE };
+    return   if $hash->{ $VAL_BY_GUEST };
+    return 1 if $hash->{ $VAL_BY_PANELIST };
+    return;
+}
 
 sub is_just_panelist {
     my ( $self ) = @_;

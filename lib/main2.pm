@@ -3,13 +3,13 @@
 use v5.36.0;
 use utf8;
 
-use Carp         qw{ verbose croak };      ## no critic (ProhibitUnusedImport)
-use English      qw{ -no_match_vars };
-use File::Slurp  qw{ read_file };
-use File::Spec   qw{};
-use FindBin      qw{};
-use Getopt::Long qw{ GetOptionsFromArray };
-use HTML::Tiny   qw{};
+use Carp            qw{ verbose croak };         ## no critic (ProhibitUnusedImport)
+use English         qw{ -no_match_vars };
+use File::Slurp     qw{ read_file };
+use File::Spec      qw{};
+use FindBin         qw{};
+use Getopt::Long    qw{ GetOptionsFromArray };
+use HTML::Tiny      qw{};
 use List::MoreUtils qw{ firstidx };
 use List::Util      qw{ any };
 use Readonly;
@@ -358,8 +358,15 @@ sub dump_grid {
                     ? $Presenter::RANK_GUEST
                     : ()
                 ),
+                (     $options->is_section_by_judge()
+                    ? $Presenter::RANK_JUDGE
+                    : ()
+                ),
                 (   $options->is_section_by_panelist()
-                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    ? grep {
+                               $_ != $Presenter::RANK_GUEST
+                            && $_ != $Presenter::RANK_JUDGE
+                        } @Presenter::RANKS
                     : ()
                 ),
             ],
@@ -470,8 +477,15 @@ sub main_arg_set {
                     ? $Presenter::RANK_GUEST
                     : ()
                 ),
+                (     $options->is_file_by_judge()
+                    ? $Presenter::RANK_JUDGE
+                    : ()
+                ),
                 (   $options->is_file_by_panelist()
-                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    ? grep {
+                               $_ != $Presenter::RANK_GUEST
+                            && $_ != $Presenter::RANK_JUDGE
+                        } @Presenter::RANKS
                     : ()
                 ),
             ],

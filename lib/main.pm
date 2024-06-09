@@ -1020,8 +1020,15 @@ sub dump_desc_timeslice {
                     ? $Presenter::RANK_GUEST
                     : ()
                 ),
+                (     $options->is_desc_by_judge()
+                    ? $Presenter::RANK_JUDGE
+                    : ()
+                ),
                 (   $options->is_desc_by_panelist()
-                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    ? grep {
+                               $_ != $Presenter::RANK_GUEST
+                            && $_ != $Presenter::RANK_JUDGE
+                        } @Presenter::RANKS
                     : ()
                 ),
             ],
@@ -1293,8 +1300,15 @@ sub dump_tables {
                     ? $Presenter::RANK_GUEST
                     : ()
                 ),
+                (     $options->is_section_by_judge()
+                    ? $Presenter::RANK_JUDGE
+                    : ()
+                ),
                 (   $options->is_section_by_panelist()
-                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    ? grep {
+                               $_ != $Presenter::RANK_GUEST
+                            && $_ != $Presenter::RANK_JUDGE
+                        } @Presenter::RANKS
                     : ()
                 ),
             ],
@@ -1537,8 +1551,13 @@ sub main_arg_set {
                     ? $Presenter::RANK_GUEST
                     : ()
                 ),
+                ( $options->is_file_by_judge()
+                    ? $Presenter::RANK_JUDGE
+                    : ()
+                ),
                 (   $options->is_file_by_panelist()
-                    ? grep { $_ != $Presenter::RANK_GUEST } @Presenter::RANKS
+                    ? grep { $_ != $Presenter::RANK_GUEST && $_ != $Presenter::RANK_JUDGE }
+                      @Presenter::RANKS
                     : ()
                 ),
             ],
