@@ -1040,8 +1040,9 @@ sub dump_desc_timeslice {
     foreach my $desc_filter ( @filters ) {
         my $on_dump;
         my $region_writer;
+        my @cb_args = ( $writer, $desc_filter, $region );
         $on_dump = sub {
-            $region_writer //= desc_writer( $writer, $desc_filter, $region );
+            $region_writer //= desc_writer( @cb_args );
             return $region_writer;
         };
         dump_desc_body_regions( $on_dump, $desc_filter, $region, 0 );
@@ -1050,6 +1051,7 @@ sub dump_desc_timeslice {
         if (   defined $desc_filter->get_selected_presenter()
             && $options->is_just_everyone()
             && $options->is_desc_everyone_together() ) {
+            @cb_args = ( $writer, $desc_filter, $region, 1 );
             dump_desc_body_regions( $on_dump, $desc_filter, $region, 1 );
             $region_writer = undef;
         } ## end if ( defined $desc_filter...)
@@ -1551,13 +1553,15 @@ sub main_arg_set {
                     ? $Presenter::RANK_GUEST
                     : ()
                 ),
-                ( $options->is_file_by_judge()
+                (     $options->is_file_by_judge()
                     ? $Presenter::RANK_JUDGE
                     : ()
                 ),
                 (   $options->is_file_by_panelist()
-                    ? grep { $_ != $Presenter::RANK_GUEST && $_ != $Presenter::RANK_JUDGE }
-                      @Presenter::RANKS
+                    ? grep {
+                               $_ != $Presenter::RANK_GUEST
+                            && $_ != $Presenter::RANK_JUDGE
+                        } @Presenter::RANKS
                     : ()
                 ),
             ],
