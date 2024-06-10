@@ -118,26 +118,26 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     wget \
     xz \
     zlib zlib-dev \
-    && curl -fL https://www.cpan.org/src/5.0/perl-5.38.0.tar.xz -o perl-5.38.0.tar.xz \
-    && echo 'eca551caec3bc549a4e590c0015003790bdd1a604ffe19cc78ee631d51f7072e *perl-5.38.0.tar.xz' | sha256sum -c - \
-    && tar --strip-components=1 -xaf perl-5.38.0.tar.xz -C /usr/src/perl \
-    && rm perl-5.38.0.tar.xz \
+    && curl -fL https://cpan.metacpan.org/authors/id/H/HA/HAARG/perl-5.40.0.tar.gz -o perl-5.40.0.tar.gz \
+    && echo 'c740348f357396327a9795d3e8323bafd0fe8a5c7835fc1cbaba0cc8dfe7161f *perl-5.40.0.tar.gz' | sha256sum -c - \
+    && tar --strip-components=1 -xaf perl-5.40.0.tar.gz -C /usr/src/perl \
+    && rm perl-5.40.0.tar.gz \
     && cat *.patch | patch -p1 \
     && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
     && archBits="$(dpkg-architecture --query DEB_BUILD_ARCH_BITS)" \
-    && archFlag="$([ "$archBits" = '64' ] && echo '-D''use64bitall' || echo '-D''use64bitint')" \
-    && ./Configure -D''archname="$gnuArch" "$archFlag" -D''useshrplib -D''vendorprefix=/usr/local  -des \
+    && archFlag="$([ "$archBits" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
+    && ./Configure -Darchname="$gnuArch" "$archFlag" -Duseshrplib -Dvendorprefix=/usr/local  -des \
     && make -j$(nproc) \
     && TEST_JOBS=$(nproc) make test_harness \
     && make install \
     && cd /usr/src \
-    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7046.tar.gz \
-    && echo '3e8c9d9b44a7348f9acc917163dbfc15bd5ea72501492cea3a35b346440ff862 *App-cpanminus-1.7046.tar.gz' | sha256sum -c - \
-    && tar -xzf App-cpanminus-1.7046.tar.gz && cd App-cpanminus-1.7046 && perl bin/cpanm . && cd /root \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7047.tar.gz \
+    && echo '963e63c6e1a8725ff2f624e9086396ae150db51dd0a337c3781d09a994af05a5 *App-cpanminus-1.7047.tar.gz' | sha256sum -c - \
+    && tar -xzf App-cpanminus-1.7047.tar.gz && cd App-cpanminus-1.7047 && perl bin/cpanm . && cd /root \
     && cpanm IO::Socket::SSL XML::Parser \
-    && curl -fL https://raw.githubusercontent.com/skaji/cpm/0.997011/cpm -o /usr/local/bin/cpm \
+    && curl -fL https://raw.githubusercontent.com/skaji/cpm/0.997017/cpm -o /usr/local/bin/cpm \
     # sha256 checksum is from docker-perl team, cf https://github.com/docker-library/official-images/pull/12612#issuecomment-1158288299
-    && echo '7dee2176a450a8be3a6b9b91dac603a0c3a7e807042626d3fe6c93d843f75610 */usr/local/bin/cpm' | sha256sum -c - \
+    && echo 'e3931a7d994c96f9c74b97d1b5b75a554fc4f06eadef1eca26ecc0bdcd1f2d11 */usr/local/bin/cpm' | sha256sum -c - \
     && chmod +x /usr/local/bin/cpm \
     && runDeps="$( \
     scanelf --needed --nobanner --recursive /usr/local \
@@ -165,8 +165,9 @@ ARG USER_ID
 ARG USER_NAME
 ARG USER_SHELL
 
-# TODO - Consider using Carton
+# TODO - Consider using Carton or Carmel
 # https://metacpan.org/pod/Carton
+# https://metacpan.org/pod/Carmel
 
 # Perl modules requiring special handling
 # Archive::Zip requires full unzip, not busybox for testing
@@ -185,6 +186,7 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
 # Other perl modules
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     cpanm \
+    Carmel \
     Carton \
     common::sense \
     Date::Parse \
