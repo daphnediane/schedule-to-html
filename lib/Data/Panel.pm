@@ -8,14 +8,16 @@ use utf8;
 use Carp qw{croak};
 use Readonly;
 
-use Data::PanelType qw{};
-use Data::Room qw{};
-use PresenterSet qw{};
+use Data::PanelType  qw{};
+use Data::Room       qw{};
+use PresenterSet     qw{};
 use Table::PanelType qw{};
 
-Readonly our $COST_FREE  => q{$} . q{0};
-Readonly our $COST_TBD   => q{$} . q{TBD};
-Readonly our $COST_MODEL => q{model};
+Readonly our $COST_HIDDEN => q{*};
+Readonly our $COST_KIDS   => q{Kids};
+Readonly our $COST_FREE   => q{$} . q{0};
+Readonly our $COST_TBD    => q{$} . q{TBD};
+Readonly our $COST_MODEL  => q{model};
 
 ## no critic(ProhibitComplexRegexes)
 Readonly our $RE_FREE => qr{
@@ -334,9 +336,11 @@ sub get_cost {
     my ( $self ) = @_;
     my $cost = $self->_get_cost();
     if ( defined $cost ) {
+        return if $cost eq $COST_KIDS;
         return if $cost eq $COST_FREE;
+        return if $cost eq $COST_HIDDEN;
         return $cost;
-    }
+    } ## end if ( defined $cost )
 
     return $COST_TBD if $self->get_panel_type()->is_workshop();
 
@@ -350,6 +354,14 @@ sub get_cost_is_model {
     return 1 if $cost eq $COST_MODEL;
     return;
 } ## end sub get_cost_is_model
+
+sub get_is_free_kid_panel {
+    my ( $self ) = @_;
+    my $cost = $self->_get_cost();
+    return unless defined $cost;
+    return 1 if $cost eq $COST_KIDS;
+    return;
+} ## end sub get_is_free_kid_panel
 
 sub get_cost_is_missing {
     my ( $self ) = @_;

@@ -694,7 +694,7 @@ sub is_section_by_judge {
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return   if defined $hash->{ $VAL_BY_PANELIST };
     return;
-}
+} ## end sub is_section_by_judge
 
 sub is_section_by_panelist {
     my ( $self ) = @_;
@@ -788,7 +788,7 @@ sub is_just_judge {
     return   if $hash->{ $VAL_BY_GUEST };
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return;
-}
+} ## end sub is_just_judge
 
 sub is_just_panelist {
     my ( $self ) = @_;
@@ -946,11 +946,15 @@ sub get_paneltypes_hidden {
 ## --hide-breaks
 ##     Hide descriptions for breaks, default
 ## --show-free
-##     Show descriptions for panels that are free, implies --hide-premium
+##     Show descriptions for panels that are free, implies --hide-premium, --hide-kids
 ## --hide-free
 ##     Hide descriptions for panels that are free
+## --show-kids
+##     Show descriptions for panels that are kids, implies --hide-premium, --hide-free
+## --hide-kids
+##     Hide descriptions for panels that are kids
 ## --show-premium
-##     Show descriptions for panels that are premium, implies --hide-free
+##     Show descriptions for panels that are premium, implies --hide-free, --hide-kids
 ## --hide-premium
 ##     Hide descriptions for panels that are premium
 ## --show-day
@@ -976,17 +980,20 @@ sub get_paneltypes_hidden {
 ## --just-descriptions
 ##     Alias of --show-descriptions --hide-grid
 ## --just-free
-##     Alias of --show-free --hide-premium
+##     Alias of --show-free --hide-premium --hide-kids
 ## --just-grid
 ##     Alias of --show-grid --hide-descriptions
+## --just-kids
+##     Alias of --show-kids --hide-premium --hide-free
 ## --just-premium
-##     Alias of --show-premium --hide-free
+##     Alias of --show-premium --hide-free --hide-kids
 
 Readonly our $OPT_SHOW                 => q{show/hide};
 Readonly our $VAL_SHOW_ALL_ROOMS_      => q{/all-rooms};
 Readonly our $VAL_SHOW_AV_             => q{/av};
 Readonly our $VAL_SHOW_BREAKS_         => q{/breaks};
 Readonly our $VAL_SHOW_COST_FREE_      => q{/free};
+Readonly our $VAL_SHOW_COST_KIDS_      => q{/kids};
 Readonly our $VAL_SHOW_COST_PREMIUM_   => q{/premium};
 Readonly our $VAL_SHOW_DAY_COLUMN_     => q{/day-column};
 Readonly our $VAL_SHOW_DIFFICULTY_     => q{/difficulty};
@@ -1011,6 +1018,14 @@ push @opt_parse,
     [ $OPT_SHOW, [ qw{ -free } ],  $MOD_SUB_FLAG, $VAL_SHOW_COST_FREE_ => 1 ],
     [
     $OPT_SHOW, [ qw{ just-free } ], $MOD_SUB_FLAG, $VAL_SHOW_COST_FREE_ => 1,
+    $VAL_SHOW_COST_KIDS_    => 0,
+    $VAL_SHOW_COST_PREMIUM_ => 0
+    ],
+    [ $OPT_SHOW, [ qw{ -!kids } ], $MOD_SUB_FLAG, $VAL_SHOW_COST_KIDS_ => 0 ],
+    [ $OPT_SHOW, [ qw{ -kids } ],  $MOD_SUB_FLAG, $VAL_SHOW_COST_KIDS_ => 1 ],
+    [
+    $OPT_SHOW, [ qw{ just-kids } ], $MOD_SUB_FLAG, $VAL_SHOW_COST_KIDS_ => 1,
+    $VAL_SHOW_COST_FREE_    => 0,
     $VAL_SHOW_COST_PREMIUM_ => 0
     ],
     [
@@ -1023,7 +1038,8 @@ push @opt_parse,
     ],
     [
     $OPT_SHOW, [ qw{ just-premium } ], $MOD_SUB_FLAG,
-    $VAL_SHOW_COST_PREMIUM_ => 1, $VAL_SHOW_COST_FREE_ => 0
+    $VAL_SHOW_COST_PREMIUM_ => 1, $VAL_SHOW_COST_FREE_ => 0,
+    $VAL_SHOW_COST_KIDS_    => 0
     ],
     [ $OPT_SHOW, [ qw{ -!day } ], $MOD_SUB_FLAG, $VAL_SHOW_DAY_COLUMN_ => 0 ],
     [ $OPT_SHOW, [ qw{ -day } ],  $MOD_SUB_FLAG, $VAL_SHOW_DAY_COLUMN_ => 1 ],
@@ -1116,15 +1132,26 @@ sub show_cost_free {
     my ( $self ) = @_;
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
+    return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_PREMIUM_ };
     return 1;
 } ## end sub show_cost_free
+
+sub show_cost_kids {
+    my ( $self ) = @_;
+    return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
+    return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
+    return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
+    return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_PREMIUM_ };
+    return 1;
+} ## end sub show_cost_kids
 
 sub show_cost_premium {
     my ( $self ) = @_;
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_PREMIUM_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_PREMIUM_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
+    return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
     return 1;
 } ## end sub show_cost_premium
 
@@ -1555,8 +1582,10 @@ sub options_from {
         }
     }
 
-    die qq{Both free and premium panels hidden\n}
-        unless $opt->show_cost_free() || $opt->show_cost_premium();
+    die qq{All free, kids, and premium panels hidden\n}
+        unless $opt->show_cost_free()
+        || $opt->show_cost_premium()
+        || $opt->show_cost_kids();
 
     die qq{Both grid and descriptions hidden\n}
         unless $opt->show_sect_descriptions() || $opt->show_sect_grid();

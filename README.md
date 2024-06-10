@@ -22,6 +22,9 @@ separately. Note there is a bug where --show/hide-paneltype and --show/hide-room
 subsequent option sets. See dump_flyers for an example of this being used to generate a bunch of
 versions of files with a single run.
 
+The devcontainer should have all the dependencies needed, but there is also a cpanfile if you want to
+just install the dependencies using carton, carmel, or cpanm.
+
 ## Options:
 
 | Option                       | Meaning                                                                                               |
@@ -55,6 +58,7 @@ versions of files with a single run.
 | --hide-difficulty            | Hide difficulty information                                                                           |
 | --hide-free                  | Hide descriptions for panels that are free                                                            |
 | --hide-grid                  | Does not includes the grid, implies --show-description                                                |
+| --hide-kids                  | Hide descriptions for panels that are kids                                                            |
 | --hide-paneltype _paneltype_ | Hide paneltype even if normally shown                                                                 |
 | --hide-premium               | Hide descriptions for panels that are premium                                                         |
 | --hide-presenter-on-grid     | Do not replace "time" with presenter name, default                                                    |
@@ -96,10 +100,11 @@ versions of files with a single run.
 | --show-day                   | Include a column for week day                                                                         |
 | --show-descriptions          | Includes panel descriptions, implies --hide-grid                                                      |
 | --show-difficulty            | Show difficulty information, default                                                                  |
-| --show-free                  | Show descriptions for panels that are free, implies --hide-premium                                    |
+| --show-free                  | Show descriptions for panels that are free, implies --hide-premium, --hide-kids                       |
 | --show-grid                  | Includes the grid, implies --hide-description                                                         |
+| --show-kids                  | Show descriptions for panels that are kids, implies --hide-premium, --hide-free                       |
 | --show-paneltype _paneltype_ | Show paneltype even if normally hidden                                                                |
-| --show-premium               | Show descriptions for panels that are premium, implies --hide-free                                    |
+| --show-premium               | Show descriptions for panels that are premium, implies --hide-free, --hide-kids                       |
 | --show-presenter-on-grid     | Replace "time" with presenter name                                                                    |
 | --show-room _room_           | Show room, even if normally hidden                                                                    |
 | --split                      | Implies --split-timeregion if --split-day not set                                                     |
@@ -115,35 +120,37 @@ versions of files with a single run.
 | --unified                    | Do not split table by SPLIT time segments or days                                                     |
 
 ### Aliases
-| Alias                    | Equivalent to option            |
-| ------------------------ | ------------------------------- |
-| --desc-by-panelist       | --desc-by-presenter             |
-| --descriptions           | --show-descriptions             |
-| --file-by-panelist       | --file-by-presenter             |
-| --flyer                  | --mode-flyer                    |
-| --grid                   | --show-grid                     |
-| --just-descriptions      | --show-descriptions --hide-grid |
-| --just-free              | --show-free --hide-premium      |
-| --just-grid              | --show-grid --hide-descriptions |
-| --just-panelist          | --just-presenter                |
-| --just-premium           | --show-premium --hide-free      |
-| --kiosk                  | --mode-kiosk                    |
-| --no-desc-by-panelist    | --no-desc-by-presenter          |
-| --no-embed-css           | --inline-css                    |
-| --no-file-by-day         | --file-all-days                 |
-| --no-file-by-panelist    | --no-file-by-presenter          |
-| --no-file-by-room        | --file-all-rooms                |
-| --no-inline-css          | --embed-css                     |
-| --no-section-by-day      | --section-all-days              |
-| --no-section-by-panelist | --no-section-by-presenter       |
-| --no-section-by-room     | --section-all-rooms             |
-| --no-separate            | --desc-loc-mixed                |
-| --no-split               | --unified                       |
-| --postcard               | --mode-postcard                 |
-| --section-by-panelist    | --section-by-presenter          |
-| --separate               | --desc-loc-last                 |
-| --show-unused-rooms      | --show-all-rooms                |
-| --split-half-day         | --split-timeregion              |
+
+| Alias                    | Equivalent to option                   |
+| ------------------------ | -------------------------------------- |
+| --desc-by-panelist       | --desc-by-presenter                    |
+| --descriptions           | --show-descriptions                    |
+| --file-by-panelist       | --file-by-presenter                    |
+| --flyer                  | --mode-flyer                           |
+| --grid                   | --show-grid                            |
+| --just-descriptions      | --show-descriptions --hide-grid        |
+| --just-free              | --show-free --hide-premium --hide-kids |
+| --just-grid              | --show-grid --hide-descriptions        |
+| --just-kids              | --show-kids --hide-premium --hide-free |
+| --just-panelist          | --just-presenter                       |
+| --just-premium           | --show-premium --hide-free --hide-kids |
+| --kiosk                  | --mode-kiosk                           |
+| --no-desc-by-panelist    | --no-desc-by-presenter                 |
+| --no-embed-css           | --inline-css                           |
+| --no-file-by-day         | --file-all-days                        |
+| --no-file-by-panelist    | --no-file-by-presenter                 |
+| --no-file-by-room        | --file-all-rooms                       |
+| --no-inline-css          | --embed-css                            |
+| --no-section-by-day      | --section-all-days                     |
+| --no-section-by-panelist | --no-section-by-presenter              |
+| --no-section-by-room     | --section-all-rooms                    |
+| --no-separate            | --desc-loc-mixed                       |
+| --no-split               | --unified                              |
+| --postcard               | --mode-postcard                        |
+| --section-by-panelist    | --section-by-presenter                 |
+| --separate               | --desc-loc-last                        |
+| --show-unused-rooms      | --show-all-rooms                       |
+| --split-half-day         | --split-timeregion                     |
 
 If no option is specified for either grids or descriptions both are included.
 
@@ -332,7 +339,18 @@ Example:
 
 ### Cost
 
-How much does this panel cost to attend. May be left blank
+How much does this panel cost to attend. May be left blank, use "*" to
+hide cost for workshops. "Free" or "$0" may be used to indicate a free
+panel. Use "Kids" to indicate a workshop for younger attendees.
+
+Example:
+
+* $5
+* Free
+* $0
+* *
+* Kids
+* 
 
 ### Seats sold
 
@@ -344,7 +362,8 @@ How many totals seats are their for this panel. Currently unused.
 
 ### Full
 
-Marks a panel as full, will apply special styling to full panels. Future: May be implied if Seats Sold >= Capacity.
+Marks a panel as full, will apply special styling to full panels. Future:
+May be implied if Seats Sold >= Capacity.
 
 ### Hide Panelist
 
@@ -362,6 +381,7 @@ to hide panelist.
 Example:
 
 * YES
+* *
 * 
 
 ### Alt Panelist
@@ -382,6 +402,7 @@ or _Kind_:Other
 The following kinds are currently supported
 
 * G - Guest
+* J - Judge
 * S - Staff
 * I - Invited panelist
 * P - Fan panelist
@@ -549,8 +570,35 @@ a docker compose container with a debian based perl instance.
 | **docker-compose.yml** | Docker compose file defines schedule-to-html service   |
 | **Dockerfile**         | Container definition for the schedule-to-html service. |
 
+## Assumptions
+
+While I try to provide a lot of options,
+there are assumptions that the event will be similar to Cosplay America,
+this might need additional generalizations if you wish to use with other
+events.
+
+* That kid friendly workshops do not have an additional cost
+* That all other workshops do have an additional cost
+* The presenters and panelist can be split into guest, judges, staff, industry, and others.
+* A presenter is a member of at most one group
+* A presenter that is part of a group, can either always have the group listed ( x:name==group ) or never have the group listed ( x:name=group )
+* If all members of a group are presenters, then the group is shown instead of the individual members
+* That the assumptions I listed are the key ones that you might care about.
+* That probably no one else uses this code.
+* That anyone that wants to use this can understand perl code.
+* That anyone besides me will read this documentation.
+* That I will someday finish the rewrite to use a better layout than the current table based one.
+
 ## Licensing:
 
 For desc_tbl see LICENSE
 
 Files in .devcontainer/container may have their own license
+
+## Finally:
+
+If you do end up using this, feel free to let me know or don't if you wish.
+
+Thanks for reading.
+
+- Daphne Pfister

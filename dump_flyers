@@ -85,6 +85,15 @@ args+=(
     --just-descriptions
 )
 
+args+=(
+    --
+    --style print:portrait.css
+    --input input/Test.xlsx
+    --output output/flyers/kids.html
+    --just-kids
+    --just-descriptions
+)
+
 mkdir -p output/flyers/rooms
 args+=(
     --
@@ -126,7 +135,7 @@ args+=(
     --show-breaks
     --hide-unused-rooms
     --file-by-judge
-)   
+)
 
 args+=(
     --

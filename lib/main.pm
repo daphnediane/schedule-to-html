@@ -639,7 +639,16 @@ sub dump_desc_panel_note {
     if ( $conflict ) {
         push @note, $h->b( q{Conflicts with one of your panels.} );
     }
-    if ( defined $panel->get_cost() ) {
+    if ( $panel->get_is_free_kid_panel() ) {
+        push @note, $h->b( q{Kid friendly workshop:} ),
+            (
+            $panel->get_capacity()
+            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
+            : ()
+            ),
+            q{ Priority given to kids 13 and under.};
+    } ## end if ( $panel->get_is_free_kid_panel...)
+    elsif ( defined $panel->get_cost() ) {
         push @note, $h->b( q{Premium workshop:} ),
             (
             $panel->get_capacity()
@@ -651,7 +660,7 @@ sub dump_desc_panel_note {
             : $panel->get_cost_is_missing()
             ? q{ May require a separate purchase.}
             : q{ Requires a separate purchase.};
-    } ## end if ( defined $panel->get_cost...)
+    } ## end elsif ( defined $panel->get_cost...)
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
     }
@@ -774,10 +783,11 @@ sub should_panel_desc_be_dumped {
         } ## end if ( defined $filter_panelist)
     } ## end else [ if ( $panel_state->get_is_break...)]
 
-    return 1
-        if defined $panel->get_cost()
-        ? $options->show_cost_premium()
-        : $options->show_cost_free();
+    return
+        1
+        if $panel->get_is_free_kid_panel() ? $options->show_cost_kids()
+        : defined $panel->get_cost()       ? $options->show_cost_premium()
+        :                                    $options->show_cost_free();
 
     return;
 } ## end sub should_panel_desc_be_dumped
