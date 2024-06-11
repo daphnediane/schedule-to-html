@@ -658,6 +658,13 @@ DISTRIBUTIONS
       perl 5.006
       strict 0
       warnings 0
+  Feature-Compat-Class-0.06
+    pathname: P/PE/PEVANS/Feature-Compat-Class-0.06.tar.gz
+    provides:
+      Feature::Compat::Class 0.06
+    requirements:
+      Module::Build 0.4004
+      perl 5.014
   File-Listing-6.16
     pathname: P/PL/PLICEASE/File-Listing-6.16.tar.gz
     provides:

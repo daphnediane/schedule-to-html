@@ -1,7 +1,8 @@
 # cpanfile for desc_tbl
-requires 'perl', '>= 5.036';
+requires 'perl', '>= 5.038';
 requires 'common::sense';
 requires 'Date::Parse';
+requires 'Feature::Compat::Class';
 requires 'File::Slurp';
 requires 'HTML::Tiny';
 requires 'List::MoreUtils';
@@ -11,6 +12,7 @@ requires 'Readonly::XS';
 requires 'Spreadsheet::ParseXLSX';
 
 on 'develop' => sub {
+
     # should this be recommends
     requires 'Devel::NYTProf';
     requires 'Perl::Critic';

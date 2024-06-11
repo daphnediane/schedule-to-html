@@ -191,6 +191,7 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     common::sense \
     Date::Parse \
     Devel::NYTProf \
+    Feature::Compat::Class \
     File::Slurp \
     HTML::Tiny \
     List::MoreUtils \
