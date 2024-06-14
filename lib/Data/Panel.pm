@@ -165,6 +165,12 @@ my @capacity
     :Arg(Name => q{capacity})
     :Get(Name => q{get_capacity});
 
+my @ticket_sale
+    :Field
+    :Type(scalar)
+    :Arg(Name => q{ticket_sale})
+    :Get(Name => q{get_ticket_sale});
+
 my @panel_kind
     :Field
     :Type(scalar)

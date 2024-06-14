@@ -23,6 +23,7 @@ Readonly our $ROOM_NAME       => q{Room};
 Readonly our $ROOM_REAL_ROOM  => q{Real_Room};
 Readonly our $ROOM_SORT_KEY   => q{Room_Idx};
 Readonly our $START_TIME      => q{Start_Time};
+Readonly our $TICKET_SALE     => q{Ticket_Sale};
 Readonly our $UNIQUE_ID       => q{Uniq_ID};
 
 1;

@@ -400,15 +400,30 @@ sub dump_grid_row_cell_group {    ## no critic(Subroutines::ProhibitManyArgs)
 
     my $cost = $panel->get_cost();
     if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
-        $tdata->add_div(
-            {   out_class(
-                    map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
-                        $SUBCLASS_PIECE_COST,
+        my $url = $panel->get_ticket_sale();
+        if ( defined $url ) {
+            $tdata->add_a(
+                {   href => $url,
+                    out_class(
+                        map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
+                            $SUBCLASS_PIECE_COST,
+                        )
                     )
-                )
-            },
-            $cost
-        );
+                },
+                $cost
+            );
+        } ## end if ( defined $url )
+        else {
+            $tdata->add_div(
+                {   out_class(
+                        map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } (
+                            $SUBCLASS_PIECE_COST,
+                        )
+                    )
+                },
+                $cost
+            );
+        } ## end else [ if ( defined $url ) ]
     } ## end if ( defined $cost && ...)
 
     if ( defined $credited_presenter ) {
@@ -868,15 +883,28 @@ sub dump_desc_panel_body {
 
     my $cost = $panel->get_cost();
     if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
-        $writer->add_div(
-            {   out_class(
-                    map { join_subclass( $CLASS_DESC_BASE, $_ ) } (
-                        $SUBCLASS_PIECE_COST,
+        my $url = $panel->get_ticket_sale();
+        if ( defined $url ) {
+            $writer->add_a(
+                {   href => $url,
+                    out_class( join_subclass(
+                        $CLASS_DESC_BASE, $SUBCLASS_PIECE_COST
+                    ) )
+                },
+                $cost
+            );
+        } ## end if ( defined $url )
+        else {
+            $writer->add_div(
+                {   out_class(
+                        map { join_subclass( $CLASS_DESC_BASE, $_ ) } (
+                            $SUBCLASS_PIECE_COST,
+                        )
                     )
-                )
-            },
-            $cost
-        );
+                },
+                $cost
+            );
+        } ## end else [ if ( defined $url ) ]
     } ## end if ( defined $cost && ...)
     if ( $options->is_mode_kiosk() ) {
         $writer->add_p(

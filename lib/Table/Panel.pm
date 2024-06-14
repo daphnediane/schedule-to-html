@@ -7,14 +7,14 @@ use utf8;
 
 use List::Util qw{ any };
 
-use Canonical qw{ :all };
-use Data::Room qw{};
+use Canonical    qw{ :all };
+use Data::Room   qw{};
 use Field::Panel qw{};
-use Field::Room qw{};
-use Presenter qw{};
+use Field::Room  qw{};
+use Presenter    qw{};
 use PresenterSet qw{};
-use TimeDecoder qw{ :from_text :timepoints };
-use Workbook qw{};
+use TimeDecoder  qw{ :from_text :timepoints };
+use Workbook     qw{};
 
 our @EXPORT_OK = qw {
     get_split_panels
@@ -178,6 +178,7 @@ sub read_panel_ {
         description   => $panel_data{ $Field::Panel::DESCRIPTION },
         difficulty    => $panel_data{ $Field::Panel::DIFFICULTY },
         capacity      => $panel_data{ $Field::Panel::CAPACITY },
+        ticket_sale   => $panel_data{ $Field::Panel::TICKET_SALE },
         duration      => $panel_data{ $Field::Panel::DURATION },
         end_time      => $panel_data{ $Field::Panel::END_TIME },
         is_full       => $panel_data{ $Field::Panel::FULL },
