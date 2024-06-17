@@ -69,11 +69,35 @@ args+=(
 args+=(
     --
     --style print:legal_grid.css
-    --output output/flyers/wide.html
+    --output output/flyers/wide_grid.html
     --split-day
     --show-grid
     --hide-descriptions
     --hide-unused-rooms
+)
+
+args+=(
+    --
+    --style print:legal_desc.css
+    --output output/flyers/wide_desc.html
+    --just-descriptions
+)
+
+args+=(
+    --
+    --style print:poster17x11_grid.css
+    --output output/flyers/poster17x11_grid.html
+    --split-day
+    --show-grid
+    --hide-descriptions
+    --hide-unused-rooms
+)
+
+args+=(
+    --
+    --style print:poster17x11v3.css
+    --output output/flyers/poster17x11_desc.html
+    --just-descriptions
 )
 
 args+=(
@@ -84,6 +108,13 @@ args+=(
     --show-grid
     --hide-descriptions
     --hide-unused-rooms
+)
+
+args+=(
+    --
+    --style print:poster30x20_grid.css
+    --output output/flyers/poster30x20_desc.html
+    --just-descriptions
 )
 
 args+=(

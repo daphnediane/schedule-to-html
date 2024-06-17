@@ -3,7 +3,7 @@
 }
 
 html {
-	column-count: 3;
+	column-count: 6;
 	column-span: none;
 }
 
@@ -18,8 +18,8 @@ html {
 }
 
 .descriptions {
-	font-size: 6px;
-	column-count: 2;
+	font-size: 12px;
+	column-count: 1;
 }
 
 .longPanelist {
