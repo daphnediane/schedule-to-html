@@ -1,0 +1,34 @@
+@page {
+    size: 30in 20in;
+}
+
+html {
+    column-count: 3;
+    column-span: none;
+}
+
+.schedule {
+    column-span: none;
+    break-before: column;
+    font-size: 12px;
+}
+
+.schedHeader {
+    height: 5em;
+}
+
+.schedColumnsRoom {
+    width: 1.15in;
+    min-width: 1.15in;
+    max-width: 1.15in;
+}
+
+.descriptions {
+    font-size: 12px;
+    column-count: 2;
+}
+
+.longPanelist {
+    font-stretch: condensed;
+    font-family: "Helvetica Narrow", "Arial Narrow";
+}

@@ -78,6 +78,16 @@ args+=(
 
 args+=(
     --
+    --style print:poster30x20_grid.css
+    --output output/flyers/poster30x20_grid.html
+    --split-day
+    --show-grid
+    --hide-descriptions
+    --hide-unused-rooms
+)
+
+args+=(
+    --
     --style print:portrait.css
     --input input/Test.xlsx
     --output output/flyers/workshop.html
@@ -105,6 +115,18 @@ args+=(
     --hide-unused-rooms
     --section-by-room
     --file-by-day
+)
+
+args+=(
+    --
+    --pre-title 'workshop-poster'
+    --style print:poster17x11v3.css
+    --input input/Test.xlsx
+    --output output/flyers/workshop-poster.html
+    --show-premium
+    --show-kids
+    --hide-free
+    --just-descriptions
 )
 
 mkdir -p output/flyers/guests
