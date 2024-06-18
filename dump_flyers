@@ -30,20 +30,6 @@ args+=(
     --show-av
 )
 
-mkdir -p output/flyers/panelists
-args+=(
-    --
-    --pre-title 'panelist'
-    --style print:landscape.css
-    --output output/flyers/panelists/
-    --split-day
-    --separate
-    --hide-unused-rooms
-    --file-by-presenter
-    --no-file-by-guest
-    --no-file-by-judge
-)
-
 args+=(
     --
     --style print:landscape.css
@@ -68,6 +54,7 @@ args+=(
 
 args+=(
     --
+    --pre-title 'legal-grid'
     --style print:legal_grid.css
     --output output/flyers/wide_grid.html
     --split-day
@@ -78,6 +65,7 @@ args+=(
 
 args+=(
     --
+    --pre-title 'legal-desc'
     --style print:legal_desc.css
     --output output/flyers/wide_desc.html
     --just-descriptions
@@ -85,6 +73,7 @@ args+=(
 
 args+=(
     --
+    --pre-title 'tabloid-grid'
     --style print:poster17x11_grid.css
     --output output/flyers/poster17x11_grid.html
     --split-day
@@ -95,6 +84,7 @@ args+=(
 
 args+=(
     --
+    --pre-title 'tabloid-desc'
     --style print:poster17x11v3.css
     --output output/flyers/poster17x11_desc.html
     --just-descriptions
@@ -190,6 +180,35 @@ args+=(
     --file-by-judge
 )
 
+mkdir -p output/flyers/staff
+args+=(
+    --
+    --pre-title 'staff'
+    --style print:landscape.css
+    --output output/flyers/staff/
+    --split-day
+    --separate
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-breaks
+    --hide-unused-rooms
+    --file-by-staff
+)
+
+mkdir -p output/flyers/panelists
+args+=(
+    --
+    --pre-title 'panelist'
+    --style print:landscape.css
+    --output output/flyers/panelists/
+    --split-day
+    --separate
+    --hide-unused-rooms
+    --file-by-presenter
+    --no-file-by-guest
+    --no-file-by-judge
+)
+
 args+=(
     --
     --style print:landscape.css
@@ -218,9 +237,37 @@ args+=(
 args+=(
     --
     --style print:guest-quarter.css
-    --output output/flyers/postcards.html
+    --output output/flyers/postcards-guests.html
     --split-timeregion
     --section-by-guest
+    --section-by-day
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-presenter-on-grid
+    --hide-descriptions
+    --hide-unused
+)
+
+args+=(
+    --
+    --style print:guest-quarter.css
+    --output output/flyers/postcards-judges.html
+    --split-timeregion
+    --section-by-judge
+    --section-by-day
+    --hide-paneltype BR
+    --show-paneltype SM
+    --show-presenter-on-grid
+    --hide-descriptions
+    --hide-unused
+)
+
+args+=(
+    --
+    --style print:guest-quarter.css
+    --output output/flyers/postcards-staff.html
+    --split-timeregion
+    --section-by-staff
     --section-by-day
     --hide-paneltype BR
     --show-paneltype SM
