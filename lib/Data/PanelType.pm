@@ -56,7 +56,14 @@ my @is_hidden_key
     :Default(0)
     :Arg(Name => q{is_hidden})
     :Set(Name => q{set_is_hidden_}, Restricted => 1)
-    :Get(Name => q{get_is_hidden});
+    :Get(Name => q{get_is_hidden_}, Restricted => 1);
+
+my @is_override_hidden_key
+    :Field
+    :Type(scalar)
+    :Default(2)
+    :Set(Name => q{set_is_override_hidden_}, Restricted => 1)
+    :Get(Name => q{get_is_override_hidden_}, Restricted => 1);
 
 my @is_workshop_key
     :Field
@@ -99,17 +106,31 @@ sub is_cafe {
     return;
 } ## end sub is_cafe
 
-sub make_shown {
+sub override_make_shown {
     my ( $self ) = @_;
-    $self->set_is_hidden_( 0 );
+    $self->set_is_override_hidden_( 0 );
     return;
 }
 
-sub make_hidden {
+sub override_make_hidden {
     my ( $self ) = @_;
-    $self->set_is_hidden_( 1 );
+    $self->set_is_override_hidden_( 1 );
     return;
 }
+
+sub clear_override_hidden {
+    my ( $self ) = @_;
+    $self->set_is_override_hidden_( 2 );
+    return;
+}
+
+sub get_is_hidden {
+    my ( $self ) = @_;
+    my $res = $self->get_is_override_hidden_() // 2;
+    $res = $self->get_is_hidden_() if $res > 1;
+    return 1 if $res > 0;
+    return;
+} ## end sub get_is_hidden
 
 sub is_workshop {
     my ( $self ) = @_;

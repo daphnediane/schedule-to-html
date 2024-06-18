@@ -1530,26 +1530,32 @@ sub dump_kiosk {
 } ## end sub dump_kiosk
 
 sub update_hide_shown {
+    foreach my $room ( Table::Room::all_rooms() ) {
+        $room->clear_override_room_as_hidden();
+    }
     foreach my $room_name ( $options->get_rooms_shown() ) {
         my $room = Table::Room::lookup( $room_name );
         next unless defined $room;
-        $room->set_room_is_shown();
+        $room->override_room_as_shown();
     }
     foreach my $room_name ( $options->get_rooms_hidden() ) {
         my $room = Table::Room::lookup( $room_name );
         next unless defined $room;
-        $room->set_room_is_hidden();
+        $room->override_room_as_hidden();
     }
 
+    foreach my $panel_type ( Table::PanelType::all_types() ) {
+        $panel_type->clear_override_hidden();
+    }
     foreach my $paneltype_name ( $options->get_paneltypes_shown() ) {
         my $paneltype = Table::PanelType::lookup( $paneltype_name );
         next unless defined $paneltype;
-        $paneltype->make_shown();
+        $paneltype->override_make_shown();
     }
     foreach my $paneltype_name ( $options->get_paneltypes_hidden() ) {
         my $paneltype = Table::PanelType::lookup( $paneltype_name );
         next unless defined $paneltype;
-        $paneltype->make_hidden();
+        $paneltype->override_make_hidden();
     }
 
     return;

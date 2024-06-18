@@ -53,6 +53,14 @@ my @hide_room
     :Set(Name => q{set_room_is_hidden_}, Restricted => 1, Ret => q{New})
     :Get(Name => q{get_room_is_hidden_}, Restricted => 1);
 
+my @hide_room_override
+    :Field
+    :Type(scalar)
+    :Default(2)
+    :
+    Set(Name => q{set_room_is_hidden_override_}, Restricted => 1, Ret => q{New})
+    :Get(Name => q{get_room_is_hidden_override_}, Restricted => 1);
+
 ## use critic
 
 my @uid_map_;
@@ -140,29 +148,28 @@ sub get_is_split {
     return $self->has_prefix( $SPLIT_PREFIX );
 }
 
-sub set_room_is_hidden {
+sub override_room_as_hidden {
     my ( $self ) = @_;
-    my $hidden = $self->get_room_is_hidden_();
-    return                           if $hidden;
-    confess q{Room is already shown} if defined $hidden;
-    $self->set_room_is_hidden_( 1 );
+    $self->set_room_is_hidden_override_( 1 );
     return;
-} ## end sub set_room_is_hidden
+}
 
-sub set_room_is_shown {
+sub override_room_as_shown {
     my ( $self ) = @_;
-    my $hidden = $self->get_room_is_hidden_();
-    if ( defined $hidden ) {
-        return unless $hidden;
-        confess q{Room is already hidden};
-    }
-    $self->set_room_is_hidden_( 0 );
+    $self->set_room_is_hidden_override_( 0 );
     return;
-} ## end sub set_room_is_shown
+}
+
+sub clear_override_room_as_hidden {
+    my ( $self ) = @_;
+    $self->set_room_is_hidden_override_( 2 );
+    return;
+}
 
 sub get_room_is_hidden {
     my ( $self ) = @_;
-    my $hidden = $self->get_room_is_hidden_();
+    my $hidden = $self->get_room_is_hidden_override_() // 2;
+    $hidden = $self->get_room_is_hidden_() if $hidden > 1;
     return 1 if $hidden;
     return   if defined $hidden;
 
