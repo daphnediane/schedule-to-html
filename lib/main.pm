@@ -1062,10 +1062,15 @@ sub dump_desc_timeslice {
                     ? $Presenter::RANK_JUDGE
                     : ()
                 ),
+                (     $options->is_desc_by_staff()
+                    ? $Presenter::RANK_STAFF
+                    : ()
+                ),
                 (   $options->is_desc_by_panelist()
                     ? grep {
                                $_ != $Presenter::RANK_GUEST
                             && $_ != $Presenter::RANK_JUDGE
+                            && $_ != $Presenter::RANK_STAFF
                         } @Presenter::RANKS
                     : ()
                 ),
@@ -1344,10 +1349,15 @@ sub dump_tables {
                     ? $Presenter::RANK_JUDGE
                     : ()
                 ),
+                (     $options->is_section_by_staff()
+                    ? $Presenter::RANK_STAFF
+                    : ()
+                ),
                 (   $options->is_section_by_panelist()
                     ? grep {
                                $_ != $Presenter::RANK_GUEST
                             && $_ != $Presenter::RANK_JUDGE
+                            && $_ != $Presenter::RANK_STAFF
                         } @Presenter::RANKS
                     : ()
                 ),
@@ -1595,10 +1605,15 @@ sub main_arg_set {
                     ? $Presenter::RANK_JUDGE
                     : ()
                 ),
+                (     $options->is_file_by_staff()
+                    ? $Presenter::RANK_STAFF
+                    : ()
+                ),
                 (   $options->is_file_by_panelist()
                     ? grep {
                                $_ != $Presenter::RANK_GUEST
                             && $_ != $Presenter::RANK_JUDGE
+                            && $_ != $Presenter::RANK_STAFF
                         } @Presenter::RANKS
                     : ()
                 ),
