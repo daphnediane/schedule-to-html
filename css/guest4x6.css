@@ -1,6 +1,6 @@
 @page {
 	size: 6in 4in;
-	margin: auto;
+	margin: 0.125in;
 }
 
 html {
@@ -12,24 +12,32 @@ html {
 	page-break-after: auto;
 	column-span: none;
 	break-before: all;
-	font-size: 3.9pt;
+	font-size: 9.4px;
 	/*margin-block-start: 2in;*/
 }
 
 .scheduleFridayMorning {
-	font-size: 5.2pt;
+	font-size: 9.4px;
 }
 
 .scheduleFridayAfternoon {
-	font-size: 8.5pt;
+	font-size: 9.4px;
 }
 
 .scheduleSaturdayMorning {
-	font-size: 5.2pt;
+	font-size: 8.3px;
 }
 
 .scheduleSaturdayAfternoon {
-	font-size: 6.4pt;
+	font-size: 7.2px;
+}
+
+.scheduleSunday {
+	font-size: 6.6px;
+}
+
+.schedRoomName {
+	font-size: 6.6px;
 }
 
 .schedTimeSlot,
