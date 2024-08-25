@@ -134,54 +134,30 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked 
     perl-doc \
     perltidy
 
-FROM add-cpanm AS add-perl-expensive-modules
+FROM add-cpanm AS add-perl-modules
 
 ARG CACHE_CPANM
 
-# TODO - Consider using Carton or Carmel
-# https://metacpan.org/pod/Carton
-# https://metacpan.org/pod/Carmel
-
-# Perl modules requiring special handling
-# Archive::Zip requires full unzip, not a problem with perl image
-# IO::AIO has broken test under alpine, but works under debian
-# Perl::LanguageServer and Spreadsheet::ParseXLSX take a lot of time to install
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm Archive::Zip \
-    && cpanm IO::AIO \
-    && cpanm \
-    Perl::LanguageServer \
-    Spreadsheet::ParseXLSX
-
-FROM add-perl-expensive-modules AS add-perl-tools
-
-ARG CACHE_CPANM
-
-# Other perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
+    cpm install --global --test \
+    Archive::Zip \
     Carmel \
     Carton \
-    Perl::Critic \
-    Perl::Critic::TooMuchCode \
-    Perl::Tidy
-
-FROM add-perl-tools AS add-perl-modules
-
-ARG CACHE_CPANM
-
-# Other perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
     common::sense \
     Date::Parse \
     Devel::NYTProf \
     Feature::Compat::Class \
     File::Slurp \
     HTML::Tiny \
+    IO::AIO \
     List::MoreUtils \
     Object::InsideOut \
-    Readonly
+    Perl::Critic \
+    Perl::Critic::TooMuchCode \
+    Perl::LanguageServer \
+    Perl::Tidy \
+    Readonly \
+    Spreadsheet::ParseXLSX
 
 FROM add-perl-modules AS user-env
 

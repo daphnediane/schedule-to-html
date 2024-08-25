@@ -90,8 +90,10 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
 
 FROM add-packages AS add-cpanm
 
+ARG BUILDARCH
 ARG CACHE_CPANM
 ARG CACHE_PKG_VAR
+ARG TARGETARCH
 
 # Install perl, cpanm, and cpm
 # Based on https://github.com/Perl/docker-perl/
@@ -122,7 +124,7 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && archFlag="$([ "$archBits" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
     && ./Configure -Darchname="$gnuArch" "$archFlag" -Duseshrplib -Dvendorprefix=/usr/local  -des \
     && make -j$(nproc) \
-    && { TEST_JOBS=$(nproc) make test_harness || true; } \
+    && { TEST_JOBS=$(nproc) make test_harness || [[ ${BUILDARCH} != ${TARGETARCH} ]]; } \
     && make install \
     && cd /usr/src \
     && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7047.tar.gz \
@@ -152,49 +154,25 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && cpanm --version && cpm --version
 WORKDIR /
 
-FROM add-cpanm AS add-perl-expensive-modules
+FROM add-cpanm AS add-perl-modules
 
 ARG CACHE_CPANM
 ARG CACHE_PKG_VAR
 
-# TODO - Consider using Carton or Carmel
-# https://metacpan.org/pod/Carton
-# https://metacpan.org/pod/Carmel
-
-# Perl modules requiring special handling
+# Some perl modules requiring special handling
 # Archive::Zip requires full unzip, not busybox for testing
 # IO::AIO - t/05_readdir.t  -- test fails so disable testing for now
-# Perl::LanguageServer and Spreadsheet::ParseXLSX take a lot of time to install
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
     --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     apk add --virtual .test-deps unzip \
-    && cpanm Archive::Zip \
-    && cpanm -n IO::AIO \
-    && cpanm \
-    Perl::LanguageServer \
-    Spreadsheet::ParseXLSX \
-    && apk del .test-deps
-
-FROM add-perl-expensive-modules AS add-perl-tools
-
-ARG CACHE_CPANM
-
-# Other perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
+    && cpm install --global --test \
+    Archive::Zip \
+    && cpm install --global --no-test \
+    IO::AIO \
+    && apk del .test-deps \
+    && cpm install --global --test \
     Carmel \
     Carton \
-    Perl::Critic \
-    Perl::Critic::TooMuchCode \
-    Perl::Tidy
-
-FROM add-perl-tools AS add-perl-modules
-
-ARG CACHE_CPANM
-
-# Other perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
     common::sense \
     Date::Parse \
     Devel::NYTProf \
@@ -203,7 +181,12 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     HTML::Tiny \
     List::MoreUtils \
     Object::InsideOut \
-    Readonly
+    Perl::Critic \
+    Perl::Critic::TooMuchCode \
+    Perl::LanguageServer \
+    Perl::Tidy \
+    Readonly \
+    Spreadsheet::ParseXLSX
 
 FROM add-perl-modules AS user-env
 
