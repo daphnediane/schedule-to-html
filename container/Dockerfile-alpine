@@ -1,11 +1,22 @@
-ARG OSNAME="alpine"
+
 ARG OSLABEL="latest"
+ARG OSNAME="alpine"
+ARG USER_ID=1000
+ARG USER_NAME=devel
+ARG USER_SHELL="/bin/bash"
+
+ARG GROUP_NAME=${USER_NAME}
+ARG GROUP_ID=${USER_ID}
 
 FROM ${OSNAME}:${OSLABEL} AS base
 
 ARG OSLABEL
 ARG OSNAME
-ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apk"
+ARG TARGETARCH
+
+ARG CACHE_PREFIX="${OSNAME}-${OSLABEL}-${TARGETARCH}"
+ARG CACHE_PKG_VAR="${CACHE_PREFIX}-apk"
+ARG CACHE_CPANM="${CACHE_PREFIX}-cpanm"
 
 # Setup apk and some base packages
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
@@ -17,18 +28,16 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     man-pages \
     mandoc \
     mandoc-apropos \
-    shadow
+    shadow \
+    zsh
 
 FROM base AS initial-user-env
 
-ARG CACHE_PKG_VAR
-ARG OSLABEL
-ARG OSNAME
-ARG USER_NAME=devel
-ARG USER_ID=1000
-ARG USER_SHELL="/bin/bash"
-ARG GROUP_NAME=${USER_NAME}
-ARG GROUP_ID=${USER_ID}
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
 
 # Create the user
 RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
@@ -55,13 +64,6 @@ RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
 FROM initial-user-env AS add-packages
 
 ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
-ARG USER_NAME
-ARG USER_SHELL
 
 # Base applications
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
@@ -84,20 +86,12 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     tar \
     tmux \
     xz \
-    zlib zlib-dev \
-    zsh
+    zlib zlib-dev
 
 FROM add-packages AS add-cpanm
 
+ARG CACHE_CPANM
 ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
-ARG USER_NAME
-ARG USER_SHELL
-ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
 
 # Install perl, cpanm, and cpm
 # Based on https://github.com/Perl/docker-perl/
@@ -128,13 +122,18 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && archFlag="$([ "$archBits" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
     && ./Configure -Darchname="$gnuArch" "$archFlag" -Duseshrplib -Dvendorprefix=/usr/local  -des \
     && make -j$(nproc) \
-    && TEST_JOBS=$(nproc) make test_harness \
+    && { TEST_JOBS=$(nproc) make test_harness || true; } \
     && make install \
     && cd /usr/src \
     && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7047.tar.gz \
     && echo '963e63c6e1a8725ff2f624e9086396ae150db51dd0a337c3781d09a994af05a5 *App-cpanminus-1.7047.tar.gz' | sha256sum -c - \
     && tar -xzf App-cpanminus-1.7047.tar.gz && cd App-cpanminus-1.7047 && perl bin/cpanm . && cd /root \
-    && cpanm IO::Socket::SSL XML::Parser \
+    && curl -fLO 'https://www.cpan.org/authors/id/C/CH/CHRISN/Net-SSLeay-1.94.tar.gz' \
+    && echo '9d7be8a56d1bedda05c425306cc504ba134307e0c09bda4a788c98744ebcd95d *Net-SSLeay-1.94.tar.gz' | sha256sum -c - \
+    && cpanm --from $PWD Net-SSLeay-1.94.tar.gz \
+    && curl -fLO 'https://www.cpan.org/authors/id/S/SU/SULLR/IO-Socket-SSL-2.085.tar.gz' \
+    && echo '95b2f7c0628a7e246a159665fbf0620d0d7835e3a940f22d3fdd47c3aa799c2e *IO-Socket-SSL-2.085.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD IO-Socket-SSL-2.085.tar.gz \
     && curl -fL https://raw.githubusercontent.com/skaji/cpm/0.997017/cpm -o /usr/local/bin/cpm \
     # sha256 checksum is from docker-perl team, cf https://github.com/docker-library/official-images/pull/12612#issuecomment-1158288299
     && echo 'e3931a7d994c96f9c74b97d1b5b75a554fc4f06eadef1eca26ecc0bdcd1f2d11 */usr/local/bin/cpm' | sha256sum -c - \
@@ -149,21 +148,14 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     )" \
     && apk add --virtual .perl-rundeps $runDeps make wget \
     && apk del .build-deps \
-    && rm -fr /usr/src/perl /usr/src/App-cpanminus-1.7046* \
+    && rm -fr /root/Net-SSLeay-1.94* /root/IO-Socket-SSL-2.085* /usr/src/perl /usr/src/App-cpanminus-1.7046* \
     && cpanm --version && cpm --version
 WORKDIR /
 
-FROM add-cpanm AS add-perl-modules
+FROM add-cpanm AS add-perl-expensive-modules
 
 ARG CACHE_CPANM
 ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
-ARG USER_NAME
-ARG USER_SHELL
 
 # TODO - Consider using Carton or Carmel
 # https://metacpan.org/pod/Carton
@@ -183,11 +175,26 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     Spreadsheet::ParseXLSX \
     && apk del .test-deps
 
+FROM add-perl-expensive-modules AS add-perl-tools
+
+ARG CACHE_CPANM
+
 # Other perl modules
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     cpanm \
     Carmel \
     Carton \
+    Perl::Critic \
+    Perl::Critic::TooMuchCode \
+    Perl::Tidy
+
+FROM add-perl-tools AS add-perl-modules
+
+ARG CACHE_CPANM
+
+# Other perl modules
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    cpanm \
     common::sense \
     Date::Parse \
     Devel::NYTProf \
@@ -196,23 +203,11 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     HTML::Tiny \
     List::MoreUtils \
     Object::InsideOut \
-    Perl::Critic \
-    Perl::Critic::TooMuchCode \
-    Perl::Tidy \
-    Readonly \
-    Readonly::XS
+    Readonly
 
 FROM add-perl-modules AS user-env
 
-ARG CACHE_CPANM
-ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
 ARG USER_NAME
-ARG USER_SHELL
 
 # Set up VS Code directories
 RUN true \

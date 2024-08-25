@@ -1,21 +1,71 @@
-ARG OSNAME="perl"
+
 ARG OSLABEL="5"
+ARG OSNAME="perl"
+ARG USER_ID=1000
+ARG USER_NAME=devel
+ARG USER_SHELL="/bin/bash"
 
-FROM ${OSNAME}:${OSLABEL}
+ARG GROUP_NAME=${USER_NAME}
+ARG GROUP_ID=${USER_ID}
 
-ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apt"
-ARG CACHE_PKG_LIB="${OSNAME}-${OSLABEL}-apt-lib"
-ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
+FROM ${OSNAME}:${OSLABEL} AS base
 
-# Setup apk
+ARG OSLABEL
+ARG OSNAME
+ARG TARGETARCH
+
+ARG CACHE_PREFIX="${OSNAME}-${OSLABEL}-${TARGETARCH}"
+ARG CACHE_PKG_VAR="${CACHE_PREFIX}-apt"
+ARG CACHE_PKG_LIB="${CACHE_PREFIX}-apt-lib"
+ARG CACHE_CPANM="${CACHE_PREFIX}-cpanm"
+
+# Setup apk and some base packages
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=${CACHE_PKG_LIB},target=/var/lib/apt,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
     && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
-    && apt-get update && export DEBIAN_FRONTEND=noninteractive
+    && apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends \
+    git \
+    man \
+    mandoc \
+    manpages \
+    zsh
 
-# Install perl, cpanm, and cpm
-# Not needed here as part of base image
+FROM base AS initial-user-env
+
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
+
+# Create the user
+RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
+    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" \
+    && mkdir -m 0640 -p /etc/sudoers.d \
+    && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
+    && chmod 0440 /etc/sudoers.d/"${USER_NAME}" \
+    && mkdir -p \
+    /home/"$USER_NAME"/.ssh \
+    /home/"$USER_NAME"/bin \
+    /home/vscode-server \
+    /workspaces \
+    && chmod -R go-rwx /root \
+    && chown -R "$USER_NAME":"$GROUP_NAME" \
+    /home/"$USER_NAME" \
+    /home/vscode-server \
+    /workspaces \
+    && chmod -R go-rwx /home/"$USER_NAME"/.ssh \
+    && chmod -R u+rwx /home/"$USER_NAME"/bin \
+    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server \
+    && git config --system push.default simple \
+    && git config --system init.defaultBranch main
+
+FROM initial-user-env AS add-packages
+
+ARG CACHE_PKG_LIB
+ARG CACHE_PKG_VAR
 
 # Base applications
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked \
@@ -25,16 +75,12 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked 
     curl \
     diffutils \
     expat libexpat1-dev \
-    git \
     gpg \
     less \
     lighttpd \
     locales \
     locales-all \
     make \
-    man \
-    mandoc \
-    manpages \
     nodejs \
     npm \
     patch \
@@ -45,8 +91,15 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked 
     tar \
     tmux \
     xz-utils \
-    zlib1g zlib1g-dev \
-    zsh
+    zlib1g zlib1g-dev
+
+FROM add-packages AS add-cpanm
+
+ARG CACHE_PKG_LIB
+ARG CACHE_PKG_VAR
+
+# Install perl, cpanm, and cpm
+# Not needed here as part of base image
 
 # Base perl modules -- is this needed?
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked \
@@ -81,21 +134,41 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked 
     perl-doc \
     perltidy
 
-# TODO - Consider using Carton
+FROM add-cpanm AS add-perl-expensive-modules
 
+ARG CACHE_CPANM
+
+# TODO - Consider using Carton or Carmel
+# https://metacpan.org/pod/Carton
+# https://metacpan.org/pod/Carmel
+
+# Perl modules requiring special handling
 # Archive::Zip requires full unzip, not a problem with perl image
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm Archive::Zip
-
 # IO::AIO has broken test under alpine, but works under debian
+# Perl::LanguageServer and Spreadsheet::ParseXLSX take a lot of time to install
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm IO::AIO
-
-# Expensive perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
+    cpanm Archive::Zip \
+    && cpanm IO::AIO \
+    && cpanm \
     Perl::LanguageServer \
     Spreadsheet::ParseXLSX
+
+FROM add-perl-expensive-modules AS add-perl-tools
+
+ARG CACHE_CPANM
+
+# Other perl modules
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    cpanm \
+    Carmel \
+    Carton \
+    Perl::Critic \
+    Perl::Critic::TooMuchCode \
+    Perl::Tidy
+
+FROM add-perl-tools AS add-perl-modules
+
+ARG CACHE_CPANM
 
 # Other perl modules
 RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
@@ -103,46 +176,25 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     common::sense \
     Date::Parse \
     Devel::NYTProf \
+    Feature::Compat::Class \
     File::Slurp \
     HTML::Tiny \
     List::MoreUtils \
     Object::InsideOut \
-    Perl::Critic \
-    Perl::Critic::TooMuchCode \
-    Perl::Tidy \
-    Readonly \
-    Readonly::XS
+    Readonly
 
-ARG USER_NAME=devel
-ARG USER_ID=1000
-ARG USER_SHELL="/bin/bash"
-ARG GROUP_NAME=${USER_NAME}
-ARG GROUP_ID=${USER_ID}
+FROM add-perl-modules AS user-env
 
-# Create the user
-RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
-    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" \
-    && mkdir -m 0640 -p /etc/sudoers.d \
-    && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
-    && chmod 0440 /etc/sudoers.d/"${USER_NAME}"
-#COPY userhome/ /home/"$USER_NAME"/
-#COPY userhome/.ssh/ /root/.ssh/
+ARG USER_NAME
 
-# Create workspace tree
-RUN mkdir -p \
-    /home/"$USER_NAME"/.ssh \
-    /home/"$USER_NAME"/bin \
+# Set up VS Code directories
+RUN true \
+    && mkdir -p \
     /home/vscode-server \
     /workspaces \
-    && chmod -R go-rwx /root \
     && chown -R "$USER_NAME":"$GROUP_NAME" \
-    /home/"$USER_NAME" \
     /home/vscode-server \
     /workspaces \
-    && chmod -R go-rwx /home/"$USER_NAME"/.ssh \
-    && chmod -R u+rwx /home/"$USER_NAME"/bin \
-    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server \
-    && git config --system push.default simple \
-    && git config --system init.defaultBranch main
+    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server
 
 USER ${USER_NAME}

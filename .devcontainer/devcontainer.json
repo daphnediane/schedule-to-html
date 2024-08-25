@@ -60,8 +60,8 @@
     },
     "dockerComposeFile": [
         "../container/docker-compose.yml",
-        // uncomment one to select an OS
-        "../container/docker-compose.alpine.yml",
+        // uncomment one to rebuild the container with an OS
+        //"../container/docker-compose.alpine.yml",
         //"../container/docker-compose.debian.yml",
         "docker-compose.extend.yml"
     ],
