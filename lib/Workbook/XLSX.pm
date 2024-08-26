@@ -2,7 +2,7 @@ package Workbook::XLSX;
 
 use Object::InsideOut qw{ Workbook };
 
-use v5.36.0;
+use v5.40.0;
 use utf8;
 
 use Spreadsheet::ParseXLSX qw{};

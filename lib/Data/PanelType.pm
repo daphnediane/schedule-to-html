@@ -2,7 +2,7 @@ package Data::PanelType;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.40.0;
 use utf8;
 
 use Carp qw{croak};

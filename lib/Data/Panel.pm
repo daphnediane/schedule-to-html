@@ -2,7 +2,7 @@ package Data::Panel;
 
 use Object::InsideOut qw{TimeRange};
 
-use v5.36.0;
+use v5.40.0;
 use utf8;
 
 use Carp qw{croak};

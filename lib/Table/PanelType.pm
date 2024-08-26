@@ -2,7 +2,7 @@ package Table::PanelType;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.40.0;
 use utf8;
 
 use Carp qw{ croak };
