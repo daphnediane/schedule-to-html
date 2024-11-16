@@ -1,11 +1,28 @@
+
 ARG OSNAME="perl"
 ARG OSLABEL="5"
 
-FROM ${OSNAME}:${OSLABEL}
+ARG USER_NAME=devel
+ARG USER_ID=1000
+ARG USER_SHELL="/bin/bash"
+
+ARG GROUP_NAME=${USER_NAME}
+ARG GROUP_ID=${USER_ID}
 
 ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apt"
 ARG CACHE_PKG_LIB="${OSNAME}-${OSLABEL}-apt-lib"
 ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
+
+FROM ${OSNAME}:${OSLABEL}
+
+ARG CACHE_CPANM
+ARG CACHE_PKG_LIB
+ARG CACHE_PKG_VAR
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
 
 # Setup apk
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked \
@@ -112,12 +129,6 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     Perl::Tidy \
     Readonly \
     Readonly::XS
-
-ARG USER_NAME=devel
-ARG USER_ID=1000
-ARG USER_SHELL="/bin/bash"
-ARG GROUP_NAME=${USER_NAME}
-ARG GROUP_ID=${USER_ID}
 
 # Create the user
 RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \

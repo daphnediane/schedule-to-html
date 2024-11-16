@@ -1,11 +1,21 @@
+
 ARG OSNAME="alpine"
 ARG OSLABEL="latest"
+ARG USER_NAME=devel
+ARG USER_ID=1000
+ARG USER_SHELL="/bin/bash"
+
+ARG GROUP_NAME=${USER_NAME}
+ARG GROUP_ID=${USER_ID}
+
+ARG USER_HOME="/home/${USER_NAME}"
+ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
+ARG CACHE_CPANM_USER="${OSNAME}-${OSLABEL}-cpanm-${USER_NAME}"
+ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apk"
 
 FROM ${OSNAME}:${OSLABEL} AS base
 
-ARG OSLABEL
-ARG OSNAME
-ARG CACHE_PKG_VAR="${OSNAME}-${OSLABEL}-apk"
+ARG CACHE_PKG_VAR
 
 # Setup apk and some base packages
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
@@ -21,47 +31,45 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
 
 FROM base AS initial-user-env
 
-ARG CACHE_PKG_VAR
-ARG OSLABEL
-ARG OSNAME
-ARG USER_NAME=devel
-ARG USER_ID=1000
-ARG USER_SHELL="/bin/bash"
-ARG GROUP_NAME=${USER_NAME}
-ARG GROUP_ID=${USER_ID}
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG USER_HOME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_SHELL
 
 # Create the user
 RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
-    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" \
-    && mkdir -m 0640 -p /etc/sudoers.d \
-    && echo "${USER_NAME}" ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/"${USER_NAME}" \
-    && chmod 0440 /etc/sudoers.d/"${USER_NAME}" \
+    && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" -d "${USER_HOME}" \
+    && mkdir -m 0640 /etc/sudoers.d \
+    && echo "${USER_NAME} ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/${USER_NAME}" \
+    && chmod 0440 "/etc/sudoers.d/${USER_NAME}" \
     && mkdir -p \
-    /home/"$USER_NAME"/.ssh \
-    /home/"$USER_NAME"/bin \
+    "${USER_HOME}/.ssh" \
+    "${USER_HOME}/bin" \
     /home/vscode-server \
     /workspaces \
     && chmod -R go-rwx /root \
-    && chown -R "$USER_NAME":"$GROUP_NAME" \
-    /home/"$USER_NAME" \
+    && chown -R "${USER_NAME}:${GROUP_NAME}" \
+    "${USER_HOME}" \
     /home/vscode-server \
     /workspaces \
-    && chmod -R go-rwx /home/"$USER_NAME"/.ssh \
-    && chmod -R u+rwx /home/"$USER_NAME"/bin \
-    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server \
+    && chmod -R go-rwx "${USER_HOME}/.ssh" \
+    && chmod -R u+rwx "${USER_HOME}/bin" \
+    && ln -n -s -f /home/vscode-server "${USER_HOME}/.vscode-server" \
     && git config --system push.default simple \
-    && git config --system init.defaultBranch main
+    && git config --system init.defaultBranch main \
+    && mkdir -p \
+    /home/vscode-server \
+    /workspaces \
+    && chown -R "${USER_NAME}:${GROUP_NAME}" \
+    /home/vscode-server \
+    /workspaces \
+    && ln -n -s -f /home/vscode-server "${USER_HOME}/.vscode-server"
 
 FROM initial-user-env AS add-packages
 
 ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
-ARG USER_NAME
-ARG USER_SHELL
 
 # Base applications
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
@@ -89,15 +97,8 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
 
 FROM add-packages AS add-cpanm
 
+ARG CACHE_CPANM
 ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
-ARG USER_NAME
-ARG USER_SHELL
-ARG CACHE_CPANM="${OSNAME}-${OSLABEL}-cpanm"
 
 # Install perl, cpanm, and cpm
 # Based on https://github.com/Perl/docker-perl/
@@ -125,8 +126,8 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && cat *.patch | patch -p1 \
     && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
     && archBits="$(dpkg-architecture --query DEB_BUILD_ARCH_BITS)" \
-    && archFlag="$([ "$archBits" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
-    && ./Configure -Darchname="$gnuArch" "$archFlag" -Duseshrplib -Dvendorprefix=/usr/local  -des \
+    && archFlag="$([ "${archBits}" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
+    && ./Configure -Darchname="${gnuArch}" "${archFlag}" -Duseshrplib -Dvendorprefix=/usr/local  -des \
     && make -j$(nproc) \
     && TEST_JOBS=$(nproc) make test_harness \
     && make install \
@@ -147,23 +148,20 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     | sort -u \
     | grep -v perl \
     )" \
-    && apk add --virtual .perl-rundeps $runDeps make wget \
+    && apk add --virtual .perl-rundeps ${runDeps} make wget \
     && apk del .build-deps \
     && rm -fr /usr/src/perl /usr/src/App-cpanminus-1.7046* \
     && cpanm --version && cpm --version
 WORKDIR /
 
-FROM add-cpanm AS add-perl-modules
+FROM add-cpanm AS user-env
 
-ARG CACHE_CPANM
+ARG CACHE_CPANM_USER
 ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
+ARG USER_HOME
 ARG USER_NAME
-ARG USER_SHELL
+
+USER ${USER_NAME}
 
 # TODO - Consider using Carton or Carmel
 # https://metacpan.org/pod/Carton
@@ -174,18 +172,11 @@ ARG USER_SHELL
 # IO::AIO - t/05_readdir.t  -- test fails so disable testing for now
 # Perl::LanguageServer and Spreadsheet::ParseXLSX take a lot of time to install
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
-    --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    apk add --virtual .test-deps unzip \
-    && cpanm Archive::Zip \
-    && cpanm -n IO::AIO \
-    && cpanm \
-    Perl::LanguageServer \
-    Spreadsheet::ParseXLSX \
-    && apk del .test-deps
-
-# Other perl modules
-RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    cpanm \
+    --mount=type=cache,id=${CACHE_CPANM_USER},target="${USER_HOME}/.cpanm",sharing=locked \
+    sudo apk add --virtual .test-deps unzip \
+    && sudo chown -R "${USER_NAME}":"${USER_NAME}" "${USER_HOME}/.cpanm" \
+    && cpanm --sudo \
+    Archive::Zip \
     Carmel \
     Carton \
     common::sense \
@@ -194,34 +185,14 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     Feature::Compat::Class \
     File::Slurp \
     HTML::Tiny \
+    IO::AIO \
     List::MoreUtils \
     Object::InsideOut \
     Perl::Critic \
     Perl::Critic::TooMuchCode \
+    Perl::LanguageServer \
     Perl::Tidy \
     Readonly \
-    Readonly::XS
-
-FROM add-perl-modules AS user-env
-
-ARG CACHE_CPANM
-ARG CACHE_PKG_VAR
-ARG GROUP_ID
-ARG GROUP_NAME
-ARG OSLABEL
-ARG OSNAME
-ARG USER_ID
-ARG USER_NAME
-ARG USER_SHELL
-
-# Set up VS Code directories
-RUN true \
-    && mkdir -p \
-    /home/vscode-server \
-    /workspaces \
-    && chown -R "$USER_NAME":"$GROUP_NAME" \
-    /home/vscode-server \
-    /workspaces \
-    && ln -n -s -f /home/vscode-server /home/"$USER_NAME"/.vscode-server
-
-USER ${USER_NAME}
+    Readonly::XS \
+    Spreadsheet::ParseXLSX \
+    && sudo apk del .test-deps
