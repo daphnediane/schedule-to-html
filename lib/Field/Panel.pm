@@ -18,6 +18,7 @@ Readonly our $PANEL_KIND      => q{Kind};
 Readonly our $PANEL_NAME      => q{Name};
 Readonly our $PANELIST_ALT    => q{Alt_Panelist};
 Readonly our $PANELIST_HIDE   => q{Hide_Panelist};
+Readonly our $PREREQ          => q{Prereq};
 Readonly our $ROOM_HOTEL_ROOM => q{Hotel_Room};
 Readonly our $ROOM_NAME       => q{Room};
 Readonly our $ROOM_REAL_ROOM  => q{Real_Room};

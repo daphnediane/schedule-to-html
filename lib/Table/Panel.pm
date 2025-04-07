@@ -20,6 +20,7 @@ our @EXPORT_OK = qw {
     get_split_panels
     get_panels_by_start
     get_related_panels
+    get_prereq_panels
     read_from
     read_spreadsheet_file
 };
@@ -183,6 +184,7 @@ sub read_panel_ {
         end_time      => $panel_data{ $Field::Panel::END_TIME },
         is_full       => $panel_data{ $Field::Panel::FULL },
         name          => $panel_data{ $Field::Panel::PANEL_NAME },
+        prereq        => $panel_data{ $Field::Panel::PREREQ },
         note          => $panel_data{ $Field::Panel::NOTE },
         av_note       => $panel_data{ $Field::Panel::AV_NOTE },
         panel_kind    => $panel_data{ $Field::Panel::PANEL_KIND },
@@ -239,6 +241,25 @@ sub get_related_panels {
     return $panel unless defined $related;
     return @{ $related };
 } ## end sub get_related_panels
+
+sub get_prereq_panels {
+    my ( $panel ) = @_;
+
+    my $prereq_text = $panel->get_prereq();
+    return unless defined $prereq_text;
+    my @prereq = split m{[,;/]\s*}, $prereq_text;
+    my %seen;
+    my @res;
+    foreach my $prereq ( @prereq ) {
+        next if $seen{ $prereq };
+        $seen{ $prereq } = 1;
+        my $related = $by_base_uniq_id_{ $prereq };
+        next unless defined $related;
+        push @res, @{ $related };
+    } ## end foreach my $prereq ( @prereq)
+    return unless @res;
+    return @res;
+} ## end sub get_prereq_panels
 
 sub read_from {
     my ( $wb ) = @_;

@@ -670,7 +670,7 @@ sub dump_desc_panel_note {
             ? q{ (Capacity: } . $panel->get_capacity() . q{)}
             : ()
             );
-    } ## end if ( $panel->get_is_free_kid_panel...)
+    } ## end elsif ( $panel->get_is_free...)
     elsif ( defined $panel->get_cost() ) {
         push @note, $h->b( q{Premium workshop:} ),
             (
@@ -733,8 +733,10 @@ sub dump_desc_panel_parts {
     my @series = grep {
         defined $_->get_start_seconds() && $_->get_uniq_id_part() != $part
     } get_related_panels( $panel );
+    my @prereq = grep { defined $_->get_start_seconds() }
+        get_prereq_panels( $panel );
 
-    return unless @series;
+    return if 0 == scalar @series && 0 == scalar @prereq;
 
     my $series_type = $panel->get_uniq_id_is_part() ? q{Part } : q{Session };
 
@@ -749,32 +751,64 @@ sub dump_desc_panel_parts {
             ) )
         },
         join q{ },
-        map {    ## no critic(TooMuchCode::ProhibitLargeBlock)
-            $h->li(
-                {   out_class( join_subclass(
-                        $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LINE
-                    ) )
-                },
-                $h->a(
-                    { href => q{#} . $_->get_href_anchor() },
-                    join q{ },
-                    $h->span(
-                        {   out_class( join_subclass(
-                                $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_NUM
-                            ) )
-                        },
-                        $series_type . $_->get_uniq_id_part() . q{: }
-                    ),
-                    $h->span(
-                        {   out_class( join_subclass(
-                                $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_TIME
-                            ) )
-                        },
-                        datetime_to_text( $_->get_start_seconds() )
+        (   map {    ## no critic(TooMuchCode::ProhibitLargeBlock)
+                $h->li(
+                    {   out_class( join_subclass(
+                            $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LINE
+                        ) )
+                    },
+                    $h->a(
+                        { href => q{#} . $_->get_href_anchor() },
+                        join q{ },
+                        $h->span(
+                            {   out_class( join_subclass(
+                                    $CLASS_DESC_BASE,
+                                    $SUBCLASS_PIECE_PARTS_NUM
+                                ) )
+                            },
+                            $series_type . $_->get_uniq_id_part() . q{: }
+                        ),
+                        $h->span(
+                            {   out_class( join_subclass(
+                                    $CLASS_DESC_BASE,
+                                    $SUBCLASS_PIECE_PARTS_TIME
+                                ) )
+                            },
+                            datetime_to_text( $_->get_start_seconds() )
+                        )
                     )
                 )
-            )
-        } @series
+            } @series
+        ),
+        (   map {    ## no critic(TooMuchCode::ProhibitLargeBlock)
+                $h->li(
+                    {   out_class( join_subclass(
+                            $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_LINE
+                        ) )
+                    },
+                    $h->a(
+                        { href => q{#} . $_->get_href_anchor() },
+                        join q{ },
+                        $h->span(
+                            {   out_class( join_subclass(
+                                    $CLASS_DESC_BASE,
+                                    $SUBCLASS_PIECE_PARTS_NUM
+                                ) )
+                            },
+                            $_->get_name() . q{: }
+                        ),
+                        $h->span(
+                            {   out_class( join_subclass(
+                                    $CLASS_DESC_BASE,
+                                    $SUBCLASS_PIECE_PARTS_TIME
+                                ) )
+                            },
+                            datetime_to_text( $_->get_start_seconds() )
+                        )
+                    )
+                )
+            } @prereq
+        ),
     );
 
     return;

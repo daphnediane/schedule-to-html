@@ -140,6 +140,12 @@ my @desc
     :Arg(Name => q{description}, Pre => \&Data::Panel::pre_init_text_)
     :Get(Name => q{get_description});
 
+my @prereq
+    :Field
+    :Type(scalar)
+    :Arg(Name => q{prereq}, Pre => \&Data::Panel::pre_init_text_)
+    :Get(Name => q{get_prereq});
+
 my @note
     :Field
     :Type(scalar)
@@ -264,7 +270,7 @@ sub get_uniq_id_is_part {
     my $id = $self->get_uniq_id_suffix();
     return 1 if $id =~ m{ P (\d+) [[:alpha:]]? \z }xms;
     return 0;
-} ## end sub get_uniq_id_is_session
+} ## end sub get_uniq_id_is_part
 
 sub get_uniq_id_instance {
     my ( $self ) = @_;
@@ -375,7 +381,7 @@ sub get_is_free {
     return 1 if $cost eq $COST_FREE;
     return 1 if $cost eq $COST_KIDS;
     return;
-} ## end sub get_cost_is_model
+} ## end sub get_is_free
 
 sub get_is_free_kid_panel {
     my ( $self ) = @_;
