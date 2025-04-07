@@ -119,23 +119,145 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     wget \
     xz \
     zlib zlib-dev \
-    && curl -fL https://cpan.metacpan.org/authors/id/H/HA/HAARG/perl-5.40.0.tar.gz -o perl-5.40.0.tar.gz \
-    && echo 'c740348f357396327a9795d3e8323bafd0fe8a5c7835fc1cbaba0cc8dfe7161f *perl-5.40.0.tar.gz' | sha256sum -c - \
-    && tar --strip-components=1 -xaf perl-5.40.0.tar.gz -C /usr/src/perl \
-    && rm perl-5.40.0.tar.gz \
+    && curl -fL https://cpan.metacpan.org/authors/id/S/SH/SHAY/perl-5.40.1.tar.gz -o perl-5.40.1.tar.gz \
+    && echo '02f8c45bb379ed0c3de7514fad48c714fd46be8f0b536bfd5320050165a1ee26 *perl-5.40.1.tar.gz' | sha256sum -c - \
+    && tar --strip-components=1 -xaf perl-5.40.1.tar.gz -C /usr/src/perl \
+    && rm perl-5.40.1.tar.gz \
     && cat *.patch | patch -p1 \
     && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
     && archBits="$(dpkg-architecture --query DEB_BUILD_ARCH_BITS)" \
-    && archFlag="$([ "${archBits}" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
-    && ./Configure -Darchname="${gnuArch}" "${archFlag}" -Duseshrplib -Dvendorprefix=/usr/local  -des \
+    && archFlag="$([ "$archBits" = '64' ] && echo '-Duse64bitall' || echo '-Duse64bitint')" \
+    && ./Configure -Darchname="$gnuArch" "$archFlag" -Dusethreads -Duseshrplib -Dvendorprefix=/usr/local  -des \
     && make -j$(nproc) \
     && TEST_JOBS=$(nproc) make test_harness \
     && make install \
     && cd /usr/src \
     && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/App-cpanminus-1.7047.tar.gz \
     && echo '963e63c6e1a8725ff2f624e9086396ae150db51dd0a337c3781d09a994af05a5 *App-cpanminus-1.7047.tar.gz' | sha256sum -c - \
-    && tar -xzf App-cpanminus-1.7047.tar.gz && cd App-cpanminus-1.7047 && perl bin/cpanm . && cd /root \
-    && cpanm IO::Socket::SSL XML::Parser \
+    && tar -xzf App-cpanminus-1.7047.tar.gz && cd App-cpanminus-1.7047 \
+    && perl -pi -E 's{http://(www\.cpan\.org|backpan\.perl\.org|cpan\.metacpan\.org|fastapi\.metacpan\.org|cpanmetadb\.plackperl\.org)}{https://$1}g' bin/cpanm \
+    && perl -pi -E 's{try_lwp=>1}{try_lwp=>0}g' bin/cpanm \
+    && perl bin/cpanm . && cd /root \
+    && curl -fLO 'https://www.cpan.org/authors/id/C/CH/CHRISN/Net-SSLeay-1.94.tar.gz' \
+    && echo '9d7be8a56d1bedda05c425306cc504ba134307e0c09bda4a788c98744ebcd95d *Net-SSLeay-1.94.tar.gz' | sha256sum -c - \
+    && cpanm --from $PWD Net-SSLeay-1.94.tar.gz \
+    && curl -fLO 'https://www.cpan.org/authors/id/S/SU/SULLR/IO-Socket-SSL-2.085.tar.gz' \
+    && echo '95b2f7c0628a7e246a159665fbf0620d0d7835e3a940f22d3fdd47c3aa799c2e *IO-Socket-SSL-2.085.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD IO-Socket-SSL-2.085.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/Class-Tiny-1.008.tar.gz \
+    && echo 'ee058a63912fa1fcb9a72498f56ca421a2056dc7f9f4b67837446d6421815615 *Class-Tiny-1.008.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Class-Tiny-1.008.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/Path-Tiny-0.146.tar.gz \
+    && echo '861ef09bca68254e9ab24337bb6ec9d58593a792e9d68a27ee6bec2150f06741 *Path-Tiny-0.146.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Path-Tiny-0.146.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/L/LE/LEONT/CPAN-Meta-Check-0.018.tar.gz \
+    && echo 'f619d2df5ea0fd91c8cf83eb54acccb5e43d9e6ec1a3f727b3d0ac15d0cf378a *CPAN-Meta-Check-0.018.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD CPAN-Meta-Check-0.018.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/Capture-Tiny-0.50.tar.gz \
+    && echo 'ca6e8d7ce7471c2be54e1009f64c367d7ee233a2894cacf52ebe6f53b04e81e5 *Capture-Tiny-0.50.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Capture-Tiny-0.50.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/G/GB/GBARR/CPAN-DistnameInfo-0.12.tar.gz \
+    && echo '2f24fbe9f7eeacbc269d35fc61618322fc17be499ee0cd9018f370934a9f2435 *CPAN-DistnameInfo-0.12.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD CPAN-DistnameInfo-0.12.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/E/ET/ETHER/Test-Warnings-0.038.tar.gz \
+    && echo '3da27e003a3c3cafed3c09b42be05cf9bdbff0bee5c8590a731b02853880a273 *Test-Warnings-0.038.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Test-Warnings-0.038.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/H/HA/HAARG/Test-Needs-0.002010.tar.gz \
+    && echo '923ffdc78fcba96609753e4bae26b0ba0186893de4a63cd5236e012c7c90e208 *Test-Needs-0.002010.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Test-Needs-0.002010.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/E/ET/ETHER/Try-Tiny-0.32.tar.gz \
+    && echo 'ef2d6cab0bad18e3ab1c4e6125cc5f695c7e459899f512451c8fa3ef83fa7fc0 *Try-Tiny-0.32.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Try-Tiny-0.32.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/R/RJ/RJBS/Test-Fatal-0.017.tar.gz \
+    && echo '37dfffdafb84b762efe96b02fb2aa41f37026c73e6b83590db76229697f3c4a6 *Test-Fatal-0.017.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Test-Fatal-0.017.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/R/RE/REHSACK/MIME-Base32-1.303.tar.gz \
+    && echo 'ab21fa99130e33a0aff6cdb596f647e5e565d207d634ba2ef06bdbef50424e99 *MIME-Base32-1.303.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD MIME-Base32-1.303.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/O/OA/OALDERS/URI-5.31.tar.gz \
+    && echo 'b9c4d58b2614b8611ae03a95a6d60ed996f4b311ef3cd5a937b92f1825ecc564 *URI-5.31.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD URI-5.31.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/Tie-Handle-Offset-0.004.tar.gz \
+    && echo 'ee9f39055dc695aa244a252f56ffd37f8be07209b337ad387824721206d2a89e *Tie-Handle-Offset-0.004.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Tie-Handle-Offset-0.004.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/R/RJ/RJBS/Test-Deep-1.204.tar.gz \
+    && echo 'b6591f6ccdd853c7efc9ff3c5756370403211cffe46047f082b1cd1611a84e5f *Test-Deep-1.204.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Test-Deep-1.204.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/Test-FailWarnings-0.008.tar.gz \
+    && echo 'da34ef9029f6849d6026201d49127d054ee6ac4b979c82210315f5721964a96f *Test-FailWarnings-0.008.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Test-FailWarnings-0.008.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/CPAN-Common-Index-0.010.tar.gz \
+    && echo 'c43ddbb22fd42b06118fe6357f53700fbd77f531ba3c427faafbf303cbf4eaf0 *CPAN-Common-Index-0.010.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD CPAN-Common-Index-0.010.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/R/RO/ROSCH/String-ShellQuote-1.04.tar.gz \
+    && echo 'e606365038ce20d646d255c805effdd32f86475f18d43ca75455b00e4d86dd35 *String-ShellQuote-1.04.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD String-ShellQuote-1.04.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/L/LE/LEONT/ExtUtils-Config-0.010.tar.gz \
+    && echo '82e7e4e90cbe380e152f5de6e3e403746982d502dd30197a123652e46610c66d *ExtUtils-Config-0.010.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD ExtUtils-Config-0.010.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/L/LE/LEONT/ExtUtils-InstallPaths-0.014.tar.gz \
+    && echo 'ae65d20cc3c7e14b3cd790915c84510f82dfb37a4c9b88aa74b2e843af417d01 *ExtUtils-InstallPaths-0.014.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD ExtUtils-InstallPaths-0.014.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DA/DAGOLDEN/File-pushd-1.016.tar.gz \
+    && echo 'd73a7f09442983b098260df3df7a832a5f660773a313ca273fa8b56665f97cdc *File-pushd-1.016.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD File-pushd-1.016.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/P/PL/PLICEASE/File-Which-1.27.tar.gz \
+    && echo '3201f1a60e3f16484082e6045c896842261fc345de9fb2e620fd2a2c7af3a93a *File-Which-1.27.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD File-Which-1.27.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/H/HA/HAARG/Win32-ShellQuote-0.003001.tar.gz \
+    && echo 'aa74b0e3dc2d41cd63f62f853e521ffd76b8d823479a2619e22edb4049b4c0dc *Win32-ShellQuote-0.003001.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Win32-ShellQuote-0.003001.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/L/LE/LEONT/ExtUtils-Helpers-0.028.tar.gz \
+    && echo 'c8574875cce073e7dc5345a7b06d502e52044d68894f9160203fcaab379514fe *ExtUtils-Helpers-0.028.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD ExtUtils-Helpers-0.028.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/Module-CPANfile-1.1004.tar.gz \
+    && echo '88efbe2e9a642dceaa186430fedfcf999aaf0e06f6cced28a714b8e56b514921 *Module-CPANfile-1.1004.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Module-CPANfile-1.1004.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/H/HA/HAARG/local-lib-2.000029.tar.gz \
+    && echo '8df87a10c14c8e909c5b47c5701e4b8187d519e5251e87c80709b02bb33efdd7 *local-lib-2.000029.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD local-lib-2.000029.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/I/IS/ISHIGAKI/ExtUtils-MakeMaker-CPANfile-0.09.tar.gz \
+    && echo '2c077607d4b0a108569074dff76e8168659062ada3a6af78b30cca0d40f8e275 *ExtUtils-MakeMaker-CPANfile-0.09.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD ExtUtils-MakeMaker-CPANfile-0.09.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/I/IS/ISHIGAKI/Parse-PMFile-0.47.tar.gz \
+    && echo '26817cf3d72e245452375dcff9e923a061ee0a40bbf060d3a08ebe60a334aaae *Parse-PMFile-0.47.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Parse-PMFile-0.47.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/R/RJ/RJBS/IPC-Run3-0.049.tar.gz \
+    && echo '9d048ae7b9ae63871bae976ba01e081d887392d904e5d48b04e22d35ed22011a *IPC-Run3-0.049.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD IPC-Run3-0.049.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/HTTP-Tinyish-0.19.tar.gz \
+    && echo 'e9ce94a9913f9275d312ded4ddb34f76baf011b6b8d6029ff2871d5bd7bae468 *HTTP-Tinyish-0.19.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD HTTP-Tinyish-0.19.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/Menlo-1.9019.tar.gz \
+    && echo '3b573f68e7b3a36a87c860be258599330fac248b518854dfb5657ac483dca565 *Menlo-1.9019.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Menlo-1.9019.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/Menlo-Legacy-1.9022.tar.gz \
+    && echo 'a6acac3fee318a804b439de54acbc7c27f0b44cfdad8551bbc9cd45986abc201 *Menlo-Legacy-1.9022.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Menlo-Legacy-1.9022.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/Carton-v1.0.35.tar.gz \
+    && echo '9c4558ca97cd08b69fdfb52b28c3ddc2043ef52f0627b90e53d05a4087344175 *Carton-v1.0.35.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Carton-v1.0.35.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/I/IS/ISHIGAKI/JSON-4.10.tar.gz \
+    && echo 'df8b5143d9a7de99c47b55f1a170bd1f69f711935c186a6dc0ab56dd05758e35 *JSON-4.10.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD JSON-4.10.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/L/LE/LEONT/Module-Build-0.4234.tar.gz \
+    && echo '66aeac6127418be5e471ead3744648c766bd01482825c5b66652675f2bc86a8f *Module-Build-0.4234.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Module-Build-0.4234.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/Z/ZE/ZEFRAM/Module-Runtime-0.016.tar.gz \
+    && echo '68302ec646833547d410be28e09676db75006f4aa58a11f3bdb44ffe99f0f024 *Module-Runtime-0.016.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Module-Runtime-0.016.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/B/BR/BRIANDFOY/Test-File-1.994.tar.gz \
+    && echo '2d0b27f62fb15efb91375c145e4ef930df67c3c4ffdab9e262e1a57b656ce4f6 *Test-File-1.994.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Test-File-1.994.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/D/DM/DMUEY/File-Copy-Recursive-0.45.tar.gz \
+    && echo 'd3971cf78a8345e38042b208bb7b39cb695080386af629f4a04ffd6549df1157 *File-Copy-Recursive-0.45.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD File-Copy-Recursive-0.45.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/M/MI/MIYAGAWA/Carmel-v0.1.56.tar.gz \
+    && echo 'cce52ef65d61a1e111de7549815aab902982cf152170e85720c1215efb699008 *Carmel-v0.1.56.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Carmel-v0.1.56.tar.gz \
+    && curl -fLO https://www.cpan.org/authors/id/S/SH/SHANCOCK/Perl-Tidy-20250311.tar.gz \
+    && echo '7fc6ceda4e3c9fc79c777afbcf8d167ecc35b16ff81c9cbeaf727b15d0502d8a *Perl-Tidy-20250311.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Perl-Tidy-20250311.tar.gz \
     && curl -fL https://raw.githubusercontent.com/skaji/cpm/0.997017/cpm -o /usr/local/bin/cpm \
     # sha256 checksum is from docker-perl team, cf https://github.com/docker-library/official-images/pull/12612#issuecomment-1158288299
     && echo 'e3931a7d994c96f9c74b97d1b5b75a554fc4f06eadef1eca26ecc0bdcd1f2d11 */usr/local/bin/cpm' | sha256sum -c - \
@@ -177,8 +299,6 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && sudo chown -R "${USER_NAME}":"${USER_NAME}" "${USER_HOME}/.cpanm" \
     && cpanm --sudo \
     Archive::Zip \
-    Carmel \
-    Carton \
     common::sense \
     Date::Parse \
     Devel::NYTProf \
@@ -191,8 +311,6 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     Perl::Critic \
     Perl::Critic::TooMuchCode \
     Perl::LanguageServer \
-    Perl::Tidy \
     Readonly \
-    Readonly::XS \
     Spreadsheet::ParseXLSX \
     && sudo apk del .test-deps
