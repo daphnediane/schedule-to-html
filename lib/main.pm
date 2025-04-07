@@ -663,6 +663,14 @@ sub dump_desc_panel_note {
             ),
             q{ Priority given to kids 13 and under.};
     } ## end if ( $panel->get_is_free_kid_panel...)
+    elsif ( $panel->get_is_free() ) {
+        push @note, $h->b( q{Workshop:} ),
+            (
+            $panel->get_capacity()
+            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
+            : ()
+            );
+    } ## end if ( $panel->get_is_free_kid_panel...)
     elsif ( defined $panel->get_cost() ) {
         push @note, $h->b( q{Premium workshop:} ),
             (
@@ -672,10 +680,14 @@ sub dump_desc_panel_note {
             ),
             $panel->get_cost_is_model()
             ? q{ Requires a model which may be purchased separately.}
-            : $panel->get_cost_is_missing()
+            : ( $panel->get_cost_is_missing() // 0 )
             ? q{ May require a separate purchase.}
             : q{ Requires a separate purchase.};
     } ## end elsif ( defined $panel->get_cost...)
+    elsif ( $panel->get_capacity() ) {
+        push @note, $h->b( q{Limited space: } ),
+            q{(Capacity: } . $panel->get_capacity() . q{)};
+    }
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
     }
@@ -724,6 +736,8 @@ sub dump_desc_panel_parts {
 
     return unless @series;
 
+    my $series_type = $panel->get_uniq_id_is_part() ? q{Part } : q{Session };
+
     @series = sort {
                $a->get_uniq_id_part()  <=> $b->get_uniq_id_part()
             || $a->get_start_seconds() <=> $b->get_start_seconds()
@@ -749,7 +763,7 @@ sub dump_desc_panel_parts {
                                 $CLASS_DESC_BASE, $SUBCLASS_PIECE_PARTS_NUM
                             ) )
                         },
-                        q{Part } . $_->get_uniq_id_part() . q{: }
+                        $series_type . $_->get_uniq_id_part() . q{: }
                     ),
                     $h->span(
                         {   out_class( join_subclass(

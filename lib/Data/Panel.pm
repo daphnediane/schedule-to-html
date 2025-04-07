@@ -226,7 +226,7 @@ sub get_uniq_id_suffix {
         return q{};
     }
     $suffix =~ s{ \A [[:alpha:]]{3,} \d{2,}}{}xms
-        or $suffix =~ s{ \A [[:alpha:]]{2,} \d{3,}}{}xms;
+        or $suffix =~ s{ \A [[:alpha:]]{2,} \d{2,}}{}xms;
     $self->set_id_suffix_( $suffix );
     return $suffix;
 
@@ -249,7 +249,7 @@ sub get_uniq_id_part {
     my $part = $self->get_id_part_();
     return $part if defined $part;
     my $id = $self->get_uniq_id_suffix();
-    if ( $id =~ m{ P (\d+) [[:alpha:]]? \z }xms ) {
+    if ( $id =~ m{ [PS] (\d+) [[:alpha:]]? \z }xms ) {
         $part = 0 + $1;
     }
     else {
@@ -258,6 +258,13 @@ sub get_uniq_id_part {
     $self->set_id_part_( $part );
     return $part;
 } ## end sub get_uniq_id_part
+
+sub get_uniq_id_is_part {
+    my ( $self ) = @_;
+    my $id = $self->get_uniq_id_suffix();
+    return 1 if $id =~ m{ P (\d+) [[:alpha:]]? \z }xms;
+    return 0;
+} ## end sub get_uniq_id_is_session
 
 sub get_uniq_id_instance {
     my ( $self ) = @_;
@@ -358,6 +365,15 @@ sub get_cost_is_model {
     my $cost = $self->_get_cost();
     return unless defined $cost;
     return 1 if $cost eq $COST_MODEL;
+    return;
+} ## end sub get_cost_is_model
+
+sub get_is_free {
+    my ( $self ) = @_;
+    my $cost = $self->_get_cost();
+    return unless defined $cost;
+    return 1 if $cost eq $COST_FREE;
+    return 1 if $cost eq $COST_KIDS;
     return;
 } ## end sub get_cost_is_model
 
