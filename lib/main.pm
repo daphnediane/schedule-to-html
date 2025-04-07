@@ -1278,7 +1278,7 @@ sub dump_file_header {
         my $prefix = join q{, }, @subnames;
         $title = join q{: }, $prefix, $title;
     }
-    if ( defined $pre_title ) {
+    if ( defined $pre_title && $pre_title ne q{} ) {
         $title = join q{: }, $pre_title, $title;
     }
 

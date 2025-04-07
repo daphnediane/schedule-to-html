@@ -84,8 +84,8 @@ $opt_gen{ $MOD_LIST } = sub {
         return unless defined $opt;
         push @{ $self->{ $opt_name } }, $opt;
         return;
-    };
-};
+    }; ## end sub
+}; ## end sub
 
 ## Value option
 Readonly our $MOD_VALUE_STR => q{=s};
@@ -98,7 +98,7 @@ $opt_gen{ $MOD_VALUE_STR } = sub {
         $opt = to_str_ $opt;
         $self->{ $opt_name } = $opt;
     };
-};
+}; ## end sub
 
 ## Value number option
 Readonly our $MOD_VALUE_NUM => q{=i};
@@ -110,7 +110,7 @@ $opt_gen{ $MOD_VALUE_NUM } = sub {
         my ( $flag, $opt ) = @_;
         $self->{ $opt_name } = 0 + $opt;
     };
-};
+}; ## end sub
 
 ## Sub value option
 Readonly our $MOD_SUB_VALUE => q{=s%};
@@ -123,7 +123,7 @@ $opt_gen{ $MOD_SUB_VALUE } = sub {
         $opt = to_str_ $opt;
         $self->{ $opt_name }->{ $opt_sub_name } = $opt;
     };
-};
+}; ## end sub
 
 ## Named state option
 Readonly our $MOD_NAMED_STATE => q{=s%%};
@@ -136,7 +136,7 @@ $opt_gen{ $MOD_NAMED_STATE } = sub {
         $opt = to_str_ $opt;
         $self->{ $opt_name }->{ $opt } = $opt_sub_name;
     };
-};
+}; ## end sub
 
 ## Flag option
 Readonly our $MOD_FLAG => q{};
@@ -154,7 +154,7 @@ $opt_gen{ $MOD_FLAG } = sub {
         delete $self->{ $opt_name };
         return;
     }
-};
+}; ## end sub
 
 ## Sub flag option
 Readonly our $MOD_SUB_FLAG => q{%};
@@ -179,8 +179,8 @@ $opt_gen{ $MOD_SUB_FLAG } = sub {
         }
 
         return;
-    }
-};
+    } ## end sub
+}; ## end sub
 
 ## Special option
 Readonly our $MOD_SPECIAL => q{&};
@@ -191,7 +191,7 @@ $opt_gen{ $MOD_SPECIAL } = sub {
         $handler->( $self, @rest );
         return;
     };
-};
+}; ## end sub
 
 sub get_method_ {
     my ( $self, $mod, @parms ) = @_;
@@ -891,7 +891,7 @@ sub is_just_staff {
     return   if $hash->{ $VAL_BY_JUDGE };
     return 1 if $hash->{ $VAL_BY_PANELIST };
     return;
-}
+} ## end sub is_just_staff
 
 sub is_just_panelist {
     my ( $self ) = @_;
@@ -1336,7 +1336,7 @@ push @opt_parse,
         return if $self->{ $OPT_SPLIT_ } eq $VAL_SPLIT_DAY_;
         $self->{ $OPT_SPLIT_ } = $VAL_SPLIT_TIMEREGION_;
         return;
-    }
+    } ## end sub
     ];
 
 push @opt_on_kiosk,
@@ -1439,7 +1439,7 @@ push @opt_parse,
 
 sub get_title {
     my ( $self ) = @_;
-    return $self->{ $OPT_TITLE_ } // q{Cosplay America 2024 Schedule};
+    return $self->{ $OPT_TITLE_ } // q{Cosplay America 2025 Schedule};
 }
 
 ## --pre-title _name_
@@ -1452,7 +1452,7 @@ push @opt_parse,
 
 sub get_pre_title {
     my ( $self ) = @_;
-    return $self->{ $OPT_TITLE_PREFIX_ } // q{Cosplay America 2024 Schedule};
+    return $self->{ $OPT_TITLE_PREFIX_ };
 }
 
 ## --copies _number_

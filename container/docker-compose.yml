@@ -2,7 +2,7 @@ version: "3.9"
 name: "schedule-to-html"
 services:
   perl:
-    image: daphnediane/schedule-to-html:20250311
+    image: daphnediane/schedule-to-html:20250406
     cap_add:
       - SYS_PTRACE
     security_opt:

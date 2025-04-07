@@ -4,7 +4,7 @@ set -eo pipefail
 
 # Globals
 declare DRYRUN=""
-declare YEAR="2024"
+declare YEAR="2025"
 declare EXCEL_FILE="${YEAR} Schedule.xlsx"
 declare PATH=/opt/local/bin:${SCRIPT_DIR}:$PATH
 declare SCRIPT_DIR=${SCRIPT_PATH%/*}

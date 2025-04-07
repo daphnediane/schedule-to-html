@@ -258,6 +258,20 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     && curl -fLO https://www.cpan.org/authors/id/S/SH/SHANCOCK/Perl-Tidy-20250311.tar.gz \
     && echo '7fc6ceda4e3c9fc79c777afbcf8d167ecc35b16ff81c9cbeaf727b15d0502d8a *Perl-Tidy-20250311.tar.gz' | sha256sum -c - \
     && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Perl-Tidy-20250311.tar.gz \
+    && curl -fLO https://cpan.metacpan.org/authors/id/P/PH/PHRED/Archive-Zip-1.68.tar.gz \
+    && echo '984e185d785baf6129c6e75f8eb44411745ac00bf6122fb1c8e822a3861ec650 *Archive-Zip-1.68.tar.gz' | sha256sum -c - \
+    # Archive::Zip requires full unzip, not busybox for testing
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD --notest Archive-Zip-1.68.tar.gz \
+    && curl -fLO https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/common-sense-3.75.tar.gz \
+    && echo 'a86a1c4ca4f3006d7479064425a09fa5b6689e57261fcb994fe67d061cba0e7e *common-sense-3.75.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD common-sense-3.75.tar.gz \
+    && curl -fLO https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/Canary-Stability-2013.tar.gz \
+    && echo 'a5c91c62cf95fcb868f60eab5c832908f6905221013fea2bce3ff57046d7b6ea *Canary-Stability-2013.tar.gz' | sha256sum -c - \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Canary-Stability-2013.tar.gz \
+    && curl -flO https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/IO-AIO-4.81.tar.gz \
+    && echo '67029f20e9b734ac1f483f7175d4ce45f924581c7de8fdf44e20c79be6dc0729 *IO-AIO-4.81.tar.gz' | sha256sum -c - \
+    # IO::AIO t/05_readdir.t  -- test fails so disable testing for now
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD --notest IO-AIO-4.81.tar.gz \
     && curl -fL https://raw.githubusercontent.com/skaji/cpm/0.997017/cpm -o /usr/local/bin/cpm \
     # sha256 checksum is from docker-perl team, cf https://github.com/docker-library/official-images/pull/12612#issuecomment-1158288299
     && echo 'e3931a7d994c96f9c74b97d1b5b75a554fc4f06eadef1eca26ecc0bdcd1f2d11 */usr/local/bin/cpm' | sha256sum -c - \
@@ -284,33 +298,3 @@ ARG USER_HOME
 ARG USER_NAME
 
 USER ${USER_NAME}
-
-# TODO - Consider using Carton or Carmel
-# https://metacpan.org/pod/Carton
-# https://metacpan.org/pod/Carmel
-
-# Perl modules requiring special handling
-# Archive::Zip requires full unzip, not busybox for testing
-# IO::AIO - t/05_readdir.t  -- test fails so disable testing for now
-# Perl::LanguageServer and Spreadsheet::ParseXLSX take a lot of time to install
-RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
-    --mount=type=cache,id=${CACHE_CPANM_USER},target="${USER_HOME}/.cpanm",sharing=locked \
-    sudo apk add --virtual .test-deps unzip \
-    && sudo chown -R "${USER_NAME}":"${USER_NAME}" "${USER_HOME}/.cpanm" \
-    && cpanm --sudo \
-    Archive::Zip \
-    common::sense \
-    Date::Parse \
-    Devel::NYTProf \
-    Feature::Compat::Class \
-    File::Slurp \
-    HTML::Tiny \
-    IO::AIO \
-    List::MoreUtils \
-    Object::InsideOut \
-    Perl::Critic \
-    Perl::Critic::TooMuchCode \
-    Perl::LanguageServer \
-    Readonly \
-    Spreadsheet::ParseXLSX \
-    && sudo apk del .test-deps

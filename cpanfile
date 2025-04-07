@@ -8,8 +8,8 @@ requires 'HTML::Tiny';
 requires 'List::MoreUtils';
 requires 'Object::InsideOut';
 requires 'Readonly';
-requires 'Readonly::XS';
 requires 'Spreadsheet::ParseXLSX';
+requires 'Sub::Name';
 
 on 'develop' => sub {
 
