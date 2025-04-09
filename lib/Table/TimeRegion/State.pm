@@ -2,7 +2,7 @@ package Table::TimeRegion::State;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use ActivePanel          qw{};
@@ -40,13 +40,11 @@ my @empty_times_
 
 ## use critic
 
-sub get_all_active {
-    my ( $self, $room ) = @_;
+sub get_all_active ( $self ) {
     return values %{ $self->active_by_room_() };
 }
 
-sub is_room_active_clear_if_expired {
-    my ( $self, $room, $time ) = @_;
+sub is_room_active_clear_if_expired ( $self, $room, $time ) {
     return unless defined $room;
     $room = $room->get_room_id() if ref $room;
     my $hash   = $self->active_by_room_();
@@ -57,8 +55,7 @@ sub is_room_active_clear_if_expired {
     return;
 } ## end sub is_room_active_clear_if_expired
 
-sub add_active_panel {
-    my ( $self, $active ) = @_;
+sub add_active_panel ( $self, $active ) {
     return unless $active;
     my $room  = $active->get_room()->get_room_id();
     my $prior = $self->active_by_room_()->{ $room };
@@ -71,8 +68,7 @@ sub add_active_panel {
     return;
 } ## end sub add_active_panel
 
-sub split_active_panels {
-    my ( $self, $time ) = @_;
+sub split_active_panels ( $self, $time ) {
     my $ref      = $self->active_by_room_();
     my @room_ids = keys %{ $ref };
     foreach my $room_id ( @room_ids ) {
@@ -91,8 +87,7 @@ sub split_active_panels {
     return;
 } ## end sub split_active_panels
 
-sub get_active_break_clear_if_expired {
-    my ( $self, $time ) = @_;
+sub get_active_break_clear_if_expired ( $self, $time ) {
     my $break = $self->get_active_break_();
     return unless defined $break;
     if ( $break->get_end_seconds() <= $time ) {
@@ -102,8 +97,7 @@ sub get_active_break_clear_if_expired {
     return $break;
 } ## end sub get_active_break_clear_if_expired
 
-sub add_break {
-    my ( $self, $panel ) = @_;
+sub add_break ( $self, $panel ) {
     return unless defined $panel;
     my $break = $self->get_active_break_();
     return
@@ -113,43 +107,37 @@ sub add_break {
     return;
 } ## end sub add_break
 
-sub has_any_active {
-    my ( $self ) = @_;
+sub has_any_active ( $self ) {
     return 1 if %{ $self->active_by_room_() };
     return;
 }
 
-sub clear_last_time {
-    my ( $self ) = @_;
+sub clear_last_time ( $self ) {
     $self->set_last_time( undef );
     return;
 }
 
-sub has_last_time {
-    my ( $self ) = @_;
+sub has_last_time ( $self ) {
     return 1 if $self->get_last_time();
     return;
 }
 
-sub clear_empty_times {
-    my ( $self ) = @_;
+sub clear_empty_times ( $self ) {
     $self->set_empty_times_( {} );
     return;
 }
 
-sub add_empty_times {
-    my ( $self, @times ) = @_;
+sub add_empty_times ( $self, @times ) {
     foreach my $time ( @times ) {
         $self->get_empty_times_()->{ $time } = 1;
     }
     return;
 } ## end sub add_empty_times
 
-sub get_and_clear_empty_times {
-    my ( $self ) = @_;
+sub get_and_clear_empty_times ( $self ) {
     my @times = keys %{ $self->get_empty_times_() };
     $self->set_empty_times_( {} );
     return @times;
-} ## end sub get_and_clear_empty_times
+}
 
 1;

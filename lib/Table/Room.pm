@@ -2,15 +2,15 @@ package Table::Room;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 use Carp qw{ croak };
 
-use Canonical qw{ :all };
-use Data::Partion qw{};
-use Data::Room qw{};
-use Field::Room qw{};
-use Workbook qw{};
+use Canonical       qw{ :all };
+use Data::Partition qw{};
+use Data::Room      qw{};
+use Field::Room     qw{};
+use Workbook        qw{};
 
 our @EXPORT_OK = qw {
     all_rooms
@@ -28,9 +28,7 @@ my @rooms_;
 my $is_sorted_;
 my %by_key_;
 
-sub needed_ {
-    my ( @names ) = @_;
-
+sub needed_ ( @names ) {
     foreach my $name ( @names ) {
         next unless defined $name;
         next if $name eq q{};
@@ -40,9 +38,7 @@ sub needed_ {
     return;
 } ## end sub needed_
 
-sub read_room_ {
-    my ( $header, $san_header, $raw ) = @_;
-
+sub read_room_ ( $header, $san_header, $raw ) {
     my %room_data;
 
     canonical_data(
@@ -74,18 +70,17 @@ sub read_room_ {
     return;
 } ## end sub read_room_
 
-sub all_rooms {
+sub all_rooms () {
     @rooms_     = sort { $a->compare( $b ) } @rooms_ unless $is_sorted_;
     $is_sorted_ = 1;
     return @rooms_;
 }
 
-sub visible_rooms {
+sub visible_rooms () {
     return grep { !$_->get_room_is_hidden() } all_rooms();
 }
 
-sub lookup {
-    my ( $name ) = @_;
+sub lookup ( $name ) {
     return unless defined $name;
     return if $name eq q{};
     $name = canonical_header( $name );
@@ -95,9 +90,7 @@ sub lookup {
     return;
 } ## end sub lookup
 
-sub register {
-    my ( @rooms ) = @_;
-
+sub register ( @rooms ) {
     foreach my $room ( @rooms ) {
         foreach my $key (
             $room->get_short_room_name(),
@@ -117,8 +110,7 @@ sub register {
     return;
 } ## end sub register
 
-sub read_from {
-    my ( $wb ) = @_;
+sub read_from ( $wb ) {
     return unless defined $wb;
 
     my $sheet = $wb->sheet( q{Rooms} );

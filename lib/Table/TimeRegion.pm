@@ -2,7 +2,7 @@ package Table::TimeRegion;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Readonly;
@@ -36,9 +36,7 @@ my @sort_regions_;
 
 # Private
 
-sub add_starting_panels_ {
-    my ( $state, $time, $panel ) = @_;
-
+sub add_starting_panels_ ( $state, $time, $panel ) {
     return unless defined $panel;
     my $panel_type = $panel->get_panel_type();
     return unless defined $panel_type;
@@ -70,9 +68,7 @@ sub add_starting_panels_ {
     return;
 } ## end sub add_starting_panels_
 
-sub update_ongoig_panels_ {
-    my ( $state, $time ) = @_;
-
+sub update_ongoing_panels_ ( $state, $time ) {
     my $active_break = $state->get_active_break_clear_if_expired( $time );
 
     foreach my $room ( Table::Room::all_rooms() ) {
@@ -99,17 +95,16 @@ sub update_ongoig_panels_ {
     } ## end foreach my $room ( Table::Room::all_rooms...)
 
     return;
-} ## end sub update_ongoig_panels_
+} ## end sub update_ongoing_panels_
 
-sub process_time_slot_ {
-    my ( $state, $time ) = @_;
+sub process_time_slot_ ( $state, $time ) {
 
     # Add new panels
     foreach my $panel ( get_panels_by_start( $time ) ) {
         add_starting_panels_( $state, $time, $panel );
     }
 
-    update_ongoig_panels_( $state, $time );
+    update_ongoing_panels_( $state, $time );
 
     my %timeslot_info;
     foreach my $panel_state ( $state->get_all_active() ) {
@@ -126,12 +121,14 @@ sub process_time_slot_ {
 
     if ( %timeslot_info ) {
         foreach my $empty ( $state->get_and_clear_empty_times() ) {
-            $state->get_active_region()->get_time_slot( $empty )
-                ->init_current( {} );
+            $state->get_active_region()
+                ->get_time_slot( $empty )
+                ->init_current();
         }
 
-        $state->get_active_region()->get_time_slot( $time )
-            ->init_current( \%timeslot_info );
+        $state->get_active_region()
+            ->get_time_slot( $time )
+            ->init_current( %timeslot_info );
 
         $state->set_last_time( $time );
     } ## end if ( %timeslot_info )
@@ -141,8 +138,7 @@ sub process_time_slot_ {
     return;
 } ## end sub process_time_slot_
 
-sub process_half_hours_upto_ {
-    my ( $state, $split_time ) = @_;
+sub process_half_hours_upto_ ( $state, $split_time ) {
     return unless $state->has_last_time();
 
     my $time = $state->get_last_time() + $HALF_HOUR_IN_SEC;
@@ -154,8 +150,7 @@ sub process_half_hours_upto_ {
     return;
 } ## end sub process_half_hours_upto_
 
-sub check_if_new_region_ {
-    my ( $options, $time, $prev_region ) = @_;
+sub check_if_new_region_ ( $options, $time, $prev_region ) {
     if ( defined $prev_region ) {
         return if $options->is_split_none();
         return unless exists $split_points_{ $time };
@@ -188,9 +183,7 @@ sub check_if_new_region_ {
     return $region;
 } ## end sub check_if_new_region_
 
-sub finalize_region_ {
-    my ( $options, $state ) = @_;
-
+sub finalize_region_ ( $options, $state ) {
     return unless defined $state->get_active_region();
     return unless $options->is_mode_kiosk();
     my @times
@@ -202,23 +195,21 @@ sub finalize_region_ {
         my $time_slot = $state->get_active_region()->get_time_slot( $time );
 
         # Save current next panels
-        $time_slot->init_upcoming( { %next_panels } );
+        $time_slot->init_upcoming( %next_panels );
 
         # Update next panels
-        my $current_panels = $time_slot->get_current();
-        while ( my ( $room_id, $panel_state ) = each %{ $current_panels } ) {
-            next
-                unless $panel_state->get_start_seconds() == $time;
-            $next_panels{ $room_id } = $panel_state;
+        my @current_panels = grep { $_->get_start_seconds() == $time }
+            $time_slot->get_all_current();
+        foreach my $panel_state ( @current_panels ) {
+            $next_panels{ $panel_state->get_room()->get_room_id() }
+                = $panel_state;
         }
     } ## end foreach my $time ( @times )
 
     return;
 } ## end sub finalize_region_
 
-sub handle_region_changes_ {
-    my ( $options, $state, $split_time ) = @_;
-
+sub handle_region_changes_ ( $options, $state, $split_time ) {
     my $region = check_if_new_region_(
         $options,
         $split_time,
@@ -236,7 +227,7 @@ sub handle_region_changes_ {
 } ## end sub handle_region_changes_
 
 # Public
-sub get_time_regions {
+sub get_time_regions () {
     return @sort_regions_ if @sort_regions_;
     @sort_regions_
         = sort { $a->get_start_seconds() <=> $b->get_start_seconds() }
@@ -244,8 +235,7 @@ sub get_time_regions {
     return @sort_regions_;
 } ## end sub get_time_regions
 
-sub populate_time_regions {
-    my ( $options ) = @_;
+sub populate_time_regions ( $options ) {
 
     # Reset information
     %split_points_ = ();

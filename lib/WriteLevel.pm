@@ -2,7 +2,7 @@ package WriteLevel;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp qw{ croak cluck };
@@ -18,17 +18,14 @@ our %EXPORT_TAGS = (
 
 Readonly our $WRITE_TO_METHOD => q{write_to};
 
-sub add_line {
-    my ( $self, @content ) = @_;
-
+sub add_line ( $self, @content ) {
     my $content = join q{}, @content;
     push @{ $self }, grep { m{\S}xms } split m{\s*\n+\s*}xms,
         $content;
     return $self;
 } ## end sub add_line
 
-sub embed {
-    my ( $self, $embedded ) = @_;
+sub embed ( $self, $embedded ) {
     return unless defined $embedded;
     croak q{WriteLevel can only embed WriteLevel based classes}
         unless eval { $embedded->can( $WRITE_TO_METHOD ) };
@@ -37,8 +34,7 @@ sub embed {
     return;
 } ## end sub embed
 
-sub nested {
-    my ( $self, $level_open, $embedded, $level_close ) = @_;
+sub nested ( $self, $level_open, $embedded, $level_close ) {
     croak q{WriteLevel can only nest WriteLevel based classes}
         unless eval { $embedded->can( $WRITE_TO_METHOD ) };
 
@@ -49,9 +45,7 @@ sub nested {
     return;
 } ## end sub nested
 
-sub write_to_ {
-    my ( $self, $fh, $level, $ref ) = @_;
-
+sub write_to_ ( $self, $fh, $level, $ref ) {
     cluck q{Expeced array ref}
         unless defined $ref && reftype $ref && q{ARRAY} eq reftype $ref;
 
@@ -71,21 +65,16 @@ sub write_to_ {
     return;
 } ## end sub write_to_
 
-sub write_to {
-    my ( $self, $fh, $level ) = @_;
-    $fh    //= \*STDOUT;
-    $level //= 0;
-
+sub write_to ( $self, $fh //= \*STDOUT, $level //= 0 ) {
     $self->write_to_( $fh, $level, $self );
 
     return;
-} ## end sub write_to
+}
 
-sub new {
-    my ( $class ) = @_;
+sub new ( $class ) {
     $class = ref $class || $class;
 
     return bless [ [] ], $class;
-} ## end sub new
+}
 
 1;

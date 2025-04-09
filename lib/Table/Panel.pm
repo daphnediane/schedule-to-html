@@ -2,7 +2,7 @@ package Table::Panel;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use List::Util qw{ any };
@@ -33,9 +33,7 @@ my %by_start_;
 my %by_base_uniq_id_;
 my @splits_;
 
-sub to_presenters_ {
-    my ( $per_info, $names ) = @_;
-
+sub to_presenters_ ( $per_info, $names ) {
     return           unless defined $per_info;
     return $per_info unless $per_info->get_is_other();
 
@@ -52,9 +50,7 @@ sub to_presenters_ {
         split m{\s*,\s*}xms, $names;
 } ## end sub to_presenters_
 
-sub read_presenter_column_ {
-    my ( $presenter_set, $per_info_index, $raw_text ) = @_;
-
+sub read_presenter_column_ ( $presenter_set, $per_info_index, $raw_text ) {
     return unless defined $raw_text;
 
     my $unlisted = $raw_text =~ m{\A[*]}xms || $raw_text =~ m{[*]\z}xms;
@@ -71,9 +67,7 @@ sub read_presenter_column_ {
     return;
 } ## end sub read_presenter_column_
 
-sub to_room_ {
-    my ( $panel_data, $room_name ) = @_;
-
+sub to_room_ ( $panel_data, $room_name ) {
     return unless defined $room_name;
     return if $room_name eq q{};
 
@@ -118,9 +112,7 @@ sub to_room_ {
     return $room;
 } ## end sub to_room_
 
-sub read_room_column_ {
-    my ( $panel_data ) = @_;
-
+sub read_room_column_ ( $panel_data ) {
     my $rooms = $panel_data->{ $Field::Panel::ROOM_NAME };
     return unless defined $rooms;
 
@@ -141,9 +133,7 @@ sub read_room_column_ {
     return @rooms;
 } ## end sub read_room_column_
 
-sub read_panel_ {
-    my ( $header, $san_header, $presenters_by_column, $raw ) = @_;
-
+sub read_panel_ ( $header, $san_header, $presenters_by_column, $raw ) {
     my %panel_data;
     my $presenter_set = PresenterSet->new();
 
@@ -152,8 +142,7 @@ sub read_panel_ {
         $header,
         $san_header,
         $raw,
-        sub {
-            my ( $raw_text, $column, $header_text, $header_alt ) = @_;
+        sub ( $raw_text, $column, $header_text, $header_alt ) {
             return unless defined $raw_text;
             return unless defined $presenters_by_column->[ $column ];
             read_presenter_column_(
@@ -194,9 +183,7 @@ sub read_panel_ {
     );
 } ## end sub read_panel_
 
-sub process_panel_ {
-    my ( $panel ) = @_;
-
+sub process_panel_ ( $panel ) {
     return unless defined $panel;
 
     return unless defined $panel->get_start_seconds();
@@ -223,31 +210,24 @@ sub process_panel_ {
 
 } ## end sub process_panel_
 
-sub get_split_panels {
+sub get_split_panels () {
     return @splits_;
 }
 
-sub get_panels_by_start {
-    my ( $time ) = @_;
+sub get_panels_by_start ( $time ) {
     my $panels = $by_start_{ $time };
     return unless defined $panels;
     return @{ $panels };
-} ## end sub get_panels_by_start
+}
 
-sub get_related_panels {
-    my ( $panel ) = @_;
-
+sub get_related_panels ( $panel ) {
     my $related = $by_base_uniq_id_{ $panel->get_uniq_id_base() };
     return $panel unless defined $related;
     return @{ $related };
-} ## end sub get_related_panels
+}
 
-sub get_prereq_panels {
-    my ( $panel ) = @_;
-
-    my $prereq_text = $panel->get_prereq();
-    return unless defined $prereq_text;
-    my @prereq = split m{[,;/]\s*}, $prereq_text;
+sub get_prereq_panels ( $panel ) {
+    my @prereq = $panel->get_base_prereq_ids();
     my %seen;
     my @res;
     foreach my $prereq ( @prereq ) {
@@ -261,9 +241,7 @@ sub get_prereq_panels {
     return @res;
 } ## end sub get_prereq_panels
 
-sub read_from {
-    my ( $wb ) = @_;
-
+sub read_from ( $wb ) {
     my $main_sheet = $wb->sheet();
     if ( !defined $main_sheet || !$main_sheet->get_is_open() ) {
         die q{Unable to find schedule sheet for },
@@ -297,9 +275,7 @@ sub read_from {
     return;
 } ## end sub read_from
 
-sub read_spreadsheet_file {
-    my ( $filename ) = @_;
-
+sub read_spreadsheet_file ( $filename ) {
     my $wb = Workbook->new( filename => $filename );
     if ( !defined $wb || !$wb->get_is_open() ) {
         die q{Unable to read }, $filename, qq{\n};

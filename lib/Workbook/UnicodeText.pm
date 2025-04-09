@@ -2,7 +2,7 @@ package Workbook::UnicodeText;
 
 use Object::InsideOut qw{ Workbook };
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use English     qw( -no_match_vars );
@@ -18,32 +18,26 @@ my @cache
 
 ## use critic
 
-sub release {
-    my ( $self ) = @_;
+sub release ( $self ) {
     $self->set_line_cache_( undef );
     return;
 }
 
-sub find_sheet_handle {
-    my ( $self, $sheet ) = @_;
+sub find_sheet_handle ( $self, $sheet ) {
     return 0 unless defined $sheet;
     return 0 if $sheet eq q{0};
     return 0 if $sheet eq q{Schedule};
     return;
 } ## end sub find_sheet_handle
 
-sub get_line_range {
-    my ( $self, $sheet_handle ) = @_;
-
+sub get_line_range ( $self, $sheet_handle ) {
     my $lines = $self->get_line_cache_();
     my $high  = scalar @{ $lines };
     --$high;
     return ( 0, $high );
 } ## end sub get_line_range
 
-sub get_line {
-    my ( $self, $sheet_handle, $line_no ) = @_;
-
+sub get_line ( $self, $sheet_handle, $line_no ) {
     my $lines = $self->get_line_cache_();
     return if $line_no >= scalar @{ $lines };
 

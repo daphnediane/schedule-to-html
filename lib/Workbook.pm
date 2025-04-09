@@ -2,7 +2,7 @@ package Workbook;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 ## no critic (ProhibitUnusedVariables)
@@ -35,8 +35,7 @@ sub class_for_args_ :MergeArgs {
     return q{Workbook::UnicodeText};
 } ## end sub class_for_args_
 
-sub new {
-    my ( $class, @args ) = @_;
+sub new ( $class, @args ) {
     $class = ref $class || $class;
 
     if ( $class eq q{Workbook} ) {
@@ -49,11 +48,8 @@ sub new {
     return $class->Object::InsideOut::new( @args );
 } ## end sub new
 
-sub sheet {
-    my ( $self, $sheet ) = @_;
-    $sheet //= $self->get_default_sheet();
-
+sub sheet ( $self, $sheet //= $self->get_default_sheet() ) {
     require Workbook::Sheet;
     return Workbook::Sheet->new( workbook => $self, sheet => $sheet );
-} ## end sub sheet
+}
 1;

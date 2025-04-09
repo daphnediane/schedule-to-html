@@ -2,15 +2,15 @@ package Table::PanelType;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp qw{ croak };
 
-use Canonical qw{ :all };
-use Data::PanelType qw{};
+use Canonical        qw{ :all };
+use Data::PanelType  qw{};
 use Field::PanelType qw{};
-use Workbook qw{};
+use Workbook         qw{};
 
 our @EXPORT_OK = qw {
     all_types
@@ -26,6 +26,7 @@ our %EXPORT_TAGS = (
 
 my @types_;
 my %by_key_;
+my %by_short_key_;
 my %known_color_sets_ = ( color => 1 );
 
 ## no critic (TooMuchCode::ProhibitDuplicateLiteral)
@@ -38,9 +39,7 @@ Readonly::Hash our %IS_MAP_ => (
 );
 ## use critic
 
-sub read_panel_type_ {
-    my ( $header, $san_header, $raw ) = @_;
-
+sub read_panel_type_ ( $header, $san_header, $raw ) {
     my %paneltype_data;
     my %colors;
 
@@ -49,8 +48,7 @@ sub read_panel_type_ {
         $header,
         $san_header,
         $raw,
-        sub {
-            my ( $raw_text, $column, $header_text, $header_alt ) = @_;
+        sub ( $raw_text, $column, $header_text, $header_alt ) {
             return unless defined $raw_text;
             return unless exists $known_color_sets_{ lc $header_alt };
             $colors{ $header_alt } = $raw_text;
@@ -86,24 +84,22 @@ sub read_panel_type_ {
     return;
 } ## end sub read_panel_type_
 
-sub all_types {
+sub all_types () {
     return @types_;
 }
 
-sub lookup {
-    my ( $name ) = @_;
+sub lookup ( $name ) {
     return unless defined $name;
 
     $name = canonical_header( $name );
     $name = lc $name;
-    my $panel_type = $by_key_{ $name };
+    my $panel_type = $by_key_{ $name }
+        // $by_short_key_{ substr $name, 0, 2 };
     return $panel_type if defined $panel_type;
     return;
 } ## end sub lookup
 
-sub register {
-    my ( @types ) = @_;
-
+sub register ( @types ) {
     foreach my $panel_type ( @types ) {
         foreach my $key (
             $panel_type->get_prefix(),
@@ -112,6 +108,7 @@ sub register {
             $key = canonical_header( $key );
             $key = lc $key;
             $by_key_{ $key } //= $panel_type;
+            $by_short_key_{ substr $key, 0, 2 } //= $panel_type;
         } ## end foreach my $key ( $panel_type...)
 
         push @types_, $panel_type;
@@ -120,9 +117,7 @@ sub register {
     return;
 } ## end sub register
 
-sub read_from {
-    my ( $wb ) = @_;
-
+sub read_from ( $wb ) {
     my $sheet = $wb->sheet( q{PanelTypes} );
     return unless defined $sheet;
     return unless $sheet->get_is_open();
@@ -143,9 +138,7 @@ sub read_from {
     return;
 } ## end sub read_from
 
-sub add_color_set {
-    my ( @color_sets ) = @_;
-
+sub add_color_set ( @color_sets ) {
     foreach my $color_set ( @color_sets ) {
         next unless defined $color_set;
         next if $color_set eq q{};

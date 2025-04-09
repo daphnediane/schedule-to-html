@@ -15,4 +15,4 @@
 --nowant-right-space="A"
 --weld-nested-containers
 --opening-brace-always-on-right
---want-break-before="A % + - * / x != == >= <= =~ !~ < > | & = **= += *= &= <<= &&= -= /= |= >>= ||= //= .= %= ^= x="
+--want-break-before="A % + - * / x != == >= <= =~ !~ < > | & = **= += *= &= <<= &&= -= /= |= >>= ||= .= %= ^= x="

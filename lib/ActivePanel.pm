@@ -1,48 +1,86 @@
 package ActivePanel;
 
-use Object::InsideOut qw{TimeRange};
-
-use v5.36.0;
+use v5.38.0;
 use utf8;
+
+use Carp                   qw{ croak };
+use Feature::Compat::Class qw{ :all };
+use Scalar::Util           qw{ blessed };
 
 use Data::Room qw{};
 
-## no critic (ProhibitUnusedVariables)
+class ActivePanel :isa(TimeRange);
 
-my @panel
-    :Field
-    :Type(Data::Panel)
-    :Arg(Name => q{active_panel}, Mandatory => 1)
-    :Get(Name => q{get_active_panel});
+# MARK: active_panel field
 
-my @rows
-    :Field
-    :Type(numeric)
-    :Arg(Name => q{rows})
-    :Set(Name => q{set_rows})
-    :Get(Name => q{get_rows});
+field $panel :param(active_panel);
+ADJUST {
+    blessed $panel && $panel->isa( q{Data::Panel} )
+        || croak qq{active_panel must be Data::Panel\n};
+}
 
-my @is_break
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_break})
-    :Get(Name => q{get_is_break});
+method get_active_panel () {
+    return $panel;
+}
 
-my @room
-    :Field
-    :Type(Data::Room)
-    :Arg(Name => q{room}, Mand => 1)
-    :Get(Name => q{get_room});
+# MARK: rows field
 
-## use critic
+field $rows :param(rows) //= 0;
+ADJUST {
+    $rows =~ m{^(?:0|[1-9]\d*)\z}xms
+        || croak qq{rows must be integer\n};
+}
 
-sub increment_rows {
-    my ( $self, $amount ) = @_;
-    my $rows = $self->get_rows() // 0;
-    $amount //= 1;
+method get_rows () {
+    return $rows;
+}
+
+method set_rows ( $new_rows ) {
+    $rows = $new_rows;
+    return $rows;
+}
+
+method increment_rows ( $amount //= 1 ) {
+    $amount =~ m{^-?(?:0|[1-9]\d*)\z}xms
+        || croak qq{amount must be integer\n};
     $rows += $amount;
-    $self->set_rows( $rows );
-    return;
+    return $rows;
 } ## end sub increment_rows
 
+# MARK: is_break field
+
+field $is_break :param(is_break) //= 0;
+ADJUST {
+    ref $is_break
+        && croak qq{is_break must be a scalar\n};
+}
+
+method get_is_break () {
+    return 1 if $is_break;
+    return;
+}
+
+# MARK: room field
+
+field $room :param(room);
+ADJUST {
+    blessed $room && $room->isa( q{Data::Room} )
+        || croak qq{active_panel must be Data::Room\n};
+}
+
+method get_room() {
+    return $room;
+}
+
+# MARK: Clone
+
+method clone_args() {
+    return (
+        $self->SUPER::clone_args(),
+        active_panel => $panel,
+        rows         => $rows,
+        ( defined $is_break ? ( is_break => $is_break ) : () ),
+        room => $room,
+    );
+} ## end sub clone_args
 1;

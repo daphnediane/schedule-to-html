@@ -2,7 +2,7 @@ package Canonical;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp qw{ croak };
@@ -18,8 +18,7 @@ our %EXPORT_TAGS = (
     all => [ @EXPORT_OK ],
 );
 
-sub canonical_header {
-    my ( $hdr ) = @_;
+sub canonical_header ( $hdr ) {
     $hdr =~ s{\s+}{_}xmsg;
     $hdr =~ s{[/:().,]}{_}xmsg;
     $hdr =~ s{_+}{_}xmsg;
@@ -28,13 +27,11 @@ sub canonical_header {
     return $hdr;
 } ## end sub canonical_header
 
-sub canonical_headers {
-    my ( @hdrs ) = @_;
+sub canonical_headers ( @hdrs ) {
     return map { defined $_ ? canonical_header( $_ ) : undef } @hdrs;
 }
 
-sub canonical_class {
-    my ( $class ) = @_;
+sub canonical_class ( $class ) {
     $class = canonical_header( $class );
     $class =~ s{_(\w)}{\u$1}xmsg;
     return $class;
@@ -56,9 +53,7 @@ sub canonical_class {
 # @param san_header The array reference containing the sanitized header text
 # @param raw The array reference containing the raw data
 # @param callback The optional callback subroutine, invoked with the raw text, column number, header text, and header alt text
-sub canonical_data {
-    my ( $data, $header, $san_header, $raw, $callback ) = @_;
-
+sub canonical_data ( $data, $header, $san_header, $raw, $callback ) {
     foreach my $column ( keys @{ $raw } ) {
         my $header_text = $header->[ $column ];
         my $header_alt  = $san_header->[ $column ];

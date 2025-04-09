@@ -2,7 +2,7 @@ package WriteLevel::HTML;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp       qw{ croak};
@@ -67,24 +67,21 @@ my @html_
 
 ## use critic
 
-sub add_line {
-    my ( $self, @args ) = @_;
+sub add_line ( $self, @args ) {
     $self->wl_()->add_line( @args );
     return $self;
 }
 
-sub add_tag {
-    my ( $self, @args ) = @_;
+sub add_tag ( $self, @args ) {
     my $h = $self->get_formatter();
     $self->wl_()->add_line( $h->tag( @args ) );
     return $self;
-} ## end sub add_tag
+}
 
-sub nested_inline {
-    my ( $self ) = @_;
-    my $h        = $self->get_formatter();
-    my $wl       = $self->wl_();
-    my $child    = $self->new(
+sub nested_inline ( $self ) {
+    my $h     = $self->get_formatter();
+    my $wl    = $self->wl_();
+    my $child = $self->new(
         formatter => $h,
         tag       => $self->get_tag(),
     );
@@ -92,8 +89,7 @@ sub nested_inline {
     return $child;
 } ## end sub nested_inline
 
-sub nested_tag {
-    my ( $self, $tag, @rest ) = @_;
+sub nested_tag ( $self, $tag, @rest ) {
     my $h     = $self->get_formatter();
     my $wl    = $self->wl_();
     my $child = $self->new(
@@ -108,21 +104,17 @@ sub nested_tag {
     return $child;
 } ## end sub nested_tag
 
-sub reg_handler_ {
-    my ( $name, $handler ) = @_;
-
+sub reg_handler_ ( $name, $handler ) {
     my $full_name = __PACKAGE__ . q{::} . $name;
     $handler = subname $full_name, $handler;
     {
-        no strict q{refs}; ## no critic(TestingAndDebugging::ProhibitNoStrict)
+        no strict q{refs};    ## no critic(TestingAndDebugging::ProhibitNoStrict)
         *{ $full_name } = $handler;
     }
     return $handler;
 } ## end sub reg_handler_
 
-sub get_child_ {
-    my ( $self, $tag ) = @_;
-
+sub get_child_ ( $self, $tag ) {
     return WriteLevel::CSS->new() if $tag eq q{style};
     return $self->new(
         formatter => $self->get_formatter(),
@@ -135,12 +127,11 @@ foreach my $tag ( @KNOWN_ELEMENTS ) {
     my $add_name      = join q{_},  qw{ add }, $tag;
     my $full_add_name = join q{::}, __PACKAGE__, $add_name;
 
-    my $add_sub = sub {
-        my ( $self, @args ) = @_;
+    my $add_sub = sub ( $self, @args ) {
         $self->wl_()
             ->add_line( $self->get_formatter()->auto_tag( $tag, @args ) );
         return $self;
-    };
+    }; ## end $add_sub = sub
 
     {
         ## no critic(TestingAndDebugging::ProhibitNoStrict)
@@ -152,8 +143,7 @@ foreach my $tag ( @KNOWN_ELEMENTS ) {
     my $nested_name      = join q{_},  qw{ nested }, $tag;
     my $full_nested_name = join q{::}, __PACKAGE__, $nested_name;
 
-    my $nested_sub = sub {
-        my ( $self, @args ) = @_;
+    my $nested_sub = sub ( $self, @args ) {
         croak qq{nested_${tag} too many arguments\n}
             if 1 < scalar @args;
         croak qq{nested_${tag} first arg must be a hash\n}
@@ -169,7 +159,7 @@ foreach my $tag ( @KNOWN_ELEMENTS ) {
             [ $h->close( $tag ) ],
         );
         return $child;
-    };
+    }; ## end $nested_sub = sub
 
     {
         ## no critic(TestingAndDebugging::ProhibitNoStrict)

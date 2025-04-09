@@ -2,7 +2,7 @@ package Workbook::Sheet;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use English qw( -no_match_vars );
@@ -47,12 +47,11 @@ my @is_open
 
 ## use critic
 
-sub release {
-    my ( $self ) = @_;
+sub release ( $self ) {
     $self->set_workbook_( undef );
     $self->set_sheet_handle_( undef );
     return;
-} ## end sub release
+}
 
 sub init_ :Init {
     my ( $self ) = @_;
@@ -80,8 +79,7 @@ sub init_ :Init {
     return;
 } ## end sub init_
 
-sub get_next_line {
-    my ( $self ) = @_;
+sub get_next_line ( $self ) {
     my $wb = $self->get_workbook();
     return unless defined $wb;
     my $sheet_handle = $self->get_sheet_handle_();

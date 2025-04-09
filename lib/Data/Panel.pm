@@ -1,17 +1,20 @@
 package Data::Panel;
 
-use Object::InsideOut qw{TimeRange};
-
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
-use Carp qw{croak};
-use Readonly;
+use Carp                   qw{ croak };
+use Readonly               qw{ Readonly };
+use Feature::Compat::Class qw{ :all };
+use List::MoreUtils        qw{ all };
+use Scalar::Util           qw{ reftype blessed };
 
 use Data::PanelType  qw{};
 use Data::Room       qw{};
 use PresenterSet     qw{};
 use Table::PanelType qw{};
+
+class Data::Panel :isa(TimeRange);
 
 Readonly our $COST_HIDDEN => q{*};
 Readonly our $COST_KIDS   => q{Kids};
@@ -43,8 +46,7 @@ q{T.B.D.}      =~ $RE_TBD   or croak q{Assertion fail};
 q{model}       =~ $RE_MODEL or croak q{Assertion fail};
 ## use critic
 
-sub norm_text_ {
-    my ( @values ) = @_;
+sub _norm_text ( @values ) {
     @values = grep { defined } @values;
     return unless @values;
     my $value = join q{}, @values;
@@ -52,308 +54,259 @@ sub norm_text_ {
     $value =~ s{\s++ \z}{}xms;
     return if $value eq q{};
     return $value;
-} ## end sub norm_text_
+} ## end sub _norm_text
 
-sub pre_init_text_ {
-    my ( $class, $param, $spec, $obj, $value ) = @_;
-    return norm_text_( $value );
-}
-
-sub pre_set_text_ {
-    my ( $class, $field, @args ) = @_;
-    return norm_text_( @args );
-}
-
-sub norm_cost_ {
-    my ( @values ) = @_;
-    my $value = norm_text_( @values );
+sub _norm_cost ( @values ) {
+    my $value = _norm_text( @values );
     return unless defined $value;
     return             if $value eq q{};
     return $COST_FREE  if $value =~ $RE_FREE;
     return $COST_TBD   if $value =~ $RE_TBD;
     return $COST_MODEL if $value =~ $RE_MODEL;
     return $value;
-} ## end sub norm_cost_
+} ## end sub _norm_cost
 
-sub pre_init_cost_ {
-    my ( $class, $param, $spec, $obj, $value ) = @_;
-    return norm_cost_( $value );
-}
-
-sub pre_set_cost_ {
-    my ( $class, $field, @args ) = @_;
-    return norm_cost_( @args );
-}
-
-sub pre_is_full_ {
-    my ( $class, $param, $spec, $obj, $value ) = @_;
+sub _norm_full ( @values ) {
+    my $value = _norm_text( @values );
     return unless defined $value;
     return if $value =~ m{\Anot??}xms;
     return if $value eq q{};
 
     return 1;
-} ## end sub pre_is_full_
+} ## end sub _norm_full
+
+sub _uniq_to_base_type_remain ( $id ) {
+    if ( $id =~ s{ \A (?<type> [[:alpha:]]{2,}+ ) (?<num> \d++ ) }{}xms ) {
+        my $type     = $+{ type };
+        my $number   = 0 + $+{ num };
+        my $need_len = 2 <= length $type ? 3 : 2;
+        if ( $need_len > length $number ) {
+            $number = q{000} . $number;
+            $number = substr $number, -$need_len;
+        }
+        return ( $type . $number, $type, $id );
+    } ## end if ( $id =~ ...)
+
+    return ( $id, $id, q{} );
+} ## end sub _uniq_to_base_type_remain
+
+# MARK: uniq_id field
+
+field $uniq_id :param(uniq_id);
+field $id_base;
+field $id_type;
+field $id_number;
+field $id_part_type  = q{};
+field $id_part_index = 1;
+field $id_remain;
+
+ADJUST {
+    $uniq_id = _norm_text( $uniq_id );
+    ( $id_base, $id_type, $id_remain )
+        = _uniq_to_base_type_remain( $uniq_id );
+
+    if ( $id_remain =~ s{ (?<type> [PS] ) (?<index> \d+ ) }{}xms ) {
+        $id_part_type  = $+{ type };
+        $id_part_index = 0 + $+{ index };
+    }
+} ## end ADJUST
+
+method get_uniq_id () {
+    return $uniq_id;
+}
+
+method get_uniq_id_base () {
+    return $id_base;
+}
+
+method get_uniq_id_part () {
+    return $id_part_index;
+}
+
+method get_uniq_id_is_part () {
+    return $id_part_type eq q{P} ? 1 : 0;
+}
+
+# MARK: href_anchor field
+
+field $href_anchor;
+
+method get_href_anchor () {
+    return $href_anchor if defined $href_anchor;
+
+    my $base_anchor = $uniq_id // q{ZZ9999999};
+    my $anchor      = $base_anchor;
+    state %used_anchors;
+    while ( $used_anchors{ $anchor } ) {
+        my $id_seen_cnt = ++$used_anchors{ $base_anchor };
+        $anchor = $base_anchor . q{Dup} . $id_seen_cnt;
+    }
+    $used_anchors{ $anchor } = 1;
+    return $href_anchor = $anchor;
+} ## end sub get_href_anchor
+
+# MARK: name field
+
+field $name :param(name) //= undef;
+ADJUST {
+    $name = _norm_text( $name );
+}
+
+method get_name() {
+    return $name if defined $name;
+    return;
+}
+
+# MARK: rooms field
+
+# @TODO(class adjust parameters)
+# Only Object::Pad supports ADJUST :params, 5.40.0 class does not yet
+field $rooms_arg :param(rooms);
+field @rooms;
+ADJUST {
+    if (   blessed $rooms_arg
+        || !ref $rooms_arg
+        || q{ARRAY} ne reftype $rooms_arg ) {
+        @rooms = ( $rooms_arg ) if defined $rooms_arg;
+    }
+    else {
+        @rooms = @{ $rooms_arg };
+    }
+    $rooms_arg = undef;
+
+    all { blessed $_ && $_->isa( q{Data::Room} ) }
+        or croak q{rooms must be rooms};
+} ## end ADJUST
+
+method get_rooms() {
+    return @rooms;
+}
+
+# MARK: description field
+
+field $desc :param(description) //= undef;
+ADJUST {
+    $desc = _norm_text( $desc );
+}
+
+method get_description () {
+    return $desc if defined $desc;
+    return;
+}
+
+# MARK: prereq field
+
+field $prereq_arg :param(prereq) //= undef;
+field @prereq;
+ADJUST {
+    if (   blessed $prereq_arg
+        || !ref $prereq_arg
+        || q{ARRAY} ne reftype $prereq_arg ) {
+        @prereq = ( $prereq_arg ) if defined $prereq_arg;
+    }
+    else {
+        @prereq = @{ $prereq_arg };
+    }
+    $prereq_arg = undef;
+    @prereq     = grep { $_ ne $id_base }
+        map  { ( _uniq_to_base_type_remain( $_ ) )[ 0 ] }
+        map  { split m{[,;/]\s*}, $_ }
+        grep { defined } @prereq;
+} ## end ADJUST
+
+method get_base_prereq_ids () {
+    return @prereq;
+}
+
+# MARK: note field
+
+field $note :param(note) //= undef;
+ADJUST {
+    $note = _norm_text( $note );
+}
+
+method get_note() {
+    return $note if defined $note;
+    return;
+}
 
 ## no critic (ProhibitUnusedVariables)
 
-my @uniq_id
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{uniq_id}, Mand => 1, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_uniq_id});
+# MARK: av_note field
 
-my @id_suffix
-    :Field Set(Name => q{set_id_suffix_}, Restricted => 1)
-    :Get(Name => q{get_id_suffix_}, Restricted => 1);
-
-my @id_base
-    :Field Set(Name => q{set_id_base_}, Restricted => 1)
-    :Get(Name => q{get_id_base_}, Restricted => 1);
-
-my @id_part
-    :Field Set(Name => q{set_id_part_}, Restricted => 1)
-    :Get(Name => q{get_id_part_}, Restricted => 1);
-
-my @id_instance
-    :Field Set(Name => q{set_id_instance_}, Restricted => 1)
-    :Get(Name => q{get_id_instance_}, Restricted => 1);
-
-my @anchor :Field
-    :Type(scalar) Set(Name => q{set_anchor_}, Restricted => 1)
-    :Get(Name => q{get_anchor_}, Restricted => 1);
-
-my @name
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{name}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_name});
-
-my @rooms
-    :Field
-    :Type(list(Data::Room))
-    :Arg(Name => q{rooms}, Mand => 1)
-    :Get(Name => q{get_rooms_}, Restricted => 1);
-
-my @desc
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{description}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_description});
-
-my @prereq
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{prereq}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_prereq});
-
-my @note
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{note}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_note});
-
-my @av_note
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{av_note}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_av_note});
-
-my @difficulty
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{difficulty})
-    :Set(Name => q{set_difficulty})
-    :Get(Name => q{get_difficulty});
-
-my @capacity
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{capacity})
-    :Get(Name => q{get_capacity});
-
-my @ticket_sale
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{ticket_sale})
-    :Get(Name => q{get_ticket_sale});
-
-my @panel_kind
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{panel_kind}, Pre => \&Data::Panel::pre_init_text_)
-    :Get(Name => q{get_panel_kind_}, Restricted => 1);
-
-my @panel_type
-    :Field
-    :Type(Data::PanelType)
-    :Set(Name => q{set_panel_type_}, Restricted => 1)
-    :Get(Name => q{get_panel_type_}, Restricted => 1);
-
-my @cost
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{cost}, Pre => \&Data::Panel::pre_init_cost_)
-    :Get(Name => q{_get_cost}, Private => 1);
-
-my @full
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_full}, Pre => \&Data::Panel::pre_is_full_)
-    :Get(Name => q{get_is_full_}, Private => 1);
-
-my @presenter_set
-    :Field
-    :Type(PresenterSet)
-    :Arg(Name => q{presenter_set})
-    :Set(Name => q{set_presenter_set_}, Private => 1)
-    :Get(Name => q{get_presenter_set})
-    :Default(PresenterSet->new())
-    :Handles(PresenterSet::);
-
-## use critic
-
-sub init_ :Init {
-    my ( $self, $args ) = @_;
-    my $current_set = $self->get_presenter_set();
-    if ( !defined $current_set ) {
-        $self->set_presenter_set_( PresenterSet->new() );
-    }
-    return;
-} ## end sub init_
-
-sub get_uniq_id_suffix {
-    my ( $self ) = @_;
-    my $suffix = $self->get_id_suffix_();
-    return $suffix if defined $suffix;
-    $suffix = $self->get_uniq_id();
-    $suffix =~ s{\d+[[:alpha:]]?\K(?:Dup\d+)?\z}{}xms;
-    if ( length $suffix < 2 ) {
-        $self->set_id_suffix_( q{} );
-        return q{};
-    }
-    $suffix =~ s{ \A [[:alpha:]]{3,} \d{2,}}{}xms
-        or $suffix =~ s{ \A [[:alpha:]]{2,} \d{2,}}{}xms;
-    $self->set_id_suffix_( $suffix );
-    return $suffix;
-
-} ## end sub get_uniq_id_suffix
-
-sub get_uniq_id_base {
-    my ( $self ) = @_;
-    my $base = $self->get_id_base_();
-    return $base if defined $base;
-    $base = $self->get_uniq_id();
-    $base =~ s{\d+[[:alpha:]]?\K(?:Dup\d+)?\z}{}xms;
-    my $suffix = $self->get_uniq_id_suffix();
-    $base =~ s{\Q$suffix\E\z}{}xms;
-    $self->set_id_base_( $base );
-    return $base;
-} ## end sub get_uniq_id_base
-
-sub get_uniq_id_part {
-    my ( $self ) = @_;
-    my $part = $self->get_id_part_();
-    return $part if defined $part;
-    my $id = $self->get_uniq_id_suffix();
-    if ( $id =~ m{ [PS] (\d+) [[:alpha:]]? \z }xms ) {
-        $part = 0 + $1;
-    }
-    else {
-        $part = 1;
-    }
-    $self->set_id_part_( $part );
-    return $part;
-} ## end sub get_uniq_id_part
-
-sub get_uniq_id_is_part {
-    my ( $self ) = @_;
-    my $id = $self->get_uniq_id_suffix();
-    return 1 if $id =~ m{ P (\d+) [[:alpha:]]? \z }xms;
-    return 0;
-} ## end sub get_uniq_id_is_part
-
-sub get_uniq_id_instance {
-    my ( $self ) = @_;
-    my $instance = $self->get_id_instance_();
-    return $instance if defined $instance;
-    my $id = $self->get_uniq_id_suffix();
-    if ( $id =~ m{ ([[:alpha:]]) P \d+ \z }xms ) {
-        $instance = uc $1;
-    }
-    elsif ( $id =~ m{ \d ([[:alpha:]]) \z }xms ) {
-        $instance = uc $1;
-    }
-    else {
-        $instance = q{};
-    }
-    $self->set_id_instance_( $instance );
-    return $instance;
-} ## end sub get_uniq_id_instance
-
-sub get_panel_internal_id {
-    my ( $self ) = @_;
-    return ${ $self };
+field $av_note :param(av_note) //= undef;
+ADJUST {
+    $av_note = _norm_text( $av_note );
 }
 
-sub get_href_anchor {
-    my ( $self ) = @_;
-    my $anchor = $self->get_anchor_();
-    return $anchor if defined $anchor;
+method get_av_note() {
+    return $av_note if defined $av_note;
+    return;
+}
 
-    $anchor = $self->get_uniq_id() // q{ZZ9999999};
-    state %ids_seen;
-    if ( $ids_seen{ $anchor } ) {
-        my $indx = ++$ids_seen{ $anchor };
-        $anchor .= q{Dup} . $anchor;
-    }
-    else {
-        $ids_seen{ $anchor } = 1;
-    }
-    $self->set_anchor_( $anchor );
-    return $anchor;
+# MARK: difficulty field
 
-} ## end sub get_href_anchor
+field $difficulty :param(difficulty) //= undef;
+ADJUST {
+    $difficulty = _norm_text( $difficulty );
+}
 
-sub get_panel_type {
-    my ( $self ) = @_;
-    my $type = $self->get_panel_type_();
-    return $type if defined $type;
+method get_difficulty () {
+    return $difficulty if defined $difficulty;
+    return;
+}
 
-    my $prefix = $self->get_uniq_id();
-    $prefix =~ s{\d+[[:alpha:]]?(?:Dup\d+)?\z}{}xms;
-    $prefix = substr $prefix, 0, 2;
+method set_difficulty ( $new_diff = undef ) {
+    $difficulty = _norm_text( $difficulty );
+    return $self;
+}
 
-    $type = Table::PanelType::lookup( $prefix );
-    if ( !defined $type ) {
-        $type = Data::PanelType->new(
-            prefix => uc $prefix,
-            kind   => $self->get_panel_kind_() // $prefix . q{ Panel}
-        );
-        Table::PanelType::register( $type );
-    } ## end if ( !defined $type )
-    $self->set_panel_type_( $type );
-    return $type;
+# MARK: capacity field
+
+field $capacity :param(capacity) //= undef;
+
+method get_capacity () {
+    return $capacity if defined $capacity;
+    return;
+}
+
+# MARK: ticket_sale (URL) field
+
+field $ticket_sale :param(ticket_sale) //= undef;
+
+method get_ticket_sale () {
+    return $ticket_sale;
+}
+
+# MARK: panel_kind / panel_type field
+
+field $panel_kind :param(panel_kind) //= undef;
+field $panel_type;
+ADJUST {
+    $panel_kind = _norm_text( $panel_kind );
+}
+
+method get_panel_type () {
+    return $panel_type if defined $panel_type;
+
+    my $prefix = $id_type;
+    $panel_type = Table::PanelType::lookup( $prefix );
+    return $panel_type if defined $panel_type;
+
+    return $panel_type = Data::PanelType->new(
+        prefix => uc $prefix,
+        kind   => $panel_kind // $prefix . q{ Panel}
+    );
 } ## end sub get_panel_type
 
-sub get_rooms {
-    my ( $self ) = @_;
-    my $res = $self->get_rooms_();
-    return unless defined $res;
-    return @{ $res };
-} ## end sub get_rooms
+# MARK: cost
 
-sub get_is_full {
-    my ( $self ) = @_;
-    return 1 if $self->get_is_full_();
+field $cost :param(cost) //= undef;
+ADJUST {
+    $cost = _norm_cost( $cost );
+}
 
-    #TODO(pfister): Check capacity
-
-    return;
-} ## end sub get_is_full
-
-sub get_cost {
-    my ( $self ) = @_;
-    my $cost = $self->_get_cost();
+method get_cost () {
     if ( defined $cost ) {
         return if $cost eq $COST_KIDS;
         return if $cost eq $COST_FREE;
@@ -362,40 +315,101 @@ sub get_cost {
     } ## end if ( defined $cost )
 
     return $COST_TBD if $self->get_panel_type()->is_workshop();
-
     return;
+
 } ## end sub get_cost
 
-sub get_cost_is_model {
-    my ( $self ) = @_;
-    my $cost = $self->_get_cost();
+method get_cost_is_model () {
     return unless defined $cost;
     return 1 if $cost eq $COST_MODEL;
     return;
-} ## end sub get_cost_is_model
+}
 
-sub get_is_free {
-    my ( $self ) = @_;
-    my $cost = $self->_get_cost();
-    return unless defined $cost;
-    return 1 if $cost eq $COST_FREE;
-    return 1 if $cost eq $COST_KIDS;
-    return;
-} ## end sub get_is_free
-
-sub get_is_free_kid_panel {
-    my ( $self ) = @_;
-    my $cost = $self->_get_cost();
+method get_is_free_kid_panel {
     return unless defined $cost;
     return 1 if $cost eq $COST_KIDS;
     return;
-} ## end sub get_is_free_kid_panel
+}
 
-sub get_cost_is_missing {
-    my ( $self ) = @_;
-    return   if defined $self->_get_cost();
+method get_cost_is_missing {
+    return   if defined $cost;
     return 1 if $self->get_panel_type()->is_workshop();
     return;
-} ## end sub get_cost_is_missing
+}
+
+# MARK: is_full field
+
+field $is_full :param(is_full) //= undef;
+ADJUST {
+    $is_full = _norm_full( $is_full );
+}
+
+method get_is_full () {
+    return 1 if $is_full;
+
+    #TODO(pfister): Check capacity
+
+    return;
+} ## end sub get_is_full
+
+# MARK: presenter_set field
+
+field $presenter_set :param(presenter_set) //= PresenterSet->new();
+ADJUST {
+    blessed $presenter_set && $presenter_set->isa( q{PresenterSet} )
+        || croak q{Presenter set must be of type presenter set};
+}
+
+method get_presenter_set () {
+    return $presenter_set;
+}
+
+# MARK: uuid field
+
+field $uid;
+
+method get_panel_internal_id {
+    state $next_uid = 0;
+    return $uid //= ++$next_uid;
+}
+
+# MARK: Chaining
+
+method DESTROY () {
+    return $self->SUPER::DESTROY() if $self->can( q{SUPER::DESTROY} );
+}
+
+our $AUTOLOAD;
+
+method AUTOLOAD ( @args ) {
+    ( my $called = $AUTOLOAD ) =~ s{.*::}{}xms;
+
+    my $presenter_func = q{PresenterSet::} . $called;
+    my $mem_func       = $presenter_set->can( $presenter_func );
+
+    if ( defined $mem_func ) {
+        return $presenter_set->$mem_func( @args );
+    }
+
+    croak q{Can't locate object method "}, $called, q{" via package "},
+        __CLASS__, q{"};
+} ## end sub AUTOLOAD
+
+method can ( $method ) {
+    my $res = $self->SUPER::can( $method );
+    return $res if defined $res;
+
+    if ( defined( $res = PresenterSet->can( $method ) ) ) {
+        return sub ( $self, @method_args ) {
+            return $self->get_presenter_set()->$res( @method_args );
+            }
+            if defined $res;
+    } ## end if ( defined( $res = PresenterSet...))
+    return;
+} ## end sub can
+
+method clone_args() {
+    croak q{Can not clone};
+}
 
 1;

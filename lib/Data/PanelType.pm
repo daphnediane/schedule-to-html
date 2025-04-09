@@ -2,7 +2,7 @@ package Data::PanelType;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp qw{croak};
@@ -80,8 +80,7 @@ my @color_sets_key
 
 ## use critic
 
-sub is_break {
-    my ( $self ) = @_;
+sub is_break ( $self ) {
     my $res = $self->get_is_break_();
     return 1 if $res;
     return   if defined $res;
@@ -93,8 +92,7 @@ sub is_break {
     return;
 } ## end sub is_break
 
-sub is_cafe {
-    my ( $self ) = @_;
+sub is_cafe ( $self ) {
     my $res = $self->get_is_cafe_();
     return 1 if $res;
     return   if defined $res;
@@ -106,34 +104,29 @@ sub is_cafe {
     return;
 } ## end sub is_cafe
 
-sub override_make_shown {
-    my ( $self ) = @_;
+sub override_make_shown ( $self ) {
     $self->set_is_override_hidden_( 0 );
     return;
 }
 
-sub override_make_hidden {
-    my ( $self ) = @_;
+sub override_make_hidden ( $self ) {
     $self->set_is_override_hidden_( 1 );
     return;
 }
 
-sub clear_override_hidden {
-    my ( $self ) = @_;
+sub clear_override_hidden ( $self ) {
     $self->set_is_override_hidden_( 2 );
     return;
 }
 
-sub get_is_hidden {
-    my ( $self ) = @_;
+sub get_is_hidden ( $self ) {
     my $res = $self->get_is_override_hidden_() // 2;
     $res = $self->get_is_hidden_() if $res > 1;
     return 1 if $res > 0;
     return;
 } ## end sub get_is_hidden
 
-sub is_workshop {
-    my ( $self ) = @_;
+sub is_workshop ( $self ) {
     my $res = $self->get_is_workshop_();
     return 1 if $res;
     return   if defined $res;
@@ -145,8 +138,7 @@ sub is_workshop {
     return;
 } ## end sub is_workshop
 
-sub set_color {
-    my ( $self, $value, $color_set ) = @_;
+sub set_color ( $self, $value, $color_set ) {
     $color_set //= $DEF_COLOR_SET;
     $color_set = $DEF_COLOR_SET if $color_set eq q{};
     $color_set = canonical_header( $color_set );
@@ -162,8 +154,7 @@ sub set_color {
     return $value;
 } ## end sub set_color
 
-sub get_color {
-    my ( $self, $color_set ) = @_;
+sub get_color ( $self, $color_set ) {
     $color_set //= $DEF_COLOR_SET;
     $color_set = $DEF_COLOR_SET if $color_set eq q{};
     $color_set = canonical_header( $color_set );

@@ -1,101 +1,90 @@
 package Data::RegionForTable;
 
-use Object::InsideOut qw{TimeRange};
-
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
-use Carp qw{croak};
+use Carp                   qw{ croak };
+use Feature::Compat::Class qw{ :all };
+use Scalar::Util           qw{ blessed };
 
 use Data::Room      qw{};
 use Table::Room     qw{ :all };
 use Table::FocusMap qw{};
 use TimeSlot        qw{};
 
-## no critic (ProhibitUnusedVariables)
+class Data::RegionForTable :isa(TimeRange);
 
-my @region_name
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{name}, Mandatory => 1)
-    :Get(Name => q{get_region_name});
+# MARK: name field
 
-my @active_room
-    :Field
-    :Default({}) Set(Name => q{set_active_rooms_}, Restricted => 1)
-    :Get(Name => q{get_active_rooms_}, Restricted => 1);
+field $region_name :param(name);
 
-my @presenters_at_time
-    :Field
-    :Default({}) Set(Name=> q{set_presenter_at_time_}, Restricted => 1)
-    :Get(Name=> q{get_presenter_at_time_}, Restricted => 1);
+method get_region_name () {
+    return $region_name;
+}
 
-my @time_slots
-    :Field
-    :Default({})
-    :Get(Name => q{time_slots_}, Restricted => 1);
+# MARK: active_rooms
 
-my @active_at_time
-    :Field
-    :Default({}) Set(Name => q{set_active_at_time_}, Restricted => 1)
-    :Get(Name => q{get_active_at_time_}, Restricted => 1);
+field %active_rooms;
 
-my @upcoming_at_time
-    :Field
-    :Default({}) Set(Name => q{set_upcoming_at_time_}, Restricted => 1)
-    :Get(Name => q{get_upcoming_at_time_}, Restricted => 1);
-
-my @day_being_output
-    :Field
-    :Default(q{})
-    :Set(Name => q{set_day_being_output})
-    :Get(Name => q{get_day_being_output});
-
-my @time_last_output_time
-    :Field
-    :Set(Name => q{set_last_output_time})
-    :Get(Name => q{get_last_output_time});
-
-## use critic
-
-sub add_active_room {
-    my ( $self, $room ) = @_;
-    return unless defined $room;
-    croak q{add_active_room requires a Data::Room object}
-        unless $room->isa( q{Data::Room} );
-    my $map = $self->get_active_rooms_();
-    $map->{ $room->get_room_id() } = $room;
-    return;
+method add_active_room ( $room ) {
+    return $self unless defined $room;
+    blessed $room && $room->isa( q{Data::Room} )
+        || croak q{add_active_room requires a Data::Room object};
+    $active_rooms{ $room->get_room_id() } = $room;
+    return $self;
 } ## end sub add_active_room
 
-sub is_room_active {
-    my ( $self, $room ) = @_;
+method is_room_active ( $room ) {
     return unless defined $room;
-    croak q{is_room_active requires a Data::Room object}
-        unless $room->isa( q{Data::Room} );
-    my $map = $self->get_active_rooms_();
-    return unless defined $map;
-    return 1 if exists $map->{ $room->get_room_id() };
+    blessed $room && $room->isa( q{Data::Room} )
+        || croak q{is_room_active requires a Data::Room object};
+    return 1 if exists $active_rooms{ $room->get_room_id() };
     return;
 } ## end sub is_room_active
 
-sub get_unsorted_times {
-    my ( $self ) = @_;
-    my $map = $self->time_slots_();
-    return unless defined $map;
-    return keys %{ $map };
-} ## end sub get_unsorted_times
+# MARK: time_slots
 
-sub get_time_slot {
-    my ( $self, $time ) = @_;
-    return $self->time_slots_()->{ $time } //= TimeSlot->new(
+field %time_slots;
+
+method get_unsorted_times () {
+    return keys %time_slots;
+}
+
+method get_time_slot ( $time ) {
+    return $time_slots{ $time } //= TimeSlot->new(
         start_time => $time,
         end_time   => $time,
     );
 } ## end sub get_time_slot
 
-sub room_focus_map_by_id {
-    my ( $self, %args ) = @_;
+# MARK: day_being_output field
+
+field $day_being_output = q{};
+
+method get_day_being_output () {
+    return $day_being_output;
+}
+
+method set_day_being_output ( $new_day //= q{} ) {
+    $day_being_output = $new_day;
+    return $self;
+}
+
+# MARK: last_output_time field
+
+field $last_output_time;
+
+method get_last_output_time () {
+    return $last_output_time;
+}
+
+method set_last_output_time ( $new_time = undef ) {
+    $last_output_time = $new_time;
+}
+
+# @TODO: Why is this a method of RegionForTable?
+
+method room_focus_map_by_id ( %args ) {
     my $select_room = delete $args{ select_room };
     my $focus_rooms = delete $args{ focus_rooms };
     croak q{Unsupported arguments: }, keys %args if %args;
@@ -118,4 +107,9 @@ sub room_focus_map_by_id {
 
     return $focus_map;
 } ## end sub room_focus_map_by_id
+
+method clone_args() {
+    croak q{Can not clone};
+}
+
 1;

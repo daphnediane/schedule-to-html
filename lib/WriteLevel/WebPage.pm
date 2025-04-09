@@ -2,7 +2,7 @@ package WriteLevel::WebPage;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp       qw{ croak };
@@ -64,8 +64,7 @@ my @body_
 
 ## use critic
 
-sub get_before_html {
-    my ( $self ) = @_;
+sub get_before_html ( $self ) {
     my $writer = $self->get_before_();
     return $writer if defined $writer;
     my $h = $self->get_formatter();
@@ -77,8 +76,7 @@ sub get_before_html {
     return $writer;
 } ## end sub get_before_html
 
-sub get_head {
-    my ( $self ) = @_;
+sub get_head ( $self ) {
     my $writer = $self->get_head_();
     return $writer if defined $writer;
     my $h = $self->get_formatter();
@@ -90,8 +88,7 @@ sub get_head {
     return $writer;
 } ## end sub get_head
 
-sub get_head_style_ {
-    my ( $self ) = @_;
+sub get_head_style_ ( $self ) {
     my $writer = $self->get_style_field_();
     return $writer if defined $writer;
     my $h = $self->get_formatter();
@@ -103,8 +100,7 @@ sub get_head_style_ {
     return $writer;
 } ## end sub get_head_style_
 
-sub get_html_style {
-    my ( $self ) = @_;
+sub get_html_style ( $self ) {
     my $active = $self->get_active_style_();
     if ( defined $active && !$self->get_style_is_css_() ) {
         return $active;
@@ -117,8 +113,7 @@ sub get_html_style {
     return $active;
 } ## end sub get_html_style
 
-sub get_css_style {
-    my ( $self, $media ) = @_;
+sub get_css_style ( $self, $media ) {
     $media //= q{};
 
     my $base        = $self->get_style_base_();
@@ -145,8 +140,7 @@ sub get_css_style {
     return $media_style;
 } ## end sub get_css_style
 
-sub get_body {
-    my ( $self ) = @_;
+sub get_body ( $self ) {
     my $writer = $self->get_body_();
     return $writer if defined $writer;
     my $h = $self->get_formatter();
@@ -158,11 +152,7 @@ sub get_body {
     return $writer;
 } ## end sub get_body
 
-sub write_to {
-    my ( $self, $fh, $level ) = @_;
-    $fh    //= \*STDOUT;
-    $level //= 0;
-
+sub write_to ( $self, $fh //= \*STDOUT, $level //= 0 ) {
     my $before = $self->get_before_();
     my $head   = $self->get_head_();
     my $style  = $self->get_head_style_();

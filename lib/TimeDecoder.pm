@@ -2,12 +2,13 @@ package TimeDecoder;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
+use Carp        qw{ confess };
 use Date::Parse qw{ str2time };
 use POSIX       qw{ strftime };
-use Readonly;
+use Readonly    qw{ Readonly };
 
 our @EXPORT_OK = qw{
     text_to_datetime
@@ -27,7 +28,7 @@ our %EXPORT_TAGS = (
 );
 
 Readonly our $SEC_PER_MIN   => 60;
-Readonly our $MIN_PER_HOUR  => 60;    ## no critic (ProhibitDuplicateLiteral)
+Readonly our $MIN_PER_HOUR  => 60;                                           ## no critic (ProhibitDuplicateLiteral)
 Readonly our $HOUR_PER_DAY  => 24;
 Readonly our $DAYS_PER_WEEK => 7;
 Readonly our $SEC_PER_DAY   => $HOUR_PER_DAY * $MIN_PER_HOUR * $SEC_PER_MIN;
@@ -42,9 +43,7 @@ Readonly our $FMT_TIME => q{%I:%M %p};
 my $earliest_time;
 my %timepoints_seen;
 
-sub text_to_datetime {
-    my ( $value ) = @_;
-
+sub text_to_datetime ( $value ) {
     return unless defined $value;
     return        if $value eq q{};
     return $value if $value =~ m{\A \d+ \z}xms;
@@ -56,8 +55,7 @@ sub text_to_datetime {
     return;
 } ## end sub text_to_datetime
 
-sub text_to_duration {
-    my ( $value ) = @_;
+sub text_to_duration ( $value ) {
     return unless defined $value;
     return        if $value eq q{};
     return $value if $value =~ m{\A \d+ \z}xms;
@@ -69,9 +67,7 @@ sub text_to_duration {
     return $min * $SEC_PER_MIN;
 } ## end sub text_to_duration
 
-sub datetime_to_text {
-    my ( $time, $field ) = @_;
-
+sub datetime_to_text ( $time, $field = undef ) {
     my @ltime = localtime $time;
     my $day   = strftime $FMT_DAY,  @ltime;
     my $tm    = strftime $FMT_TIME, @ltime;
@@ -89,8 +85,7 @@ sub datetime_to_text {
     return ( $day, $tm );
 } ## end sub datetime_to_text
 
-sub datetime_to_kiosk_id {
-    my ( $time ) = @_;
+sub datetime_to_kiosk_id ( $time ) {
     my @ltime = localtime $time;
     $earliest_time //= $time;
     state $base_day = ( localtime $earliest_time )[ $LOCALTIME_DAY ];
@@ -106,8 +101,7 @@ sub datetime_to_kiosk_id {
     return ( ( $day * $HOUR_PER_DAY ) + $hour ) * $MIN_PER_HOUR + $min;
 } ## end sub datetime_to_kiosk_id
 
-sub same_day {
-    my ( $time1, $time2 ) = @_;
+sub same_day ( $time1, $time2 ) {
     return unless defined $time1;
     return unless defined $time2;
     return if abs( $time2 - $time1 ) > $SEC_PER_DAY;
@@ -117,15 +111,14 @@ sub same_day {
     return 1;
 } ## end sub same_day
 
-sub mark_timepoint_seen {
-    my ( $time ) = @_;
+sub mark_timepoint_seen ( $time ) {
     $earliest_time //= $time;
     $earliest_time = $time if $time < $earliest_time;
     $timepoints_seen{ $time } //= 1;
     return;
 } ## end sub mark_timepoint_seen
 
-sub get_timepoints {
+sub get_timepoints () {
     return keys %timepoints_seen;
 }
 1;

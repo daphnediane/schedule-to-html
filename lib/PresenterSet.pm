@@ -2,7 +2,7 @@ package PresenterSet;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use HTML::Tiny qw{};
@@ -38,9 +38,7 @@ my @credits
     :Get(Name => q{get_credits_}, Private => 1);
 ## use critic
 
-sub add_presenters_ {
-    my ( $self, $level, @presenters ) = @_;
-
+sub add_presenters_ ( $self, $level, @presenters ) {
     return unless @presenters;
 
     push @presenters, $UNLISTED if $level >= $LISTED;
@@ -80,49 +78,42 @@ sub add_presenters_ {
     return;
 } ## end sub add_presenters_
 
-sub add_credited_presenters {
-    my ( $self, @presenters ) = @_;
+sub add_credited_presenters ( $self, @presenters ) {
     return unless @presenters;
 
     $self->add_presenters_( $LISTED, @presenters );
     return;
 } ## end sub add_credited_presenters
 
-sub add_unlisted_presenters {
-    my ( $self, @presenters ) = @_;
+sub add_unlisted_presenters ( $self, @presenters ) {
     return unless @presenters;
 
     $self->add_presenters_( $UNLISTED, @presenters );
     return;
 } ## end sub add_unlisted_presenters
 
-sub is_presenter_hosting {
-    my ( $self, $presenter ) = @_;
+sub is_presenter_hosting ( $self, $presenter ) {
     return unless defined $presenter;
 
     return 1 if exists $self->get_set_()->{ $presenter->get_pid() };
     return;
 } ## end sub is_presenter_hosting
 
-sub is_presenter_credited {
-    my ( $self, $presenter ) = @_;
+sub is_presenter_credited ( $self, $presenter ) {
     return unless defined $presenter;
 
     return 1 if $self->get_set_()->{ $presenter->get_pid() } >= $LISTED;
     return;
 } ## end sub is_presenter_credited
 
-sub is_presenter_unlisted {
-    my ( $self, $presenter ) = @_;
+sub is_presenter_unlisted ( $self, $presenter ) {
     return unless defined $presenter;
 
     return 1 if $self->get_set_()->{ $presenter->get_pid() } == $UNLISTED;
     return;
 } ## end sub is_presenter_unlisted
 
-sub _get_credits_shown {
-    my ( $self ) = @_;
-
+sub _get_credits_shown ( $self ) {
     my %shown;
     my $p_set = $self->get_set_();
 
@@ -160,9 +151,7 @@ PRESENTER:
     return values %shown;
 } ## end sub _get_credits_shown
 
-sub get_credited_as_ {
-    my ( $self, $presenter ) = @_;
-
+sub get_credited_as_ ( $self, $presenter ) {
     my $p_set;
 
     my $name = $presenter->get_presenter_name();
@@ -189,9 +178,7 @@ sub get_credited_as_ {
     return $name;
 } ## end sub get_credited_as_
 
-sub get_credits {
-    my ( $self ) = @_;
-
+sub get_credits ( $self ) {
     if ( $self->get_are_credits_hidden() ) {
         return;
     }

@@ -2,7 +2,7 @@ package Table::FocusMap;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp       qw{ confess };
@@ -22,17 +22,13 @@ my @has_focus_
 
 ## use critic
 
-sub to_id_ {
-    my ( $room ) = @_;
-
+sub to_id_ ( $room ) {
     return $room->get_room_id() if ref $room;
     return $room                if $room =~ m{\A\d+\z}xms;
     confess qq{Not a room: $room \n};
-} ## end sub to_id_
+}
 
-sub set_focused {
-    my ( $self, @rooms ) = @_;
-
+sub set_focused ( $self, @rooms ) {
     my $map = $self->map_();
     @rooms = map { to_id_( $_ ) } @rooms;
 
@@ -44,9 +40,7 @@ sub set_focused {
     return $self;
 } ## end sub set_focused
 
-sub set_unfocused {
-    my ( $self, @rooms ) = @_;
-
+sub set_unfocused ( $self, @rooms ) {
     my $map = $self->map_();
     @rooms = map { to_id_( $_ ) } @rooms;
 
@@ -57,9 +51,7 @@ sub set_unfocused {
     return $self;
 } ## end sub set_unfocused
 
-sub unfocus_all {
-    my ( $self ) = @_;
-
+sub unfocus_all ( $self ) {
     my $map = $self->map_();
     %{ $map } = ();
     $self->set_has_focus_( 0 );
@@ -67,9 +59,7 @@ sub unfocus_all {
     return $self;
 } ## end sub unfocus_all
 
-sub is_focused {
-    my ( $self, @rooms ) = @_;
-
+sub is_focused ( $self, @rooms ) {
     return unless $self->get_has_focus_();
 
     my $map = $self->map_();
@@ -79,9 +69,7 @@ sub is_focused {
     return;
 } ## end sub is_focused
 
-sub is_unfocused {
-    my ( $self, @rooms ) = @_;
-
+sub is_unfocused ( $self, @rooms ) {
     return unless $self->get_has_focus_();
 
     my $map = $self->map_();

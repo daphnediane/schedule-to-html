@@ -2,7 +2,7 @@ package Data::Room;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp       qw{ confess };
@@ -66,18 +66,15 @@ my @hide_room_override
 my @uid_map_;
 my @sort_key_used_;
 
-sub get_room_id {
-    my ( $self ) = @_;
+sub get_room_id ( $self ) {
     return ${ $self };
 }
 
-sub find_by_room_id {
-    my ( $class, $uid ) = @_;
-
+sub find_by_room_id ( $class, $uid ) {
     my $value = $uid_map_[ $uid ];
     return $value if defined $value;
     return;
-} ## end sub find_by_room_id
+}
 
 sub init_ :Init {
     my ( $self, $args ) = @_;
@@ -104,8 +101,7 @@ sub destroy_ :Destroy {
     return;
 } ## end sub destroy_
 
-sub has_prefix {
-    my ( $self, $prefix ) = @_;
+sub has_prefix ( $self, $prefix ) {
     return unless defined $prefix;
     my $len = length $prefix;
     $prefix = uc $prefix;
@@ -117,8 +113,7 @@ sub has_prefix {
     return;
 } ## end sub has_prefix
 
-sub get_sort_key {
-    my ( $self ) = @_;
+sub get_sort_key ( $self ) {
     my $key = $self->get_sort_key_();
     return $key if defined $key && $key >= 0;
 
@@ -143,31 +138,26 @@ sub get_sort_key {
     return $key;
 } ## end sub get_sort_key
 
-sub get_is_split {
-    my ( $self ) = @_;
+sub get_is_split ( $self ) {
     return $self->has_prefix( $SPLIT_PREFIX );
 }
 
-sub override_room_as_hidden {
-    my ( $self ) = @_;
+sub override_room_as_hidden ( $self ) {
     $self->set_room_is_hidden_override_( 1 );
     return;
 }
 
-sub override_room_as_shown {
-    my ( $self ) = @_;
+sub override_room_as_shown ( $self ) {
     $self->set_room_is_hidden_override_( 0 );
     return;
 }
 
-sub clear_override_room_as_hidden {
-    my ( $self ) = @_;
+sub clear_override_room_as_hidden ( $self ) {
     $self->set_room_is_hidden_override_( 2 );
     return;
 }
 
-sub get_room_is_hidden {
-    my ( $self ) = @_;
+sub get_room_is_hidden ( $self ) {
     my $hidden = $self->get_room_is_hidden_override_() // 2;
     $hidden = $self->get_room_is_hidden_() if $hidden > 1;
     return 1 if $hidden;
@@ -182,23 +172,19 @@ sub get_room_is_hidden {
     return;
 } ## end sub get_room_is_hidden
 
-sub get_room_is_break {
-    my ( $self ) = @_;
+sub get_room_is_break ( $self ) {
     return 1 if $BREAK eq uc( $self->get_short_room_name() // q{} );
     return 1 if $BREAK eq uc( $self->get_long_room_name()  // q{} );
     return;
-} ## end sub get_room_is_break
+}
 
-sub name_matches {
-    my ( $self, @patterns ) = @_;
-
+sub name_matches ( $self, @patterns ) {
     my $name = $self->get_long_room_name();
     return 1 if any { $name =~ m{\Q$_\E}xmsi } @patterns;
     return;
-} ## end sub name_matches
+}
 
-sub compare {
-    my ( $self, $other, $swap ) = @_;
+sub compare ( $self, $other, $swap = undef ) {
     if ( !defined $other ) {
         my $before = $swap ? 1 : -1;
         return $self <= $UNKNOWN_SORT_KEY ? $before : -$before;

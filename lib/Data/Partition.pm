@@ -1,8 +1,8 @@
-package Data::Partion;
+package Data::Partition;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp qw{ croak };
@@ -39,24 +39,20 @@ my @output_name_
 
 ## use critic
 
-sub get_output_name_pieces {
-    my ( $self ) = @_;
+sub get_output_name_pieces ( $self ) {
     my $out_name = $self->get_output_name_();
     return           unless defined $out_name;
     return $out_name unless ref $out_name;
     return @{ $out_name };
 } ## end sub get_output_name_pieces
 
-sub unfiltered {
-    my ( $class ) = @_;
+sub unfiltered ( $class ) {
     $class = ref $class || $class || __PACKAGE__;
     state $def_filter = $class->new();
     return $def_filter;
-} ## end sub unfiltered
+}
 
-sub clone_arg_ {
-    my ( $orig, $args, $key, $current ) = @_;
-
+sub clone_arg_ ( $orig, $args, $key, $current ) {
     if ( defined $current ) {
         if ( exists $args->{ $key } ) {
             return if defined $args->{ $key } && $args->{ $key } == $current;

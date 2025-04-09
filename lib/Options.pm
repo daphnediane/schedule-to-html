@@ -2,18 +2,19 @@ package Options;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp            qw{ croak };
-use Data::Dumper    qw{};
-use File::ShareDir  qw{};
+use Data::Dumper    qw{ };
+use File::ShareDir  qw{ };
 use File::Slurp     qw{ read_file };
-use File::Spec      qw{};
+use File::Spec      qw{ };
 use Getopt::Long    qw{ GetOptionsFromArray };
 use List::MoreUtils qw{ apply before };
 use List::Util      qw{ any uniq };
-use Readonly;
+use Readonly        qw{ Readonly };
+use Sub::Name       qw{ subname };
 
 use TimeDecoder qw{ :from_text };
 Readonly my $OPTION_PAT => qr{^ [#][#] \s (?= - ) }xms;
@@ -22,8 +23,7 @@ my @opt_parse;
 my @opt_on_kiosk;
 my %opt_gen;
 
-sub unindent_ {
-    my ( $chunk, $prefix ) = @_;
+sub unindent_ ( $chunk, $prefix ) {
     $prefix //= q{};
 
     my $min_len;
@@ -38,7 +38,7 @@ sub unindent_ {
     return;
 } ## end sub unindent_
 
-sub parse_internal_doc_ {
+sub parse_internal_doc_ () {
     state $option_doc;
 
     return $option_doc if defined $option_doc;
@@ -66,82 +66,81 @@ sub parse_internal_doc_ {
     return $option_doc;
 } ## end sub parse_internal_doc_
 
-sub to_str_ {
-    my ( $value ) = @_;
+sub to_str_ ( $value ) {
     return q{} . $value if ref $value;
     return $value;
 }
 
 ## List option
 Readonly our $MOD_LIST => q{=s@};
-$opt_gen{ $MOD_LIST } = sub {
-    my ( $self, $opt_name, @rest ) = @_;
+
+sub _gen_mod_list ( $self, $opt_name, @rest ) {
     croak q{Too many args for mod_list} if @rest;
 
-    return sub {
-        my ( $flag, $opt ) = @_;
+    return sub ( $flag, $opt ) {
         $opt = to_str_ $opt;
         return unless defined $opt;
         push @{ $self->{ $opt_name } }, $opt;
         return;
     }; ## end sub
-}; ## end sub
+} ## end sub _gen_mod_list
+$opt_gen{ $MOD_LIST } = \&_gen_mod_list;
 
 ## Value option
 Readonly our $MOD_VALUE_STR => q{=s};
-$opt_gen{ $MOD_VALUE_STR } = sub {
-    my ( $self, $opt_name, @rest ) = @_;
+
+sub _gen_mod_str ( $self, $opt_name, @rest ) {
     croak q{Too many args for mod_value_str} if @rest;
 
-    return sub {
-        my ( $flag, $opt ) = @_;
+    return sub ( $flag, $opt ) {
         $opt = to_str_ $opt;
         $self->{ $opt_name } = $opt;
     };
-}; ## end sub
+} ## end sub _gen_mod_str
+$opt_gen{ $MOD_VALUE_STR } = \&_gen_mod_str;
 
 ## Value number option
 Readonly our $MOD_VALUE_NUM => q{=i};
-$opt_gen{ $MOD_VALUE_NUM } = sub {
-    my ( $self, $opt_name, @rest ) = @_;
+
+sub _gen_mod_value_num ( $self, $opt_name, @rest ) {
     croak q{Too many args for mod_value_num} if @rest;
 
-    return sub {
-        my ( $flag, $opt ) = @_;
+    return sub ( $flag, $opt ) {
         $self->{ $opt_name } = 0 + $opt;
     };
-}; ## end sub
+} ## end sub _gen_mod_value_num
+$opt_gen{ $MOD_VALUE_NUM } = \&_gen_mod_value_num;
 
 ## Sub value option
 Readonly our $MOD_SUB_VALUE => q{=s%};
-$opt_gen{ $MOD_SUB_VALUE } = sub {
-    my ( $self, $opt_name, $opt_sub_name, @rest ) = @_;
+
+sub _gen_mod_sub_value ( $self, $opt_name, $opt_sub_name, @rest ) {
     croak q{Too many args for mod_sub_value} if @rest;
 
-    return sub {
-        my ( $flag, $opt ) = @_;
+    return sub ( $flag, $opt ) {
         $opt = to_str_ $opt;
         $self->{ $opt_name }->{ $opt_sub_name } = $opt;
     };
-}; ## end sub
+} ## end sub _gen_mod_sub_value
+$opt_gen{ $MOD_SUB_VALUE } = \&_gen_mod_sub_value;
 
 ## Named state option
 Readonly our $MOD_NAMED_STATE => q{=s%%};
-$opt_gen{ $MOD_NAMED_STATE } = sub {
-    my ( $self, $opt_name, $opt_sub_name, @rest ) = @_;
+
+sub _gen_mod_named_state ( $self, $opt_name, $opt_sub_name, @rest ) {
     croak q{Too many args for mod_named_state} if @rest;
 
-    return sub {
-        my ( $flag, $opt ) = @_;
+    return sub ( $flag, $opt ) {
         $opt = to_str_ $opt;
         $self->{ $opt_name }->{ $opt } = $opt_sub_name;
     };
-}; ## end sub
+} ## end sub _gen_mod_named_state
+$opt_gen{ $MOD_NAMED_STATE } = \&_gen_mod_named_state;
 
 ## Flag option
 Readonly our $MOD_FLAG => q{};
-$opt_gen{ $MOD_FLAG } = sub {
-    my ( $self, $opt_name, $value, @rest ) = @_;
+
+sub _gen_mod_flag ( $self, $opt_name, $value = undef, @rest ) {
     croak q{Too many args for mod_flag} if @rest;
 
     if ( defined $value ) {
@@ -154,12 +153,13 @@ $opt_gen{ $MOD_FLAG } = sub {
         delete $self->{ $opt_name };
         return;
     }
-}; ## end sub
+} ## end sub _gen_mod_flag
+$opt_gen{ $MOD_FLAG } = \&_gen_mod_flag;
 
 ## Sub flag option
 Readonly our $MOD_SUB_FLAG => q{%};
-$opt_gen{ $MOD_SUB_FLAG } = sub {
-    my ( $self, $opt_name, %hash_values ) = @_;
+
+sub _gen_mod_sub_flag ( $self, $opt_name, %hash_values ) {
 
     return sub {
         my $any_deleted;
@@ -180,28 +180,27 @@ $opt_gen{ $MOD_SUB_FLAG } = sub {
 
         return;
     } ## end sub
-}; ## end sub
+} ## end sub _gen_mod_sub_flag
+$opt_gen{ $MOD_SUB_FLAG } = \&_gen_mod_sub_flag;
 
 ## Special option
 Readonly our $MOD_SPECIAL => q{&};
-$opt_gen{ $MOD_SPECIAL } = sub {
-    my ( $self, $opt_name, $handler, @rest ) = @_;
+
+sub _gen_mod_special( $self, $opt_name, $handler, @rest ) {
 
     return sub {
         $handler->( $self, @rest );
         return;
     };
-}; ## end sub
+} ## end sub _gen_mod_special
+$opt_gen{ $MOD_SPECIAL } = \&_gen_mod_special;
 
-sub get_method_ {
-    my ( $self, $mod, @parms ) = @_;
-
+sub get_method_ ( $self, $mod, @parms ) {
     my $generator = $opt_gen{ $mod } or croak q{Unknown option mod: } . $mod;
     return $generator->( $self, @parms );
-} ## end sub get_method_
+}
 
-sub get_getopt_flag_names_ {
-    my ( $opt_set ) = @_;
+sub get_getopt_flag_names_ ( $opt_set ) {
     my ( $opt_name, $flag, $flag_mod, @values ) = @{ $opt_set };
     my @flags = $flag;
     @flags = @{ $flag } if ref $flag;
@@ -228,8 +227,7 @@ sub get_getopt_flag_names_ {
     return @flags;
 } ## end sub get_getopt_flag_names_
 
-sub get_getopt_flag_ {
-    my ( $self, $opt_set ) = @_;
+sub get_getopt_flag_ ( $self, $opt_set ) {
     my ( $opt_name, $flag, $flag_mod, @values ) = @{ $opt_set };
     my @flags = get_getopt_flag_names_( $opt_set );
     $flag = join q{|}, @flags;
@@ -238,8 +236,7 @@ sub get_getopt_flag_ {
     return $flag => $self->get_method_( $flag_mod, $opt_name, @values );
 } ## end sub get_getopt_flag_
 
-sub on_kiosk_ {
-    my ( $self, $opt_set ) = @_;
+sub on_kiosk_ ( $self, $opt_set ) {
     my ( $opt_name, $flag_mod, @values ) = @{ $opt_set };
     my $method = $self->get_method_( $flag_mod, $opt_name, @values );
     $method->();
@@ -258,14 +255,12 @@ push @opt_parse,
     [ $OPT_DESC_FORM_, [ qw{ -div } ],   $MOD_FLAG, $VAL_DESC_FORM_DIV_ ],
     [ $OPT_DESC_FORM_, [ qw{ -table } ], $MOD_FLAG, $VAL_DESC_FORM_TABLE_ ];
 
-sub is_desc_form_div {
-    my ( $self ) = @_;
+sub is_desc_form_div ( $self ) {
     return 1 if $self->{ $OPT_DESC_FORM_ };
     return;
 }
 
-sub is_desc_form_table {
-    my ( $self ) = @_;
+sub is_desc_form_table ( $self ) {
     return 1 unless $self->{ $OPT_DESC_FORM_ };
     return;
 }
@@ -291,14 +286,12 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_DESC_LOC_, $MOD_FLAG ];
 
-sub is_desc_loc_last {
-    my ( $self ) = @_;
+sub is_desc_loc_last ( $self ) {
     return 1 if $self->{ $OPT_DESC_LOC_ };
     return;
 }
 
-sub is_desc_loc_mixed {
-    my ( $self ) = @_;
+sub is_desc_loc_mixed ( $self ) {
     return 1 unless $self->{ $OPT_DESC_LOC_ };
     return;
 }
@@ -364,8 +357,7 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_DESC_BY_, $MOD_FLAG, $VAL_EVERYONE_TOGETHER ];
 
-sub is_desc_everyone_together {
-    my ( $self ) = @_;
+sub is_desc_everyone_together ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
     return 1 unless defined $hash;
     return if $hash->{ $VAL_BY_GUEST };
@@ -375,8 +367,7 @@ sub is_desc_everyone_together {
     return 1;
 } ## end sub is_desc_everyone_together
 
-sub is_desc_by_guest {
-    my ( $self ) = @_;
+sub is_desc_by_guest ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_GUEST };
@@ -387,8 +378,7 @@ sub is_desc_by_guest {
     return;
 } ## end sub is_desc_by_guest
 
-sub is_desc_by_judge {
-    my ( $self ) = @_;
+sub is_desc_by_judge ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_JUDGE };
@@ -399,8 +389,7 @@ sub is_desc_by_judge {
     return;
 } ## end sub is_desc_by_judge
 
-sub is_desc_by_staff {
-    my ( $self ) = @_;
+sub is_desc_by_staff ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_STAFF };
@@ -411,8 +400,7 @@ sub is_desc_by_staff {
     return;
 } ## end sub is_desc_by_staff
 
-sub is_desc_by_panelist {
-    my ( $self ) = @_;
+sub is_desc_by_panelist ( $self ) {
     return 1 if $self->{ $OPT_DESC_BY_ }->{ $VAL_BY_PANELIST };
     return;
 }
@@ -439,8 +427,7 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_CSS_LOC_, $MOD_FLAG, $VAL_LINK_CSS_ ];
 
-sub is_css_loc_embedded {
-    my ( $self ) = @_;
+sub is_css_loc_embedded ( $self ) {
     if ( !defined $self->{ $OPT_CSS_LOC_ } ) {
         return 1 if $self->has_styles();
         return;
@@ -449,8 +436,7 @@ sub is_css_loc_embedded {
     return;
 } ## end sub is_css_loc_embedded
 
-sub is_css_loc_linked {
-    my ( $self ) = @_;
+sub is_css_loc_linked ( $self ) {
     if ( !defined $self->{ $OPT_CSS_LOC_ } ) {
         return if $self->has_styles();
         return 1;
@@ -535,8 +521,7 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_FILE_BY_, $MOD_FLAG ];
 
-sub is_file_everyone_together {
-    my ( $self ) = @_;
+sub is_file_everyone_together ( $self ) {
     return if $self->is_file_by_panelist();
     return if $self->is_file_by_guest();
     return if $self->is_file_by_judge();
@@ -544,14 +529,12 @@ sub is_file_everyone_together {
     return 1;
 } ## end sub is_file_everyone_together
 
-sub is_file_by_day {
-    my ( $self ) = @_;
+sub is_file_by_day ( $self ) {
     return 1 if $self->{ $OPT_FILE_BY_ }->{ $VAL_BY_DAY };
     return;
 }
 
-sub is_file_by_guest {
-    my ( $self ) = @_;
+sub is_file_by_guest ( $self ) {
     my $hash = $self->{ $OPT_FILE_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_guest();
@@ -569,8 +552,7 @@ sub is_file_by_guest {
     return;
 } ## end sub is_file_by_guest
 
-sub is_file_by_judge {
-    my ( $self ) = @_;
+sub is_file_by_judge ( $self ) {
     my $hash = $self->{ $OPT_FILE_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_judge();
@@ -588,8 +570,7 @@ sub is_file_by_judge {
     return;
 } ## end sub is_file_by_judge
 
-sub is_file_by_staff {
-    my ( $self ) = @_;
+sub is_file_by_staff ( $self ) {
     my $hash = $self->{ $OPT_FILE_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_staff();
@@ -607,8 +588,7 @@ sub is_file_by_staff {
     return;
 } ## end sub is_file_by_staff
 
-sub is_file_by_panelist {
-    my ( $self ) = @_;
+sub is_file_by_panelist ( $self ) {
     my $hash = $self->{ $OPT_FILE_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_panelist();
@@ -620,8 +600,7 @@ sub is_file_by_panelist {
     return;
 } ## end sub is_file_by_panelist
 
-sub is_file_by_room {
-    my ( $self ) = @_;
+sub is_file_by_room ( $self ) {
     return 1 if $self->{ $OPT_FILE_BY_ }->{ $VAL_BY_ROOM };
     return;
 }
@@ -709,8 +688,7 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_SECTION_BY_, $MOD_FLAG ];
 
-sub is_section_everyone_together {
-    my ( $self ) = @_;
+sub is_section_everyone_together ( $self ) {
     return if $self->is_section_by_panelist();
     return if $self->is_section_by_guest();
     return if $self->is_section_by_judge();
@@ -718,14 +696,12 @@ sub is_section_everyone_together {
     return 1;
 } ## end sub is_section_everyone_together
 
-sub is_section_by_day {
-    my ( $self ) = @_;
+sub is_section_by_day ( $self ) {
     return 1 if $self->{ $OPT_SECTION_BY_ }->{ $VAL_BY_DAY };
     return;
 }
 
-sub is_section_by_guest {
-    my ( $self ) = @_;
+sub is_section_by_guest ( $self ) {
     my $hash = $self->{ $OPT_SECTION_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_guest();
@@ -743,8 +719,7 @@ sub is_section_by_guest {
     return;
 } ## end sub is_section_by_guest
 
-sub is_section_by_judge {
-    my ( $self ) = @_;
+sub is_section_by_judge ( $self ) {
     my $hash = $self->{ $OPT_SECTION_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_judge();
@@ -762,8 +737,7 @@ sub is_section_by_judge {
     return;
 } ## end sub is_section_by_judge
 
-sub is_section_by_staff {
-    my ( $self ) = @_;
+sub is_section_by_staff ( $self ) {
     my $hash = $self->{ $OPT_SECTION_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_staff();
@@ -781,8 +755,7 @@ sub is_section_by_staff {
     return;
 } ## end sub is_section_by_staff
 
-sub is_section_by_panelist {
-    my ( $self ) = @_;
+sub is_section_by_panelist ( $self ) {
     my $hash = $self->{ $OPT_SECTION_BY_ };
     if ( !defined $hash ) {
         return 1 if $self->is_just_panelist();
@@ -794,8 +767,7 @@ sub is_section_by_panelist {
     return;
 } ## end sub is_section_by_panelist
 
-sub is_section_by_room {
-    my ( $self ) = @_;
+sub is_section_by_room ( $self ) {
     return 1 if $self->{ $OPT_SECTION_BY_ }->{ $VAL_BY_ROOM };
     return;
 }
@@ -812,8 +784,7 @@ Readonly our $OPT_INPUT_ => q{input};
 push @opt_parse,
     [ $OPT_INPUT_, [ qw{ input } ], $MOD_VALUE_STR ];
 
-sub get_input_file {
-    my ( $self ) = @_;
+sub get_input_file ( $self ) {
     return $self->{ $OPT_INPUT_ };
 }
 
@@ -846,8 +817,7 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_JUST_, $MOD_FLAG ];
 
-sub is_just_everyone {
-    my ( $self ) = @_;
+sub is_just_everyone ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
     return 1 unless defined $hash;
     return if $hash->{ $VAL_BY_GUEST };
@@ -857,8 +827,7 @@ sub is_just_everyone {
     return 1;
 } ## end sub is_just_everyone
 
-sub is_just_guest {
-    my ( $self ) = @_;
+sub is_just_guest ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_GUEST };
@@ -869,8 +838,7 @@ sub is_just_guest {
     return;
 } ## end sub is_just_guest
 
-sub is_just_judge {
-    my ( $self ) = @_;
+sub is_just_judge ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_JUDGE };
@@ -881,8 +849,7 @@ sub is_just_judge {
     return;
 } ## end sub is_just_judge
 
-sub is_just_staff {
-    my ( $self ) = @_;
+sub is_just_staff ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
     return unless defined $hash;
     return 1 if $hash->{ $VAL_BY_STAFF };
@@ -893,8 +860,7 @@ sub is_just_staff {
     return;
 } ## end sub is_just_staff
 
-sub is_just_panelist {
-    my ( $self ) = @_;
+sub is_just_panelist ( $self ) {
     return 1 if $self->{ $OPT_JUST_ }->{ $VAL_BY_PANELIST };
     return;
 }
@@ -919,25 +885,21 @@ push @opt_parse,
     $VAL_MODE_POSTCACRD_
     ];
 
-sub get_mode_ {
-    my ( $self ) = @_;
+sub get_mode_ ( $self ) {
     return $self->{ $OPT_MODE_ } // $VAL_MODE_FLYER_;
 }
 
-sub is_mode_flyer {
-    my ( $self ) = @_;
+sub is_mode_flyer ( $self ) {
     return 1 if $self->get_mode_() eq $VAL_MODE_FLYER_;
     return;
 }
 
-sub is_mode_kiosk {
-    my ( $self ) = @_;
+sub is_mode_kiosk ( $self ) {
     return 1 if $self->get_mode_() eq $VAL_MODE_KIOSK_;
     return;
 }
 
-sub is_mode_postcard {
-    my ( $self ) = @_;
+sub is_mode_postcard ( $self ) {
     return 1 if $self->get_mode_() eq $VAL_MODE_POSTCACRD_;
     return;
 }
@@ -950,13 +912,11 @@ Readonly our $OPT_OUTPUT_ => q{output};
 push @opt_parse,
     [ $OPT_OUTPUT_, [ qw{ output } ], $MOD_VALUE_STR ];
 
-sub get_output_file {
-    my ( $self ) = @_;
+sub get_output_file ( $self ) {
     return $self->{ $OPT_OUTPUT_ } // q{-};
 }
 
-sub is_output_stdio {
-    my ( $self ) = @_;
+sub is_output_stdio ( $self ) {
     my $out = $self->get_output_file();
     return 1 if $out eq q{-};
     return 1 if $out eq q{/dev/stdout};
@@ -974,20 +934,18 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_ROOM_, $MOD_FLAG, undef ];
 
-sub get_rooms {
-    my ( $self ) = @_;
+sub get_rooms ( $self ) {
     my $rooms = $self->{ $OPT_ROOM_ };
     return @{ $rooms } if ref $rooms;
     return $rooms      if $rooms;
     return;
 } ## end sub get_rooms
 
-sub has_rooms {
-    my ( $self ) = @_;
+sub has_rooms ( $self ) {
     my $rooms = $self->{ $OPT_ROOM_ };
     return 1 if defined $rooms;
     return;
-} ## end sub has_rooms
+}
 
 ## --show-room _room_
 ##     Show room, even if normally hidden
@@ -1008,33 +966,29 @@ push @opt_parse,
     [ $OPT_PANELTYPE_VIS, [ qw{ hide-paneltype } ], $MOD_NAMED_STATE, 0, ],
     ;
 
-sub get_rooms_shown {
-    my ( $self ) = @_;
+sub get_rooms_shown ( $self ) {
     my $hash = $self->{ $OPT_ROOM_VIS };
     return unless defined $hash;
     return grep { $hash->{ $_ } } keys %{ $hash };
-} ## end sub get_rooms_shown
+}
 
-sub get_rooms_hidden {
-    my ( $self ) = @_;
+sub get_rooms_hidden ( $self ) {
     my $hash = $self->{ $OPT_ROOM_VIS };
     return unless defined $hash;
     return grep { !$hash->{ $_ } } keys %{ $hash };
-} ## end sub get_rooms_hidden
+}
 
-sub get_paneltypes_shown {
-    my ( $self ) = @_;
+sub get_paneltypes_shown ( $self ) {
     my $hash = $self->{ $OPT_PANELTYPE_VIS };
     return unless defined $hash;
     return grep { $hash->{ $_ } } keys %{ $hash };
-} ## end sub get_paneltypes_shown
+}
 
-sub get_paneltypes_hidden {
-    my ( $self ) = @_;
+sub get_paneltypes_hidden ( $self ) {
     my $hash = $self->{ $OPT_PANELTYPE_VIS };
     return unless defined $hash;
     return grep { !$hash->{ $_ } } keys %{ $hash };
-} ## end sub get_paneltypes_hidden
+}
 
 ## --show-all-rooms
 ##     Show rooms even if they have no events scheduled
@@ -1195,44 +1149,37 @@ push @opt_on_kiosk,
     [ $OPT_SHOW, $MOD_SUB_FLAG, $VAL_SHOW_SECT_GRID_    => 1 ],
     ;
 
-sub show_all_rooms {
-    my ( $self ) = @_;
+sub show_all_rooms ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_ALL_ROOMS_ };
     return;
 }
 
-sub hide_unused_rooms {
-    my ( $self ) = @_;
+sub hide_unused_rooms ( $self ) {
     return 1 unless $self->{ $OPT_SHOW }->{ $VAL_SHOW_ALL_ROOMS_ };
     return;
 }
 
-sub show_av {
-    my ( $self ) = @_;
+sub show_av ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_AV_ };
     return;
 }
 
-sub hide_av {
-    my ( $self ) = @_;
+sub hide_av ( $self ) {
     return 1 unless $self->{ $OPT_SHOW }->{ $VAL_SHOW_AV_ };
     return;
 }
 
-sub show_break {
-    my ( $self ) = @_;
+sub show_break ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_BREAKS_ };
     return;
 }
 
-sub hide_breaks {
-    my ( $self ) = @_;
+sub hide_breaks ( $self ) {
     return 1 unless $self->{ $OPT_SHOW }->{ $VAL_SHOW_BREAKS_ };
     return;
 }
 
-sub show_cost_free {
-    my ( $self ) = @_;
+sub show_cost_free ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
@@ -1240,8 +1187,7 @@ sub show_cost_free {
     return 1;
 } ## end sub show_cost_free
 
-sub show_cost_kids {
-    my ( $self ) = @_;
+sub show_cost_kids ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_KIDS_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
@@ -1249,8 +1195,7 @@ sub show_cost_kids {
     return 1;
 } ## end sub show_cost_kids
 
-sub show_cost_premium {
-    my ( $self ) = @_;
+sub show_cost_premium ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_PREMIUM_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_PREMIUM_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_COST_FREE_ };
@@ -1258,50 +1203,43 @@ sub show_cost_premium {
     return 1;
 } ## end sub show_cost_premium
 
-sub show_day_column {
-    my ( $self ) = @_;
+sub show_day_column ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_DAY_COLUMN_ };
     return;
 }
 
-sub hide_day_column {
-    my ( $self ) = @_;
+sub hide_day_column ( $self ) {
     return 1 unless $self->{ $OPT_SHOW }->{ $VAL_SHOW_DAY_COLUMN_ };
     return;
 }
 
-sub show_difficulty {
-    my ( $self ) = @_;
+sub show_difficulty ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_DIFFICULTY_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_DIFFICULTY_ };
     return 1;
-} ## end sub show_difficulty
+}
 
-sub hide_difficulty {
-    my ( $self ) = @_;
+sub hide_difficulty ( $self ) {
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_DIFFICULTY_ };
     return 1 if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_DIFFICULTY_ };
     return;
-} ## end sub hide_difficulty
+}
 
-sub show_sect_descriptions {
-    my ( $self ) = @_;
+sub show_sect_descriptions ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_DESC_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_DESC_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_GRID_ };
     return 1;
 } ## end sub show_sect_descriptions
 
-sub show_sect_grid {
-    my ( $self ) = @_;
+sub show_sect_grid ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_GRID_ };
     return   if defined $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_GRID_ };
     return   if $self->{ $OPT_SHOW }->{ $VAL_SHOW_SECT_DESC_ };
     return 1;
 } ## end sub show_sect_grid
 
-sub show_presenter_as_time {
-    my ( $self ) = @_;
+sub show_presenter_as_time ( $self ) {
     return 1 if $self->{ $OPT_SHOW }->{ $VAL_SHOW_TIME_PRESENTER_ };
     return;
 }
@@ -1331,36 +1269,31 @@ push @opt_parse,
     $OPT_SPLIT_,
     [ qw{ split } ],
     $MOD_SPECIAL,
-    sub {
-        my ( $self ) = @_;
+    sub ( $self ) {
         return if $self->{ $OPT_SPLIT_ } eq $VAL_SPLIT_DAY_;
         $self->{ $OPT_SPLIT_ } = $VAL_SPLIT_TIMEREGION_;
         return;
-    } ## end sub
+    }
     ];
 
 push @opt_on_kiosk,
     [ $OPT_SPLIT_, $MOD_FLAG, $VAL_SPLIT_NONE_ ];
 
-sub get_split_ {
-    my ( $self ) = @_;
+sub get_split_ ( $self ) {
     return $self->{ $OPT_SPLIT_ } // $VAL_SPLIT_TIMEREGION_;
 }
 
-sub is_split_none {
-    my ( $self ) = @_;
+sub is_split_none ( $self ) {
     return 1 if $self->get_split_() eq $VAL_SPLIT_NONE_;
     return;
 }
 
-sub is_split_timeregion {
-    my ( $self ) = @_;
+sub is_split_timeregion ( $self ) {
     return 1 if $self->get_split_() eq $VAL_SPLIT_TIMEREGION_;
     return;
 }
 
-sub is_split_day {
-    my ( $self ) = @_;
+sub is_split_day ( $self ) {
     return 1 if $self->get_split_() eq $VAL_SPLIT_DAY_;
     return;
 }
@@ -1384,20 +1317,18 @@ push @opt_parse,
 push @opt_on_kiosk,
     [ $OPT_STYLE_, $MOD_FLAG, [ qw{+color} ] ];
 
-sub get_styles {
-    my ( $self ) = @_;
+sub get_styles ( $self ) {
     my $styles = $self->{ $OPT_STYLE_ };
     return @{ $styles } if ref $styles;
     return $styles      if $styles;
     return qw{ index.css };
 } ## end sub get_styles
 
-sub has_styles {
-    my ( $self ) = @_;
+sub has_styles ( $self ) {
     my $styles = $self->{ $OPT_STYLE_ };
     return 1 if defined $styles;
     return;
-} ## end sub has_styles
+}
 
 ## --end-time _time_
 ##     Exclude any panels after _time_
@@ -1413,16 +1344,14 @@ push @opt_parse,
     [ $OPT_TIME_, [ qw{ start-time } ], $MOD_SUB_VALUE, $VAL_TIME_START_ ],
     ;
 
-sub get_time_end {
-    my ( $self ) = @_;
+sub get_time_end ( $self ) {
     my $time = $self->{ $OPT_TIME_ }->{ $VAL_TIME_END_ };
     $time = text_to_datetime( $time ) if defined $time;
     return $time if defined $time;
     return;
 } ## end sub get_time_end
 
-sub get_time_start {
-    my ( $self ) = @_;
+sub get_time_start ( $self ) {
     my $time = $self->{ $OPT_TIME_ }->{ $VAL_TIME_START_ };
     $time = text_to_datetime( $time ) if defined $time;
     return $time if defined $time;
@@ -1437,8 +1366,7 @@ Readonly our $OPT_TITLE_ => q{title};
 push @opt_parse,
     [ $OPT_TITLE_, [ qw{ title } ], $MOD_VALUE_STR ];
 
-sub get_title {
-    my ( $self ) = @_;
+sub get_title ( $self ) {
     return $self->{ $OPT_TITLE_ } // q{Cosplay America 2025 Schedule};
 }
 
@@ -1450,8 +1378,7 @@ Readonly our $OPT_TITLE_PREFIX_ => q{title_prefix};
 push @opt_parse,
     [ $OPT_TITLE_PREFIX_, [ qw{ pre-title } ], $MOD_VALUE_STR ];
 
-sub get_pre_title {
-    my ( $self ) = @_;
+sub get_pre_title ( $self ) {
     return $self->{ $OPT_TITLE_PREFIX_ };
 }
 
@@ -1463,14 +1390,11 @@ Readonly our $OPT_COPIES_ => q{copies};
 push @opt_parse,
     [ $OPT_COPIES_, [ qw{ copies } ], $MOD_VALUE_NUM ];
 
-sub get_copies {
-    my ( $self ) = @_;
+sub get_copies ( $self ) {
     return $self->{ $OPT_COPIES_ } || 1;
 }
 
-sub register_option_ {
-    my ( $known, @names ) = @_;
-
+sub register_option_ ( $known, @names ) {
     return unless @names;
 
     my $option_doc = parse_internal_doc_();
@@ -1498,7 +1422,7 @@ sub register_option_ {
     return;
 } ## end sub register_option_
 
-sub get_known_options_doc_ {
+sub get_known_options_doc_ () {
     state $known_opts;
     return $known_opts if defined $known_opts;
 
@@ -1522,8 +1446,7 @@ sub get_known_options_doc_ {
 ##   Display options
 Readonly our $OPT_HELP_FLAG => q{--help};
 
-sub dump_help {
-    my ( @help ) = @_;
+sub dump_help ( @help ) {
     push @help, q{} unless @help;
 
     my $option_doc = parse_internal_doc_();
@@ -1562,9 +1485,7 @@ sub dump_help {
     return;
 } ## end sub dump_help
 
-sub dump_help_from_options {
-    my ( @args ) = @_;
-
+sub dump_help_from_options ( @args ) {
     my @help;
     my $skip_help = 1;
 
@@ -1583,9 +1504,7 @@ sub dump_help_from_options {
     exit 0;
 } ## end sub dump_help_from_options
 
-sub dump_table_ {
-    my ( @table ) = @_;
-
+sub dump_table_ ( @table ) {
     my @len;
 
     foreach my $row ( @table ) {
@@ -1627,7 +1546,7 @@ sub dump_table_ {
 ##   Generate option summary for README.md
 Readonly our $OPT_HELP_MD_FLAG => q{--help-markdown};
 
-sub dump_help_markdown {
+sub dump_help_markdown () {
     my $option_doc = get_known_options_doc_();
 
     my @main_output;
@@ -1658,8 +1577,7 @@ sub dump_help_markdown {
     exit 0;
 } ## end sub dump_help_markdown
 
-sub options_from {
-    my ( $class, $args ) = @_;
+sub options_from ( $class, $args ) {
     $class = ref $class || $class;
 
     my $opt = bless {}, $class;
@@ -1669,7 +1587,7 @@ sub options_from {
     ## Special help option recognize anywhere
     dump_help_from_options( @before_dashes )
         if any { $_ eq $OPT_HELP_FLAG } @before_dashes;
-    dump_help_markdown( @before_dashes )
+    dump_help_markdown()
         if any { $_ eq $OPT_HELP_MD_FLAG } @before_dashes;
 
     GetOptionsFromArray(

@@ -1,8 +1,8 @@
-package PartionPanels;
+package PartitionPanels;
 
 use base qw{Exporter};
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp qw{ croak };
@@ -20,9 +20,7 @@ our %EXPORT_TAGS = (
     all => [ @EXPORT_OK ],
 );
 
-sub split_filter_by_timestamp {
-    my ( $regions, @filters ) = @_;
-
+sub split_filter_by_timestamp ( $regions, @filters ) {
     my @res;
     foreach my $filter ( @filters ) {
         foreach my $region ( @{ $regions } ) {
@@ -36,8 +34,7 @@ sub split_filter_by_timestamp {
     return @res;
 } ## end sub split_filter_by_timestamp
 
-sub gen_by_panelist_match_ {
-    my ( $flags )  = @_;
+sub gen_by_panelist_match_ ( $flags ) {
     my $ranks      = delete $flags->{ ranks };
     my $is_by_desc = delete $flags->{ is_by_desc };
 
@@ -52,8 +49,7 @@ sub gen_by_panelist_match_ {
     }
 
     if ( $is_by_desc ) {
-        return sub {
-            my ( $per_info ) = @_;
+        return sub ( $per_info ) {
 
             return if $per_info->get_is_other();
             return unless $shown_rank[ $per_info->get_presenter_rank() ];
@@ -61,20 +57,18 @@ sub gen_by_panelist_match_ {
                 if $is_by_desc
                 && ( $per_info->get_is_meta() || $per_info->is_in_group() );
             return 1;
-        };
+        }; ## end sub
     } ## end if ( $is_by_desc )
 
-    return sub {
-        my ( $per_info ) = @_;
+    return sub ( $per_info ) {
 
         return   if $per_info->get_is_other();
         return 1 if $shown_rank[ $per_info->get_presenter_rank() ];
         return;
-    };
+    }; ## end sub
 } ## end sub gen_by_panelist_match_
 
-sub split_filter_by_panelist {
-    my ( $flags, @filters ) = @_;
+sub split_filter_by_panelist ( $flags, @filters ) {
     my $match_panelist = gen_by_panelist_match_( $flags );
 
     return          unless @filters;
@@ -111,9 +105,7 @@ sub split_filter_by_panelist {
     return @res;
 } ## end sub split_filter_by_panelist
 
-sub split_filter_by_room {
-    my ( $rooms, @filters ) = @_;
-
+sub split_filter_by_room ( $rooms, @filters ) {
     return unless defined $rooms;
 
     my @res;

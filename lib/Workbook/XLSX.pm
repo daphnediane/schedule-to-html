@@ -2,7 +2,7 @@ package Workbook::XLSX;
 
 use Object::InsideOut qw{ Workbook };
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Spreadsheet::ParseXLSX qw{};
@@ -18,14 +18,12 @@ my @wb
 
 my $parser = Spreadsheet::ParseXLSX->new;
 
-sub release {
-    my ( $self ) = @_;
+sub release ( $self ) {
     $self->set_workbook_( undef );
     return;
 }
 
-sub find_sheet_handle {
-    my ( $self, $sheet ) = @_;
+sub find_sheet_handle ( $self, $sheet ) {
     $sheet //= 0;
 
     my $wb = $self->get_workbook_();
@@ -43,16 +41,12 @@ sub find_sheet_handle {
     return;
 } ## end sub find_sheet_handle
 
-sub get_line_range {
-    my ( $self, $sheet_handle ) = @_;
-
+sub get_line_range ( $self, $sheet_handle ) {
     return unless defined $sheet_handle;
     return $sheet_handle->row_range();
-} ## end sub get_line_range
+}
 
-sub get_line {
-    my ( $self, $sheet_handle, $line_no ) = @_;
-
+sub get_line ( $self, $sheet_handle, $line_no ) {
     return unless defined $sheet_handle;
 
     my @columns = $sheet_handle->col_range();

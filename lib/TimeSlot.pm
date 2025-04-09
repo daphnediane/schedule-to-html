@@ -1,72 +1,70 @@
 package TimeSlot;
 
-use Object::InsideOut qw{TimeRange};
-
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
-use Carp qw{croak};
+use Carp                   qw{ croak };
+use Feature::Compat::Class qw{ :all };
+use Scalar::Util           qw{ blessed };
 
 use ActivePanel  qw{};
 use Data::Panel  qw{};
 use PresenterSet qw{};
 
-## no critic (ProhibitUnusedVariables)
+class TimeSlot :isa(TimeRange);
 
-my @current_panels
-    :Field
-    :Set(Name => q{set_current_}, Restricted => 1)
-    :Get(Name => q{get_current_}, Restricted => 1);
+# MARK: current panels field
 
-my @upcoming_panels
-    :Field
-    :Set(Name => q{set_upcoming_}, Restricted => 1)
-    :Get(Name => q{get_upcoming_}, Restricted => 1);
+field %current_panels;
 
-## use critic
+method get_all_current () {
+    return values %current_panels;
+}
 
-sub get_current {
-    my ( $self ) = @_;
-    my $res = $self->get_current_();
-    return $res if defined $res;
-    $res = {};
-    $self->set_current_( $res );
-    return $res;
-} ## end sub get_current
-
-sub init_current {
-    my ( $self, $current_map ) = @_;
-    my $res = $self->get_current_();
-    croak q{Current already set} if defined $res && %{ $res };
-    $self->set_current_( $current_map );
+method lookup_current ( $room ) {
+    my $id = blessed $room
+        && $room->can( q{get_room_id} ) ? $room->get_room_id() : $room;
+    my $panel = $current_panels{ $id };
+    return $panel if defined $panel;
     return;
+} ## end sub lookup_current
+
+method init_current( %panels ) {
+    %current_panels
+        && croak q{Current already set};
+    %current_panels = %panels;
+    return $self;
 } ## end sub init_current
 
-sub get_upcoming {
-    my ( $self ) = @_;
-    my $res = $self->get_upcoming_();
-    return $res if defined $res;
-    $res = {};
-    $self->set_upcoming_( $res );
-    return $res;
-} ## end sub get_upcoming
+# MARK: upcoming panels field
 
-sub init_upcoming {
-    my ( $self, $upcoming_map ) = @_;
-    my $res = $self->get_upcoming_();
-    croak q{Upcoming already set} if defined $res && %{ $res };
-    $self->set_upcoming_( $upcoming_map );
+field %upcoming_panels;
+
+method get_all_upcoming () {
+    return values %upcoming_panels;
+}
+
+method lookup_upcoming ( $room ) {
+    my $id = blessed $room
+        && $room->can( q{get_room_id} ) ? $room->get_room_id() : $room;
+    my $panel = $upcoming_panels{ $id };
+    return $panel if defined $panel;
     return;
+} ## end sub lookup_upcoming
+
+method init_upcoming( %panels ) {
+    %upcoming_panels
+        && croak q{Upcoming already set};
+    %upcoming_panels = %panels;
+    return $self;
 } ## end sub init_upcoming
 
-sub is_presenter_hosting {
-    my ( $self, $presenter ) = @_;
+# MARK: Queries
+
+method is_presenter_hosting ( $presenter ) {
     return unless defined $presenter;
 
-    my $res = $self->get_current_();
-    return unless defined $res;
-
-    foreach my $panel_state ( values %{ $res } ) {
+    foreach my $panel_state ( values %current_panels ) {
         next unless defined $panel_state;
         my $panel = $panel_state->get_active_panel();
         return 1 if $panel->is_presenter_hosting( $presenter );
@@ -74,14 +72,10 @@ sub is_presenter_hosting {
     return;
 } ## end sub is_presenter_hosting
 
-sub is_presenter_credited {
-    my ( $self, $presenter ) = @_;
+method is_presenter_credited ( $presenter ) {
     return unless defined $presenter;
 
-    my $res = $self->get_current_();
-    return unless defined $res;
-
-    foreach my $panel_state ( values %{ $res } ) {
+    foreach my $panel_state ( values %current_panels ) {
         next unless defined $panel_state;
         my $panel = $panel_state->get_active_panel();
         return 1 if $panel->is_presenter_credited( $presenter );
@@ -89,19 +83,19 @@ sub is_presenter_credited {
     return;
 } ## end sub is_presenter_credited
 
-sub is_presenter_unlisted {
-    my ( $self, $presenter ) = @_;
+method is_presenter_unlisted ( $presenter ) {
     return unless defined $presenter;
 
-    my $res = $self->get_current_();
-    return unless defined $res;
-
-    foreach my $panel_state ( values %{ $res } ) {
+    foreach my $panel_state ( values %current_panels ) {
         next unless defined $panel_state;
         my $panel = $panel_state->get_active_panel();
         return 1 if $panel->is_presenter_unlisted( $presenter );
     }
     return;
 } ## end sub is_presenter_unlisted
+
+method clone_args() {
+    croak q{Can not clone};
+}
 
 1;

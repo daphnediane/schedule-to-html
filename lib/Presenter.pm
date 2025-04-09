@@ -2,7 +2,7 @@ package Presenter;
 
 use Object::InsideOut;
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Readonly;
@@ -93,22 +93,17 @@ my @members
 
 ## use critic
 
-sub get_pid {
-    my ( $self ) = @_;
+sub get_pid ( $self ) {
     return ${ $self };
 }
 
-sub find_by_pid {
-    my ( $class, $pid ) = @_;
-
+sub find_by_pid ( $class, $pid ) {
     my $value = $pid_map[ $pid ];
     return $value if defined $value;
     return;
-} ## end sub find_by_pid
+}
 
-sub improve_presenter_rank {
-    my ( $self, $new_rank ) = @_;
-
+sub improve_presenter_rank ( $self, $new_rank ) {
     my $old_rank = $self->get_presenter_rank();
     if ( $new_rank < $old_rank ) {
         $self->set_presenter_rank_( $new_rank );
@@ -116,51 +111,42 @@ sub improve_presenter_rank {
     return;
 } ## end sub improve_presenter_rank
 
-sub decode_array_ {
-    my ( @values ) = @_;
+sub decode_array_ ( @values ) {
     return map { ref $_ ? ( decode_array_( @{ $_ } ) ) : ( $_ ) } @values;
 }
 
-sub get_index_array {
-    my ( $self ) = @_;
+sub get_index_array ( $self ) {
     return decode_array_( $self->get_index_array_() );
 }
 
-sub get_groups {
-    my ( $self ) = @_;
+sub get_groups ( $self ) {
     my $groups = $self->get_groups_();
     return unless defined $groups;
     return values %{ $groups };
-} ## end sub get_groups
+}
 
-sub is_in_group {
-    my ( $self ) = @_;
+sub is_in_group ( $self ) {
     return 1 if defined $self->get_groups_();
     return;
 }
 
-sub is_group {
-    my ( $self ) = @_;
+sub is_group ( $self ) {
     return 1 if defined $self->get_members_();
     return;
 }
 
-sub is_individual {
-    my ( $self ) = @_;
+sub is_individual ( $self ) {
     return 1 unless defined $self->get_members_();
     return;
 }
 
-sub get_members {
-    my ( $self ) = @_;
+sub get_members ( $self ) {
     my $members = $self->get_members_();
     return unless defined $members;
     return values %{ $members };
-} ## end sub get_members
+}
 
-sub add_members {
-    my ( $self, @new_members ) = @_;
-
+sub add_members ( $self, @new_members ) {
     my $gid      = $self->get_pid();
     my $mem_hash = $self->get_members_();
     if ( !defined $mem_hash ) {
@@ -181,9 +167,7 @@ sub add_members {
     return;
 } ## end sub add_members
 
-sub add_groups {
-    my ( $self, @new_groups ) = @_;
-
+sub add_groups ( $self, @new_groups ) {
     my $mid      = $self->get_pid();
     my $gpr_hash = $self->get_groups_();
     if ( !defined $gpr_hash ) {
@@ -204,8 +188,7 @@ sub add_groups {
     return;
 } ## end sub add_groups
 
-sub compare {
-    my ( $self, $other, $swap ) = @_;
+sub compare ( $self, $other, $swap ) {
     die qq{Compare Presenter with something else\n}
         unless ref $other && $other->isa( q{Presenter} );
 
@@ -226,8 +209,7 @@ sub compare {
         || $self->get_pid() <=> $other->get_pid();
 } ## end sub compare
 
-sub get_map_ {
-    my ( $class, $rank, $other, $meta ) = @_;
+sub get_map_ ( $class, $rank, $other, $meta ) {
     $class = ref $class || $class;
 
     my $index = 0;
@@ -259,9 +241,7 @@ sub check_cache_ :MergeArgs {
     return $res;
 } ## end sub check_cache_
 
-sub new {
-    my ( $class, @args ) = @_;
-
+sub new ( $class, @args ) {
     my $res = $class->check_cache_( @args );
     return $res if defined $res;
 
@@ -288,9 +268,7 @@ sub destroy_ :Destroy {
     return;
 } ## end sub destroy_
 
-sub lookup {
-    my ( $class, $name_with_group, $index, $rank ) = @_;
-
+sub lookup ( $class, $name_with_group, $index = undef, $rank = undef ) {
     return unless defined $name_with_group;
     return if $name_with_group eq q{};
 
@@ -343,9 +321,7 @@ sub lookup {
     return $info;
 } ## end sub lookup
 
-sub any_guest {
-    my ( $class ) = @_;
-
+sub any_guest ( $class ) {
     state $any_info;
     return $any_info if defined $any_info;
 
@@ -358,11 +334,9 @@ sub any_guest {
     return $any_info;
 } ## end sub any_guest
 
-sub get_known {
-    my ( $class ) = @_;
-
+sub get_known ( $class ) {
     $class->any_guest();
     return @presenters;
-} ## end sub get_known
+}
 
 1;

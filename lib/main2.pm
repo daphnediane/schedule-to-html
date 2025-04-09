@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp            qw{ verbose croak };         ## no critic (ProhibitUnusedImport)
@@ -19,10 +19,10 @@ use ActivePanel          qw{};
 use Canonical            qw{ :all };
 use Data::Panel          qw{};
 use Data::PanelType      qw{};
-use Data::Partion        qw{};
+use Data::Partition      qw{};
 use Data::Room           qw{};
 use Options              qw{};
-use PartionPanels        qw{ :all };
+use PartitionPanels      qw{ :all };
 use Presenter            qw{};
 use Table::Panel         qw{ :all };
 use Table::PanelType     qw{ :all };
@@ -64,9 +64,7 @@ our $local_webpage;
 Readonly our $RE_COLOR_STYLE =>
     qr{ \A (?: all: | print: | screen: )? [+] (?i:(?:panel_)?color) (?: = | \z ) }xms;
 
-sub join_subclass {
-    my ( $base, @subclasses ) = @_;
-
+sub join_subclass ( $base, @subclasses ) {
     $base //= q{};
     foreach my $subclass ( @subclasses ) {
         next unless defined $subclass;
@@ -77,8 +75,7 @@ sub join_subclass {
     return $base;
 } ## end sub join_subclass
 
-sub out_class {
-    my ( @fields ) = @_;
+sub out_class ( @fields ) {
     return unless @fields;
     my $res = join q{ }, @fields;
     $res =~ s{\s\s+}{ }xms;
@@ -88,10 +85,7 @@ sub out_class {
     return class => $res;
 } ## end sub out_class
 
-sub open_dump_file {
-    my ( $def_name ) = @_;
-    $def_name //= q{index};
-
+sub open_dump_file ( $def_name //= q{index} ) {
     my $writer = WriteLevel::WebPage->new( formatter => $h );
 
     if ( $options->is_output_stdio() ) {
@@ -123,9 +117,7 @@ sub open_dump_file {
     return ( $writer, $ofname );
 } ## end sub open_dump_file
 
-sub dump_file_header {
-    my ( $writer ) = @_;
-
+sub dump_file_header ( $writer ) {
     $writer->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
 
     $writer->get_head()->add_meta( { charset => $HTML_CHARSET_UTF8 } );
@@ -148,9 +140,7 @@ sub dump_file_header {
     return;
 } ## end sub dump_file_header
 
-sub dump_grid_panel {
-    my ( $writer, $panel_state, @rooms ) = @_;
-
+sub dump_grid_panel ( $writer, $panel_state, @rooms ) {
     return unless defined $panel_state;
     my $panel = $panel_state->get_active_panel();
     return unless defined $panel;
@@ -186,11 +176,7 @@ sub dump_grid_panel {
 
 } ## end sub dump_grid_panel
 
-sub dump_grid_make_groups {
-    my ( $writer ) = @_;
-
-    my $current = $local_time_slot->get_current();
-
+sub dump_grid_make_groups ( $writer ) {
     my @room_queue;
     my $last_room;
     my $last_state;
@@ -200,7 +186,7 @@ sub dump_grid_make_groups {
             unless $options->show_all_rooms()
             || $local_region->is_room_active( $room );
 
-        my $state = $current->{ $room->get_room_id() };
+        my $state = $local_time_slot->lookup_current( $room );
         if (   scalar @room_queue
             && defined $state
             && defined $last_state
@@ -226,9 +212,7 @@ sub dump_grid_make_groups {
     return;
 } ## end sub dump_grid_make_groups
 
-sub dump_grid_time {
-    my ( $writer, $same_day ) = @_;
-
+sub dump_grid_time ( $writer, $same_day ) {
     my ( $day, $tm ) = datetime_to_text( $local_time_seconds );
     my $is_same_day = $local_region->get_day_being_output() eq $day
         && $local_region->get_last_output_time() != $local_time_seconds;
@@ -258,7 +242,7 @@ sub dump_grid_time {
     return;
 } ## end sub dump_grid_time
 
-sub dump_grid_timeslice {
+sub dump_grid_timeslice () {
     my @times = sort { $a <=> $b } $local_region->get_unsorted_times();
     return unless @times;
 
@@ -287,11 +271,11 @@ sub dump_grid_timeslice {
     return;
 } ## end sub dump_grid_timeslice
 
-sub dump_desc_timeslice {
+sub dump_desc_timeslice () {
     return;
 }
 
-sub dump_grid_regions {
+sub dump_grid_regions () {
     my $need_desc = $options->show_sect_descriptions();
     my $any_desc_shown;
     my $desc_are_last = $options->is_desc_loc_last();
@@ -344,7 +328,7 @@ sub dump_grid_regions {
     return;
 } ## end sub dump_grid_regions
 
-sub dump_grid {
+sub dump_grid () {
     my ( $writer, $ofname ) = open_dump_file();
 
     local $local_webpage = $writer;
@@ -398,8 +382,7 @@ sub dump_kiosk {
     die qq{Not implemented\n};
 }
 
-sub close_dump_file {
-    my ( $writer, $ofname ) = @_;
+sub close_dump_file ( $writer, $ofname ) {
     my $file_name = $ofname // q{<STDIO>};
 
     if ( $options->is_output_stdio() ) {
@@ -449,9 +432,7 @@ sub update_hide_shown {
     return;
 } ## end sub update_hide_shown
 
-sub main_arg_set {
-    my ( $args, $prev_file ) = @_;
-
+sub main_arg_set ( $args, $prev_file ) {
     $options = Options->options_from( $args );
 
     foreach my $style ( $options->get_styles() ) {
@@ -477,7 +458,7 @@ sub main_arg_set {
         return $prev_file;
     }
 
-    my @filters = ( Data::Partion->unfiltered() );
+    my @filters = ( Data::Partition->unfiltered() );
     @filters = split_filter_by_panelist(
         {   ranks => [
                 (     $options->is_file_by_guest()
@@ -515,9 +496,7 @@ sub main_arg_set {
     return $prev_file;
 } ## end sub main_arg_set
 
-sub main {
-    my ( @args ) = @_;
-
+sub main ( @args ) {
     if ( !@args ) {
         Options::dump_help();
         exit 1;

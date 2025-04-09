@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use v5.36.0;
+use v5.38.0;
 use utf8;
 
 use Carp            qw{ verbose croak };         ## no critic (ProhibitUnusedImport)
@@ -20,10 +20,10 @@ use ActivePanel          qw{};
 use Canonical            qw{ :all };
 use Data::Panel          qw{};
 use Data::PanelType      qw{};
-use Data::Partion        qw{};
+use Data::Partition      qw{};
 use Data::Room           qw{};
 use Options              qw{};
-use PartionPanels        qw{ :all };
+use PartitionPanels      qw{ :all };
 use Presenter            qw{};
 use Table::Panel         qw{ :all };
 use Table::PanelType     qw{ :all };
@@ -40,7 +40,7 @@ use WriteLevel::CSS      qw{};
 use WriteLevel::HTML     qw{};
 use WriteLevel::WebPage  qw{};
 
-# HTML keywoards
+# HTML keywords
 Readonly our $HTML_APP_OKAY     => q{apple-mobile-web-app-capable};
 Readonly our $HTML_CHARSET_UTF8 => q{UTF-8};
 Readonly our $HTML_DOCTYPE_HTML => q{<!doctype html>};
@@ -141,9 +141,7 @@ my $options;
 my $h          = HTML::Tiny->new( mode => $HTML_SUFFIX_HTML );
 my $output_idx = 0;
 
-sub join_subclass {
-    my ( $base, @subclasses ) = @_;
-
+sub join_subclass ( $base, @subclasses ) {
     $base //= q{};
     foreach my $subclass ( @subclasses ) {
         next unless defined $subclass;
@@ -154,8 +152,7 @@ sub join_subclass {
     return $base;
 } ## end sub join_subclass
 
-sub out_class {
-    my ( @fields ) = @_;
+sub out_class ( @fields ) {
     return unless @fields;
     my $res = join q{ }, @fields;
     $res =~ s{\s\s+}{ }xms;
@@ -165,17 +162,14 @@ sub out_class {
     return class => $res;
 } ## end sub out_class
 
-sub room_focus_class {
-    my ( $room_focus_map, @rooms ) = @_;
+sub room_focus_class ( $room_focus_map, @rooms ) {
     return $CLASS_GRID_CELL_FOCUS if $room_focus_map->is_focused( @rooms );
     return $CLASS_GRID_CELL_UNFOCUS
         if $room_focus_map->is_unfocused( @rooms );
     return;
 } ## end sub room_focus_class
 
-sub dump_grid_row_room_names {
-    my ( $writer, $filter, $region, $room_focus_map ) = @_;
-
+sub dump_grid_row_room_names ( $writer, $filter, $region, $room_focus_map ) {
     my $is_head = $writer->get_tag() =~ m{ thead [.] tr \z }xms;
 
     if ( $options->show_day_column() ) {
@@ -231,9 +225,7 @@ sub dump_grid_row_room_names {
     return;
 } ## end sub dump_grid_row_room_names
 
-sub dump_grid_header {
-    my ( $writer, $filter, $region, $room_focus_map ) = @_;
-
+sub dump_grid_header ( $writer, $filter, $region, $room_focus_map ) {
     $writer = $writer->nested_table( {
         out_class(
             $CLASS_GRID_TABLE,
@@ -278,9 +270,7 @@ sub dump_grid_header {
     return $body;
 } ## end sub dump_grid_header
 
-sub css_subclasses_for_panel {
-    my ( $panel ) = @_;
-
+sub css_subclasses_for_panel ( $panel ) {
     return q{} unless defined $panel;
 
     my $panel_type = $panel->get_panel_type();
@@ -305,10 +295,10 @@ sub css_subclasses_for_panel {
     return @subclasses;
 } ## end sub css_subclasses_for_panel
 
-sub dump_grid_row_cell_group {    ## no critic(Subroutines::ProhibitManyArgs)
-    my ( $writer, $filter, $room_focus_map, $time_slot, $panel_state, @rooms )
-        = @_;
-
+sub dump_grid_row_cell_group (
+    $writer,      $filter, $room_focus_map, $time_slot,
+    $panel_state, @rooms
+) {
     return unless @rooms;
 
     if ( !defined $panel_state ) {
@@ -447,10 +437,10 @@ sub dump_grid_row_cell_group {    ## no critic(Subroutines::ProhibitManyArgs)
     return;
 } ## end sub dump_grid_row_cell_group
 
-sub dump_grid_row_make_cell_groups {
-    my ( $writer, $filter, $region, $room_focus_map, $time_slot ) = @_;
-
-    my $current = $time_slot->get_current();
+sub dump_grid_row_make_cell_groups (
+    $writer,         $filter, $region,
+    $room_focus_map, $time_slot
+) {
 
     my @room_queue;
     my $last_room;
@@ -461,7 +451,7 @@ sub dump_grid_row_make_cell_groups {
             unless $options->show_all_rooms()
             || $region->is_room_active( $room );
 
-        my $state = $current->{ $room->get_room_id() };
+        my $state = $time_slot->lookup_current( $room );
         if (   scalar @room_queue
             && defined $state
             && defined $last_state
@@ -491,8 +481,10 @@ sub dump_grid_row_make_cell_groups {
     return;
 } ## end sub dump_grid_row_make_cell_groups
 
-sub dump_grid_row_time {
-    my ( $writer, $filter, $region, $room_focus_map, $time_slot ) = @_;
+sub dump_grid_row_time (
+    $writer, $filter, $region, $room_focus_map,
+    $time_slot
+) {
 
     my $time             = $time_slot->get_start_seconds();
     my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
@@ -551,9 +543,7 @@ sub dump_grid_row_time {
     return;
 } ## end sub dump_grid_row_time
 
-sub dump_grid_timeslice {
-    my ( $writer, $filter, $region ) = @_;
-
+sub dump_grid_timeslice ( $writer, $filter, $region ) {
     $region->set_day_being_output( q{} );
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
     $region->set_last_output_time( $times[ -1 ] );
@@ -580,9 +570,10 @@ sub dump_grid_timeslice {
     return;
 } ## end sub dump_grid_timeslice
 
-sub desc_writer {
-    my ( $writer, $filter, $region, $show_unbusy_panels ) = @_;
-
+sub desc_writer (
+    $writer, $filter, $region = undef,
+    $show_unbusy_panels = undef
+) {
     if ( defined $filter->get_selected_presenter() ) {
         my $presenter = $filter->get_selected_presenter();
 
@@ -616,9 +607,7 @@ sub desc_writer {
         { out_class( $CLASS_DESC_SECTION, $alt_class ) } );
 } ## end sub desc_writer
 
-sub dump_desc_time_start {
-    my ( $writer, $time, @hdr_suffix ) = @_;
-
+sub dump_desc_time_start ( $writer, $time, @hdr_suffix ) {
     if ( $options->is_desc_form_div() ) {
         $writer->add_div(
             { out_class( $CLASS_DESC_TIME_SLOT ) }, join q{ },
@@ -647,9 +636,7 @@ sub dump_desc_time_start {
     return $writer;
 } ## end sub dump_desc_time_start
 
-sub dump_desc_panel_note {
-    my ( $writer, $panel, $conflict ) = @_;
-
+sub dump_desc_panel_note ( $writer, $panel, $conflict ) {
     my @note;
     if ( $conflict ) {
         push @note, $h->b( q{Conflicts with one of your panels.} );
@@ -663,14 +650,6 @@ sub dump_desc_panel_note {
             ),
             q{ Priority given to kids 13 and under.};
     } ## end if ( $panel->get_is_free_kid_panel...)
-    elsif ( $panel->get_is_free() ) {
-        push @note, $h->b( q{Workshop:} ),
-            (
-            $panel->get_capacity()
-            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
-            : ()
-            );
-    } ## end elsif ( $panel->get_is_free...)
     elsif ( defined $panel->get_cost() ) {
         push @note, $h->b( q{Premium workshop:} ),
             (
@@ -684,6 +663,14 @@ sub dump_desc_panel_note {
             ? q{ May require a separate purchase.}
             : q{ Requires a separate purchase.};
     } ## end elsif ( defined $panel->get_cost...)
+    elsif ( $panel->get_panel_type()->is_workshop() ) {
+        push @note, $h->b( q{Workshop:} ),
+            (
+            $panel->get_capacity()
+            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
+            : ()
+            );
+    } ## end elsif ( $panel->get_panel_type...)
     elsif ( $panel->get_capacity() ) {
         push @note, $h->b( q{Limited space: } ),
             q{(Capacity: } . $panel->get_capacity() . q{)};
@@ -726,9 +713,7 @@ sub dump_desc_panel_note {
     return;
 } ## end sub dump_desc_panel_note
 
-sub dump_desc_panel_parts {
-    my ( $writer, $panel ) = @_;
-
+sub dump_desc_panel_parts ( $writer, $panel ) {
     my $part   = $panel->get_uniq_id_part();
     my @series = grep {
         defined $_->get_start_seconds() && $_->get_uniq_id_part() != $part
@@ -814,9 +799,10 @@ sub dump_desc_panel_parts {
     return;
 } ## end sub dump_desc_panel_parts
 
-sub should_panel_desc_be_dumped {
-    my ( $filter, $room_focus_map, $panel_state, $show_unbusy_panels, $time )
-        = @_;
+sub should_panel_desc_be_dumped (
+    $filter,             $room_focus_map, $panel_state,
+    $show_unbusy_panels, $time
+) {
 
     my $room = $panel_state->get_room();
     return unless defined $room;
@@ -855,8 +841,10 @@ sub should_panel_desc_be_dumped {
     return;
 } ## end sub should_panel_desc_be_dumped
 
-sub dump_desc_panel_body {
-    my ( $writer, $filter, $time_slot, $panel_state, @extra_classes ) = @_;
+sub dump_desc_panel_body (
+    $writer, $filter, $time_slot, $panel_state,
+    @extra_classes
+) {
 
     if ( !defined $panel_state ) {
         return if $options->is_desc_form_div();
@@ -998,10 +986,10 @@ sub dump_desc_panel_body {
     return;
 } ## end sub dump_desc_panel_body
 
-sub dump_desc_body {
-    my ($writer_or_code, $filter, $region, $room_focus_map,
-        $show_unbusy_panels
-    ) = @_;
+sub dump_desc_body (
+    $writer_or_code, $filter, $region, $room_focus_map,
+    $show_unbusy_panels
+) {
     my $filter_panelist = $filter->get_selected_presenter();
 
     $region->set_day_being_output( q{} );
@@ -1010,12 +998,10 @@ sub dump_desc_body {
 
     foreach my $time ( @times ) {
         my $writer;
-        my $time_slot           = $region->get_time_slot( $time );
-        my $panels_for_timeslot = $time_slot->get_current();
-
-        my @panel_states = values %{ $panels_for_timeslot };
-        @panel_states
-            = sort { $a->get_room() <=> $b->get_room() } @panel_states;
+        my $time_slot = $region->get_time_slot( $time );
+        my @panel_states
+            = sort { $a->get_room() <=> $b->get_room() }
+            $time_slot->get_all_current();
 
         my %panel_dumped;
 
@@ -1062,8 +1048,9 @@ sub dump_desc_body {
     return;
 } ## end sub dump_desc_body
 
-sub dump_desc_body_regions {
-    my ( $writer, $filter, $region, $show_unbusy_panels ) = @_;
+sub dump_desc_body_regions ( $writer, $filter, $region, $show_unbusy_panels )
+{
+
     if ( defined $region ) {
         my $room_focus_map = $region->room_focus_map_by_id(
             select_room => $filter->get_selected_room(),
@@ -1096,9 +1083,7 @@ sub dump_desc_body_regions {
     return;
 } ## end sub dump_desc_body_regions
 
-sub dump_desc_timeslice {
-    my ( $writer, $filter, $region ) = @_;
-
+sub dump_desc_timeslice ( $writer, $filter, $region ) {
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(
         {   ranks => [
@@ -1151,8 +1136,7 @@ sub dump_desc_timeslice {
     return;
 } ## end sub dump_desc_timeslice
 
-sub cache_inline_style {
-    my ( $file ) = @_;
+sub cache_inline_style ( $file ) {
     return unless defined $file;
     state %cache;
     if (   !File::Spec->file_name_is_absolute( $file )
@@ -1166,10 +1150,7 @@ sub cache_inline_style {
     );
 } ## end sub cache_inline_style
 
-sub open_dump_file {
-    my ( $filter, $def_name ) = @_;
-    $def_name //= q{index};
-
+sub open_dump_file ( $filter, $def_name //= q{index} ) {
     my $writer = WriteLevel::WebPage->new( formatter => $h );
 
     if ( $options->is_output_stdio() ) {
@@ -1201,8 +1182,7 @@ sub open_dump_file {
     return ( $writer, $ofname );
 } ## end sub open_dump_file
 
-sub close_dump_file {
-    my ( $writer, $ofname ) = @_;
+sub close_dump_file ( $writer, $ofname ) {
     my $file_name = $ofname // q{<STDIO>};
 
     if ( $options->is_output_stdio() ) {
@@ -1219,9 +1199,7 @@ sub close_dump_file {
     return;
 } ## end sub close_dump_file
 
-sub dump_styles {
-    my ( $writer ) = @_;
-
+sub dump_styles ( $writer ) {
     foreach my $style ( $options->get_styles() ) {
         my $is_html = $style =~ m{.html?\z}xms;
         my $fname   = $style;
@@ -1310,9 +1288,7 @@ sub dump_styles {
     return;
 } ## end sub dump_styles
 
-sub dump_file_header {
-    my ( $writer, $filter ) = @_;
-
+sub dump_file_header ( $writer, $filter ) {
     $writer->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
 
     $writer->get_head()->add_meta( { charset => $HTML_CHARSET_UTF8 } );
@@ -1340,9 +1316,7 @@ sub dump_file_header {
     return;
 } ## end sub dump_file_header
 
-sub dump_table_regions {
-    my ( $writer, $filter ) = @_;
-
+sub dump_table_regions ( $writer, $filter ) {
     my $need_desc = $options->show_sect_descriptions();
     my $any_desc_shown;
     my $desc_are_last = $options->is_desc_loc_last();
@@ -1377,9 +1351,7 @@ sub dump_table_regions {
     return;
 } ## end sub dump_table_regions
 
-sub dump_tables {
-    my ( $filter ) = @_;
-
+sub dump_tables ( $filter ) {
     my ( $writer, $ofname ) = open_dump_file( $filter );
 
     dump_file_header( $writer, $filter );
@@ -1433,8 +1405,7 @@ sub dump_tables {
     return;
 } ## end sub dump_tables
 
-sub dump_kiosk_desc {
-    my ( $writer, $region ) = @_;
+sub dump_kiosk_desc ( $writer, $region ) {
     die qq{Reqion required\n} unless defined $region;
 
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
@@ -1484,12 +1455,9 @@ sub dump_kiosk_desc {
         my $table_body = $time_table->nested_tbody(
             { out_class( $CLASS_KIOSK_DESC_BODY ) } );
 
-        my $time_slot   = $region->get_time_slot( $time );
-        my $cur_panels  = $time_slot->get_current();
-        my $next_panels = $time_slot->get_upcoming();
+        my $time_slot = $region->get_time_slot( $time );
 
         foreach my $room ( @region_rooms ) {
-            my $id    = $room->get_room_id();
             my $hotel = $room->get_hotel_room();
             my $name  = $room->get_long_room_name();
             if ( $hotel ne $name ) {
@@ -1507,14 +1475,14 @@ sub dump_kiosk_desc {
             );
             dump_desc_panel_body(
                 $room_row,
-                Data::Partion->unfiltered(), $time_slot,
-                $cur_panels->{ $id },
+                Data::Partition->unfiltered(), $time_slot,
+                $time_slot->lookup_current( $room ) // undef,
                 $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
                 $room_row,
-                Data::Partion->unfiltered(), $time_slot,
-                $next_panels->{ $id },
+                Data::Partition->unfiltered(), $time_slot,
+                $time_slot->lookup_upcoming( $room ) // undef,
                 $CLASS_KIOSK_DESC_CELL_FUTURE
             );
         } ## end foreach my $room ( @region_rooms)
@@ -1523,9 +1491,9 @@ sub dump_kiosk_desc {
     return;
 } ## end sub dump_kiosk_desc
 
-sub dump_kiosk {
+sub dump_kiosk () {
     my ( $writer, $ofname )
-        = open_dump_file( Data::Partion->unfiltered(), q{kiosk} );
+        = open_dump_file( Data::Partition->unfiltered(), q{kiosk} );
 
     $writer->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
 
@@ -1563,7 +1531,7 @@ sub dump_kiosk {
 
     foreach my $region ( get_time_regions() ) {
         dump_grid_timeslice(
-            $regions_div, Data::Partion->unfiltered(),
+            $regions_div, Data::Partition->unfiltered(),
             $region
         );
     } ## end foreach my $region ( get_time_regions...)
@@ -1577,7 +1545,7 @@ sub dump_kiosk {
     return;
 } ## end sub dump_kiosk
 
-sub update_hide_shown {
+sub update_hide_shown () {
     foreach my $room ( Table::Room::all_rooms() ) {
         $room->clear_override_room_as_hidden();
     }
@@ -1609,8 +1577,7 @@ sub update_hide_shown {
     return;
 } ## end sub update_hide_shown
 
-sub main_arg_set {
-    my ( $args, $prev_file ) = @_;
+sub main_arg_set ( $args, $prev_file ) {
 
     # Start output idx back from 0
     $output_idx = 0;
@@ -1648,7 +1615,7 @@ sub main_arg_set {
         return $prev_file;
     }
 
-    my @filters = ( Data::Partion->unfiltered() );
+    my @filters = ( Data::Partition->unfiltered() );
     @filters = split_filter_by_panelist(
         {   ranks => [
                 (     $options->is_file_by_guest()
@@ -1690,9 +1657,7 @@ sub main_arg_set {
     return $prev_file;
 } ## end sub main_arg_set
 
-sub main {
-    my ( @args ) = @_;
-
+sub main ( @args ) {
     if ( !@args ) {
         Options::dump_help();
         exit 1;
