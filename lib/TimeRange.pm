@@ -89,7 +89,7 @@ method clone_args() {
 } ## end sub clone_args
 
 method clone() {
-    return $self->new( $self->clone_args() );
+    return __CLASS__->new( $self->clone_args() );
 }
 
 1;

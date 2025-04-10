@@ -1,18 +1,33 @@
 package Presenter;
 
-use Object::InsideOut;
-
 use v5.38.0;
 use utf8;
 
-use Readonly;
-use List::Util qw{ max uniq };
+use Carp                   qw{ croak };
+use Feature::Compat::Class qw{ :all };
+use List::Util             qw{ max uniq };
+use Readonly               qw{ Readonly };
+use Scalar::Util           qw{ blessed };
+
+class Presenter;
 
 ## no critic (TooMuchCode::ProhibitDuplicateLiteral)
 use overload
     q{<=>} => q{compare},
     q{cmp} => q{compare};
 ## use critic
+
+Readonly our $ANY_GUEST => q{All Guests};
+
+# MARK: name field
+
+field $name :param(name);
+
+method get_presenter_name() {
+    return $name;
+}
+
+# MARK: rank field
 
 Readonly our $RANK_GUEST         => 0;
 Readonly our $RANK_JUDGE         => 1;
@@ -30,72 +45,163 @@ Readonly::Hash our %PREFIX_TO_RANK => (
 );
 Readonly::Array our @RANKS => sort uniq values %PREFIX_TO_RANK;
 
-Readonly our $ANY_GUEST => q{All Guests};
+field $rank :param(rank);
 
-my @presenters;
-my @pid_map;
+method get_presenter_rank () {
+    return $rank;
+}
 
-## no critic (ProhibitUnusedVariables)
+method set_presenter_rank_ ( $new_rank ) {
+    $rank = $new_rank;
+    return $self;
+}
 
-my @name
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{name}, Mandatory => 1)
-    :Get(Name => q{get_presenter_name});
+method improve_presenter_rank ( $new_rank ) {
+    if ( $new_rank < $rank ) {
+        $rank = $new_rank;
+    }
+    return;
+} ## end sub improve_presenter_rank
 
-my @rank
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{rank}, Mandatory => 1)
-    :Set(Name => q{set_presenter_rank_}, Restricted => 1)
-    :Get(Name => q{get_presenter_rank});
+# MARK: indices field
 
-my @indices
-    :Field
-    :Arg(Name => q{index_array})
-    :Get(Name => q{get_index_array_}, Restricted => 1);
+sub _decode_indices ( @values ) {
+    return map { ref $_ ? ( _decode_indices( @{ $_ } ) ) : ( $_ ) } @values;
+}
 
+field $index_array :param(index_array);
+
+method get_index_array ( ) {
+    return _decode_indices( $index_array );
+}
+
+# MARK: is_other
 # Others is not really a presenter, just a key that indicates that heading
 # contains a list of presenters.
-my @is_other
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_other})
-    :Get(Name => q{get_is_other});
 
-my @is_meta
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_meta})
-    :Get(Name => q{get_is_meta});
+field $is_other :param(is_other) //= 0;
 
-my @always_show
-    :Field
-    :Type(scalar)
-    :Set(Name => q{set_is_always_shown})
-    :Get(Name => q{get_is_always_shown});
-
-my @always_as_group
-    :Field
-    :Type(scalar)
-    :Set(Name => q{set_is_always_grouped})
-    :Get(Name => q{get_is_always_grouped});
-
-my @groups
-    :Field
-    :Set(Name => q{set_groups_}, Restricted => 1)
-    :Get(Name => q{get_groups_}, Restricted => 1);
-
-my @members
-    :Field
-    :Set(Name => q{set_members_}, Restricted => 1)
-    :Get(Name => q{get_members_}, Restricted => 1);
-
-## use critic
-
-sub get_pid ( $self ) {
-    return ${ $self };
+method get_is_other () {
+    return $is_other ? 1 : 0;
 }
+
+# MARK: is_meta
+# Meta is used for ANY_GUEST
+
+field $is_meta :param(is_meta) //= 0;
+
+method get_is_meta() {
+    return $is_meta ? 1 : 0;
+}
+
+# MARK: always_show
+
+field $always_show :param(always_show) //= 0;
+
+method set_is_always_shown( $shown = 1 ) {
+    $always_show = $shown;
+    return $self;
+}
+
+method clear_is_always_shown( ) {
+    $always_show = 0;
+    return $self;
+}
+
+method get_is_always_shown() {
+    return $always_show ? 1 : 0;
+}
+
+# MARK: always_as_group
+
+field $always_as_group = 0;
+
+method set_is_always_grouped( $grouped = 1 ) {
+    $always_as_group = $grouped;
+    return $self;
+}
+
+method clear_is_always_grouped( ) {
+    $always_as_group = 0;
+    return $self;
+}
+
+method get_is_always_grouped() {
+    return $always_as_group ? 1 : 0;
+}
+
+# MARK: groups and members
+
+field %groups;
+field %members;
+
+method get_groups () {
+    return values %groups;
+}
+
+method is_in_group () {
+    return 1 if %groups;
+    return 0;
+}
+
+method get_members ( ) {
+    return values %members;
+}
+
+method is_group () {
+    return 1 if %members;
+    return;
+}
+
+method is_individual () {
+    return 1 unless %members;
+    return;
+}
+
+method _link_to_group ( $group ) {
+    $groups{ $group->get_pid() } = $group;
+}
+
+method _link_to_member ( $member ) {
+    $members{ $member->get_pid() } = $member;
+}
+
+method add_members ( @new_members ) {
+    foreach my $member ( @new_members ) {
+        my $mid = $member->get_pid();
+        next if $members{ $mid };
+        $members{ $mid } = $member;
+        $member->_link_to_group( $self );
+    } ## end foreach my $member ( @new_members)
+    return;
+} ## end sub add_members
+
+method add_groups ( @new_groups ) {
+    foreach my $group ( @new_groups ) {
+        my $gid = $group->get_pid();
+        next if $groups{ $gid };
+        $groups{ $gid } = $group;
+        $group->_link_to_member( $self );
+    } ## end foreach my $group ( @new_groups)
+    return;
+} ## end sub add_groups
+
+# MARK: pid and cache
+
+field $pid :reader(get_pid);
+field $caching :param(caching);
+my @pid_map;
+my @presenters;
+
+ADJUST {
+    $pid = scalar @pid_map;
+    push @pid_map,    $self;
+    push @presenters, $self unless $is_other;
+    defined $caching
+        || croak q{Do not call new directly};
+    $caching->{ lc $name } = $self;
+    $caching = undef;
+} ## end ADJUST
 
 sub find_by_pid ( $class, $pid ) {
     my $value = $pid_map[ $pid ];
@@ -103,170 +209,51 @@ sub find_by_pid ( $class, $pid ) {
     return;
 }
 
-sub improve_presenter_rank ( $self, $new_rank ) {
-    my $old_rank = $self->get_presenter_rank();
-    if ( $new_rank < $old_rank ) {
-        $self->set_presenter_rank_( $new_rank );
+sub cache_or_new ( $class, %args ) {
+    $class = ref $class || $class;
+
+    my $name = $args{ name } //= q{Anonymous};
+    my $rank = $args{ rank } //= $RANK_FAN_PANELIST;
+
+    my $index = 0;
+    $index += 1                 if $args{ is_meta };
+    $index += 2 + $args{ rank } if $args{ is_other };
+
+    state %_cache_root;
+    my $name_cache = $_cache_root{ $class }->{ $index } //= {};
+
+    my $res = $name_cache->{ lc $name };
+    if ( !defined $res ) {
+        $res = $class->new( %args, caching => $name_cache );
     }
-    return;
-} ## end sub improve_presenter_rank
+    $res->improve_presenter_rank( $rank );
 
-sub decode_array_ ( @values ) {
-    return map { ref $_ ? ( decode_array_( @{ $_ } ) ) : ( $_ ) } @values;
-}
+    return $res;
+} ## end sub cache_or_new
 
-sub get_index_array ( $self ) {
-    return decode_array_( $self->get_index_array_() );
-}
+# MARK: todo
 
-sub get_groups ( $self ) {
-    my $groups = $self->get_groups_();
-    return unless defined $groups;
-    return values %{ $groups };
-}
-
-sub is_in_group ( $self ) {
-    return 1 if defined $self->get_groups_();
-    return;
-}
-
-sub is_group ( $self ) {
-    return 1 if defined $self->get_members_();
-    return;
-}
-
-sub is_individual ( $self ) {
-    return 1 unless defined $self->get_members_();
-    return;
-}
-
-sub get_members ( $self ) {
-    my $members = $self->get_members_();
-    return unless defined $members;
-    return values %{ $members };
-}
-
-sub add_members ( $self, @new_members ) {
-    my $gid      = $self->get_pid();
-    my $mem_hash = $self->get_members_();
-    if ( !defined $mem_hash ) {
-        $mem_hash = {};
-        $self->set_members_( $mem_hash );
-    }
-    foreach my $member ( @new_members ) {
-        my $mid = $member->get_pid();
-        next if $mem_hash->{ $mid };
-        $mem_hash->{ $mid } = $member;
-        my $gpr_hash = $member->get_groups_();
-        if ( !defined $gpr_hash ) {
-            $gpr_hash = {};
-            $member->set_groups_( $gpr_hash );
-        }
-        $gpr_hash->{ $gid } = $self;
-    } ## end foreach my $member ( @new_members)
-    return;
-} ## end sub add_members
-
-sub add_groups ( $self, @new_groups ) {
-    my $mid      = $self->get_pid();
-    my $gpr_hash = $self->get_groups_();
-    if ( !defined $gpr_hash ) {
-        $gpr_hash = {};
-        $self->set_groups_( $gpr_hash );
-    }
-    foreach my $group ( @new_groups ) {
-        my $gid = $group->get_pid();
-        next if $gpr_hash->{ $gid };
-        $gpr_hash->{ $gid } = $group;
-        my $mem_hash = $group->get_members_();
-        if ( !defined $mem_hash ) {
-            $mem_hash = {};
-            $group->get_members_( $mem_hash );
-        }
-        $mem_hash->{ $mid } = $self;
-    } ## end foreach my $group ( @new_groups)
-    return;
-} ## end sub add_groups
-
-sub compare ( $self, $other, $swap ) {
+method compare ( $other, $swap ) {
     die qq{Compare Presenter with something else\n}
-        unless ref $other && $other->isa( q{Presenter} );
+        unless blessed $other && $other->isa( q{Presenter} );
 
-    ( $self, $other ) = ( $other, $self ) if $swap;
+    my $left  = $swap ? $other : $self;
+    my $right = $swap ? $self  : $other;
 
-    my $res = $self->get_presenter_rank() <=> $other->get_presenter_rank();
+    my $res = $left->get_presenter_rank() <=> $right->get_presenter_rank();
     return $res if $res;
 
     # Compare indices from major to minor
-    my @self_ind  = $self->get_index_array();
-    my @other_ind = $other->get_index_array();
-    for my $ind ( 0 .. max $#self_ind, $#other_ind ) {
-        $res = ( $self_ind[ $ind ] // 0 ) <=> ( $other_ind[ $ind ] // 0 );
+    my @left_ind  = $left->get_index_array();
+    my @right_ind = $right->get_index_array();
+    for my $ind ( 0 .. max $#left_ind, $#right_ind ) {
+        $res = ( $left_ind[ $ind ] // 0 ) <=> ( $right_ind[ $ind ] // 0 );
         return $res if $res;
     }
 
-    return $self->get_presenter_name() cmp $other->get_presenter_name()
-        || $self->get_pid() <=> $other->get_pid();
+    return $left->get_presenter_name() cmp $right->get_presenter_name()
+        || $left->get_pid() <=> $right->get_pid();
 } ## end sub compare
-
-sub get_map_ ( $class, $rank, $other, $meta ) {
-    $class = ref $class || $class;
-
-    my $index = 0;
-    $index += 1         if $meta;
-    $index += 2 + $rank if $other;
-
-    state %maps;
-    return $maps{ $class }->[ $index ] //= {};
-
-} ## end sub get_map_
-
-sub check_cache_ :MergeArgs {
-    my ( $class, $args ) = @_;
-
-    my $name = $args->{ name };
-    my $rank = $args->{ rank };
-
-    return unless defined $name;
-    return unless defined $rank;
-
-    my $res = $class->get_map_(
-        $rank,
-        $args->{ is_other },
-        $args->{ is_meta }
-    )->{ lc $name };
-    return unless defined $res;
-
-    $res->improve_presenter_rank( $rank );
-    return $res;
-} ## end sub check_cache_
-
-sub new ( $class, @args ) {
-    my $res = $class->check_cache_( @args );
-    return $res if defined $res;
-
-    return $class->Object::InsideOut::new( @args );
-} ## end sub new
-
-sub init_ :Init {
-    my ( $self, $args ) = @_;
-    push @presenters, $self unless $self->get_is_other();
-    my $pid = $self->get_pid();
-    $pid_map[ $pid ] = $self;
-    $self->get_map_(
-        $self->get_presenter_rank(),
-        $self->get_is_other(),
-        $self->get_is_meta()
-    )->{ lc $self->get_presenter_name() } = $self;
-    return;
-} ## end sub init_
-
-sub destroy_ :Destroy {
-    my ( $self ) = @_;
-    my $pid = $self->get_pid();
-    $pid_map[ $pid ] = undef;
-    return;
-} ## end sub destroy_
 
 sub lookup ( $class, $name_with_group, $index = undef, $rank = undef ) {
     return unless defined $name_with_group;
@@ -287,7 +274,7 @@ sub lookup ( $class, $name_with_group, $index = undef, $rank = undef ) {
     if ( lc $name eq q{other} ) {
         $name = $rank . q{:Other};
 
-        return $class->new(
+        return $class->cache_or_new(
             name        => $name,
             rank        => $rank,
             index_array => $index,
@@ -298,7 +285,7 @@ sub lookup ( $class, $name_with_group, $index = undef, $rank = undef ) {
     my $ginfo;
     if ( defined $group && $group ne q{} ) {
         my $always_shown = $group =~ s{\A =}{}xms;
-        $ginfo = Presenter->new(
+        $ginfo = Presenter->cache_or_new(
             name        => $group,
             rank        => $rank,
             index_array => $index,
@@ -307,7 +294,7 @@ sub lookup ( $class, $name_with_group, $index = undef, $rank = undef ) {
     } ## end if ( defined $group &&...)
 
     my $always_grouped = $name =~ s{\A <}{}xms;
-    my $info           = Presenter->new(
+    my $info           = $class->cache_or_new(
         name        => $name,
         rank        => $rank,
         index_array => $index,
@@ -315,17 +302,17 @@ sub lookup ( $class, $name_with_group, $index = undef, $rank = undef ) {
 
     if ( defined $ginfo ) {
         $ginfo->add_members( $info );
-        $info->set_is_always_grouped() if $always_grouped;
+        $info->set_is_always_grouped( 1 ) if $always_grouped;
     }
 
     return $info;
 } ## end sub lookup
 
-sub any_guest ( $class ) {
+sub any_guest ( $class //= __PACKAGE__ ) {
     state $any_info;
     return $any_info if defined $any_info;
 
-    $any_info = $class->new(
+    $any_info = $class->cache_or_new(
         name        => $ANY_GUEST,
         rank        => $Presenter::RANK_GUEST,
         index_array => [ -1 ],
@@ -334,7 +321,7 @@ sub any_guest ( $class ) {
     return $any_info;
 } ## end sub any_guest
 
-sub get_known ( $class ) {
+sub get_known ( $class //= __PACKAGE__ ) {
     $class->any_guest();
     return @presenters;
 }

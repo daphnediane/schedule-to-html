@@ -74,7 +74,7 @@ method get_room() {
 
 # MARK: Clone
 
-method clone_args() {
+method clone_args () {
     return (
         $self->SUPER::clone_args(),
         active_panel => $panel,
@@ -83,4 +83,5 @@ method clone_args() {
         room => $room,
     );
 } ## end sub clone_args
+
 1;

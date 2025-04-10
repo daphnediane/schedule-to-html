@@ -47,7 +47,7 @@ sub to_presenters_ ( $per_info, $names ) {
             $per_info->get_presenter_rank()
         )
         }
-        split m{\s*,\s*}xms, $names;
+        split m{\s*(?:,(?:\s+and)?+|and)\s*}xms, $names;
 } ## end sub to_presenters_
 
 sub read_presenter_column_ ( $presenter_set, $per_info_index, $raw_text ) {
