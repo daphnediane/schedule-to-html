@@ -7,10 +7,6 @@ use Carp                   qw{ croak };
 use Feature::Compat::Class qw{ :all };
 use Scalar::Util           qw{ blessed };
 
-use Data::Room        qw{ };
-use Presenter         qw{ };
-use Table::TimeRegion qw{ };
-
 class Data::Partition;
 
 field $region :param(region) :reader(get_selected_region) //= undef;
