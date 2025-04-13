@@ -364,7 +364,7 @@ method get_presenter_set () {
     return $presenter_set;
 }
 
-# MARK: uuid field
+# MARK: uid field
 
 field $uid;
 

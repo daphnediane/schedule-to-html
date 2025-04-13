@@ -194,8 +194,7 @@ my @pid_map;
 my @presenters;
 
 ADJUST {
-    $pid = scalar @pid_map;
-    push @pid_map,    $self;
+    $pid = -1 + push @pid_map, $self;
     push @presenters, $self unless $is_other;
     defined $caching
         or croak q{Do not call new directly};

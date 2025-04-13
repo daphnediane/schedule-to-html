@@ -1,13 +1,15 @@
 package Data::Room;
 
-use Object::InsideOut;
-
 use v5.38.0;
 use utf8;
 
-use Carp       qw{ confess };
-use List::Util qw{ any };
-use Readonly;
+use Carp                   qw{ croak confess };
+use Feature::Compat::Class qw{ :all };
+use List::MoreUtils        qw{ any first_value };
+use Readonly               qw{ Readonly };
+use Scalar::Util           qw{ blessed };
+
+class Data::Room;
 
 ## no critic (TooMuchCode::ProhibitDuplicateLiteral)
 use overload
@@ -15,189 +17,155 @@ use overload
     q{cmp} => q{compare};
 ## use critic
 
-Readonly our $SPLIT_PREFIX     => q{SPLIT};
-Readonly our $BREAK            => q{BREAK};
-Readonly our $HIDDEN_SORT_KEY  => 100;
-Readonly our $UNKNOWN_SORT_KEY => 999;
+# MARK: name fields
 
-## no critic (ProhibitUnusedVariables)
+field $short_name :param(short_name) :reader(get_short_room_name) //= undef;
+field $long_name :param(long_name) :reader(get_long_room_name)    //= undef;
+field $hotel_room :param(hotel_room) :reader(get_hotel_room)      //= undef;
 
-my @sort_key
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{sort_key})
-    :Set(Name => q{set_sort_key_}, Restricted => 1)
-    :Get(Name => q{get_sort_key_}, Restricted => 1);
-
-my @short_name
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{short_name})
-    :Get(Name => q{get_short_room_name});
-
-my @long_name
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{long_name})
-    :Get(Name => q{get_long_room_name});
-
-my @hotel
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{hotel_room})
-    :Get(Name => q{get_hotel_room});
-
-my @hide_room
-    :Field
-    :Type(scalar)
-    :Set(Name => q{set_room_is_hidden_}, Restricted => 1, Ret => q{New})
-    :Get(Name => q{get_room_is_hidden_}, Restricted => 1);
-
-my @hide_room_override
-    :Field
-    :Type(scalar)
-    :Default(2)
-    :
-    Set(Name => q{set_room_is_hidden_override_}, Restricted => 1, Ret => q{New})
-    :Get(Name => q{get_room_is_hidden_override_}, Restricted => 1);
-
-## use critic
-
-my @uid_map_;
-my @sort_key_used_;
-
-sub get_room_id ( $self ) {
-    return ${ $self };
-}
-
-sub find_by_room_id ( $class, $uid ) {
-    my $value = $uid_map_[ $uid ];
-    return $value if defined $value;
-    return;
-}
-
-sub init_ :Init {
-    my ( $self, $args ) = @_;
-    my $uid = $self->get_room_id();
-    $uid_map_[ $uid ] = $self;
-    my $key = $self->get_sort_key_();
-    if ( defined $key && $key >= 0 && $key < $HIDDEN_SORT_KEY ) {
-        ++$sort_key_used_[ $key ];
-    }
-    return;
-} ## end sub init_
-
-sub destroy_ :Destroy {
-    my ( $self ) = @_;
-    my $uid = $self->get_room_id();
-    $uid_map_[ $uid ] = undef;
-    my $key = $self->get_sort_key_();
-    if (   defined $key
-        && $key >= 0
-        && $key < $HIDDEN_SORT_KEY
-        && $sort_key_used_[ $key ] >= 0 ) {
-        --$sort_key_used_[ $key ];
-    } ## end if ( defined $key && $key...)
-    return;
-} ## end sub destroy_
-
-sub has_prefix ( $self, $prefix ) {
+method has_prefix ( $prefix ) {
     return unless defined $prefix;
     my $len = length $prefix;
     $prefix = uc $prefix;
 
-    return 1
-        if $prefix eq uc substr $self->get_short_room_name() // q{}, 0, $len;
-    return 1
-        if $prefix eq uc substr $self->get_long_room_name() // q{}, 0, $len;
+    foreach my $try_name ( $short_name, $long_name ) {
+        next unless defined $try_name;
+        next     if $try_name eq q{};
+        next     if $len > length $try_name;
+        return 1 if $prefix eq uc substr $try_name, 0, $len;
+    } ## end foreach my $try_name ( $short_name...)
     return;
 } ## end sub has_prefix
 
-sub get_sort_key ( $self ) {
-    my $key = $self->get_sort_key_();
-    return $key if defined $key && $key >= 0;
+method name_is_exact ( $name ) {
+    $name //= q{};
+    $name = uc $name;
 
-    if ( $self->get_is_split() || $self->get_room_is_break() ) {
-        $key = $HIDDEN_SORT_KEY;
-        $self->set_sort_key_( $key );
-        return $key;
-    }
-
-    foreach my $try_key ( 0 .. $HIDDEN_SORT_KEY - 1 ) {
-        my $value = $sort_key_used_[ $try_key ] //= 0;
-        if ( $value == 0 ) {
-            $self->set_sort_key_( $try_key );
-            ++$sort_key_used_[ $try_key ];
-            return $try_key;
-        }
-    } ## end foreach my $try_key ( 0 .. ...)
-
-    $key = $HIDDEN_SORT_KEY - 1;
-    $self->set_sort_key_( $key );
-    ++$sort_key_used_[ $key ];
-    return $key;
-} ## end sub get_sort_key
-
-sub get_is_split ( $self ) {
-    return $self->has_prefix( $SPLIT_PREFIX );
-}
-
-sub override_room_as_hidden ( $self ) {
-    $self->set_room_is_hidden_override_( 1 );
+    return 1 if any { $name eq uc( $_ // q{} ) } $short_name, $long_name;
     return;
-}
+} ## end sub name_is_exact
 
-sub override_room_as_shown ( $self ) {
-    $self->set_room_is_hidden_override_( 0 );
-    return;
-}
-
-sub clear_override_room_as_hidden ( $self ) {
-    $self->set_room_is_hidden_override_( 2 );
-    return;
-}
-
-sub get_room_is_hidden ( $self ) {
-    my $hidden = $self->get_room_is_hidden_override_() // 2;
-    $hidden = $self->get_room_is_hidden_() if $hidden > 1;
-    return 1 if $hidden;
-    return   if defined $hidden;
-
-    my $sort_key = $self->get_sort_key();
-    return $self->set_room_is_hidden_( 1 ) unless defined $sort_key;
-    return $self->set_room_is_hidden_( 1 )
-        unless $sort_key =~ m{ \A \d+ \z }xms;
-    return $self->set_room_is_hidden_( 1 ) if $sort_key >= $HIDDEN_SORT_KEY;
-    $self->set_room_is_hidden_( 0 );
-    return;
-} ## end sub get_room_is_hidden
-
-sub get_room_is_break ( $self ) {
-    return 1 if $BREAK eq uc( $self->get_short_room_name() // q{} );
-    return 1 if $BREAK eq uc( $self->get_long_room_name()  // q{} );
-    return;
-}
-
-sub name_matches ( $self, @patterns ) {
-    my $name = $self->get_long_room_name();
+method name_matches ( @patterns ) {
+    my $name = $long_name // q{};
     return 1 if any { $name =~ m{\Q$_\E}xmsi } @patterns;
     return;
 }
 
-sub compare ( $self, $other, $swap = undef ) {
+# MARK: is_split field
+
+field $is_split :param(is_split) :reader(get_is_split) //= undef;
+Readonly our $SPLIT_PREFIX => q{SPLIT};
+ADJUST {
+    $is_split //= $self->has_prefix( $SPLIT_PREFIX ) ? 1 : 0;
+}
+
+# MARK: is_break field
+
+field $is_break :param(is_break) :reader(get_room_is_break) //= undef;
+Readonly our $BREAK => q{BREAK};
+ADJUST {
+    $is_break //= $self->name_is_exact( $BREAK );
+}
+
+# MARK: sort_key field
+
+Readonly our $HIDDEN_SORT_KEY  => 100;
+Readonly our $UNKNOWN_SORT_KEY => 999;
+
+field $sort_key :param(sort_key) //= undef;
+my @sort_key_used;
+
+ADJUST {
+    !defined $sort_key
+        or $sort_key =~ m{ \A (?: 0 | [1-9] \d* ) \z }xms
+        or croak q{Invalid room sort key};
+
+    ++$sort_key_used[ $sort_key ]
+        if defined $sort_key
+        && $sort_key >= 0
+        && $sort_key <= $HIDDEN_SORT_KEY;
+} ## end ADJUST
+
+method get_sort_key ( ) {
+    return $sort_key if defined $sort_key;
+
+    return $sort_key = $HIDDEN_SORT_KEY if $is_split || $is_break;
+
+    $sort_key = first_value { 0 == ( $sort_key_used[ $_ ] // 0 ) }
+    ( 0 .. $HIDDEN_SORT_KEY - 1 );
+
+    $sort_key //= $HIDDEN_SORT_KEY - 1;
+
+    ++$sort_key_used[ $sort_key ];
+
+    return $sort_key;
+} ## end sub get_sort_key ( )
+
+# MARK: is_hidden field
+
+field $is_hidden_room :param(is_hidden_room) //= undef;
+field $override_is_hidden_room;
+ADJUST {
+    $is_hidden_room //=
+        (      defined $sort_key
+            && $sort_key =~ m{ \A \d+ \z }xms
+            && $sort_key < $HIDDEN_SORT_KEY ) ? 0 : 1;
+} ## end ADJUST
+
+method override_room_as_shown ( ) {
+    $override_is_hidden_room = 0;
+    return $self;
+}
+
+method override_room_as_hidden ( ) {
+    $override_is_hidden_room = 1;
+    return $self;
+}
+
+method clear_override_room_as_hidden ( ) {
+    $override_is_hidden_room = undef;
+    return $self;
+}
+
+method get_room_is_hidden () {
+    return 1 if $override_is_hidden_room // $is_hidden_room;
+    return;
+}
+
+# MARK: uid field
+
+my @uid_map;
+field $uid :reader(get_room_id);
+ADJUST {
+    $uid = -1 + push @uid_map, $self;
+}
+
+sub find_by_room_id ( $class, $uid ) {
+    return unless defined $uid;
+    return if $uid < 0;
+    my $value = $uid_map[ $uid ];
+    return $value if defined $value;
+    return;
+} ## end sub find_by_room_id
+
+# MARK: compare
+
+method compare ( $other, $swap //= undef ) {
     if ( !defined $other ) {
         my $before = $swap ? 1 : -1;
         return $self <= $UNKNOWN_SORT_KEY ? $before : -$before;
     }
 
-    die q{Compare Room with something else:}, ( ref $other ), qq{\n}
-        unless ref $other && $other->isa( q{Data::Room} );
+    blessed $other && $other->isa( __PACKAGE__ )
+        or croak q{Compare Room with something else }, ( ref $other );
 
-    ( $self, $other ) = ( $other, $self ) if $swap;
+    my $left  = $swap ? $other : $self;
+    my $right = $swap ? $self  : $other;
 
     return
-           $self->get_sort_key() <=> $other->get_sort_key()
-        || $self->get_long_room_name() cmp $other->get_long_room_name()
-        || $self->get_room_id() <=> $other->get_room_id();
+           $left->get_sort_key() <=> $right->get_sort_key()
+        || $left->get_long_room_name() cmp $right->get_long_room_name()
+        || $left->get_room_id() <=> $right->get_room_id();
 } ## end sub compare
+
 1;
