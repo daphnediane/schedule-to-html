@@ -1,94 +1,96 @@
-package ActivePanel;
-
 use v5.38.0;
 use utf8;
+use Feature::Compat::Class;
 
-use Carp                   qw{ croak };
-use Feature::Compat::Class qw{ :all };
-use Scalar::Util           qw{ blessed };
+class ActivePanel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage,CodeLayout::ProhibitParensWithBuiltins)
 
-use Data::Room qw{};
+    package ActivePanel;
 
-class ActivePanel :isa(TimeRange);
+    use Carp qw{ croak };
 
-# MARK: active_panel field
+    use Data::Room qw{};
 
-field $panel :param(active_panel);
-ADJUST {
-    blessed $panel && $panel->isa( q{Data::Panel} )
-        or croak qq{active_panel must be Data::Panel\n};
-}
+    # MARK: active_panel field
 
-method get_active_panel () {
-    return $panel;
-}
+    field $panel :param(active_panel);
+    ADJUST {
+        $panel isa Data::Panel
+            or croak qq{active_panel must be Data::Panel\n};
+    }
 
-# MARK: rows field
+    method get_active_panel () {
+        return $panel;
+    }
 
-field $rows :param(rows) //= 0;
-ADJUST {
-    $rows =~ m{^(?:0|[1-9]\d*)\z}xms
-        or croak qq{rows must be integer\n};
-}
+    # MARK: rows field
 
-method get_rows () {
-    return $rows;
-}
+    field $rows :param(rows) //= 0;
+    ADJUST {
+        $rows =~ m{^(?:0|[1-9]\d*)\z}xms
+            or croak qq{rows must be integer\n};
+    }
 
-method set_rows ( $new_rows ) {
-    $rows = $new_rows;
-    return $rows;
-}
+    method get_rows () {
+        return $rows;
+    }
 
-method increment_rows ( $amount //= 1 ) {
-    $amount =~ m{^-?(?:0|[1-9]\d*)\z}xms
-        or croak qq{amount must be integer\n};
-    $rows += $amount;
-    return $rows;
-} ## end sub increment_rows
+    method set_rows ( $new_rows ) {
+        $rows = $new_rows;
+        return $rows;
+    }
 
-# MARK: is_break field
+    method increment_rows ( $amount //= 1 ) {
+        $amount =~ m{^-?(?:0|[1-9]\d*)\z}xms
+            or croak qq{amount must be integer\n};
+        $rows += $amount;
+        return $rows;
+    } ## end sub increment_rows
 
-field $is_break :param(is_break) //= 0;
-ADJUST {
-    ref $is_break
-        && croak qq{is_break must be a scalar\n};
-}
+    # MARK: is_break field
 
-method get_is_break () {
-    return 1 if $is_break;
-    return;
-}
+    field $is_break :param(is_break) //= 0;
+    ADJUST {
+        ref $is_break
+            && croak qq{is_break must be a scalar\n};
+    }
 
-# MARK: room field
+    method get_is_break () {
+        return 1 if $is_break;
+        return;
+    }
 
-field $room :param(room);
-field $room_id;
-ADJUST {
-    blessed $room && $room->isa( q{Data::Room} )
-        or croak qq{active_panel must be Data::Room\n};
-    $room_id = $room->get_room_id();
-}
+    # MARK: room field
 
-method get_room() {
-    return $room;
-}
+    field $room :param(room);
+    field $room_id;
+    ADJUST {
+        $room isa Data::Room
+            or croak qq{active_panel must be Data::Room\n};
+        $room_id = $room->get_room_id();
+    }
 
-method get_room_id() {
-    return $room_id if defined $room_id;
-    return;
-}
+    method get_room() {
+        return $room;
+    }
 
-# MARK: Clone
+    method get_room_id() {
+        return $room_id if defined $room_id;
+        return;
+    }
 
-method clone_args () {
-    return (
-        $self->SUPER::clone_args(),
-        active_panel => $panel,
-        rows         => $rows,
-        ( defined $is_break ? ( is_break => $is_break ) : () ),
-        room => $room,
-    );
-} ## end sub clone_args
+    # MARK: Clone
+
+    method clone_args () {
+        return (
+            $self->SUPER::clone_args(),
+            active_panel => $panel,
+            rows         => $rows,
+            ( defined $is_break ? ( is_break => $is_break ) : () ),
+            room => $room,
+        );
+    } ## end sub clone_args
+
+    1;
+} ## end package ActivePanel
 
 1;

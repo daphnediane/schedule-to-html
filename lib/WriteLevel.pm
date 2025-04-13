@@ -26,7 +26,8 @@ sub add_line ( $self, @content ) {
 } ## end sub add_line
 
 sub embed ( $self, $embedded ) {
-    return unless defined $embedded;
+    defined $embedded
+        or return;
     croak q{WriteLevel can only embed WriteLevel based classes}
         unless eval { $embedded->can( $WRITE_TO_METHOD ) };
 

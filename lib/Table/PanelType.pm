@@ -5,8 +5,6 @@ use base qw{Exporter};
 use v5.38.0;
 use utf8;
 
-use Carp qw{ croak };
-
 use Canonical        qw{ :all };
 use Data::PanelType  qw{};
 use Field::PanelType qw{};
@@ -49,8 +47,10 @@ sub read_panel_type_ ( $header, $san_header, $raw ) {
         $san_header,
         $raw,
         sub ( $raw_text, $column, $header_text, $header_alt ) {
-            return unless defined $raw_text;
-            return unless exists $known_color_sets_{ lc $header_alt };
+            defined $raw_text
+                or return;
+            exists $known_color_sets_{ lc $header_alt }
+                or return;
             $colors{ $header_alt } = $raw_text;
             return;
         },
@@ -89,7 +89,8 @@ sub all_types () {
 }
 
 sub lookup ( $name ) {
-    return unless defined $name;
+    defined $name
+        or return;
 
     $name = canonical_header( $name );
     $name = lc $name;
@@ -119,11 +120,14 @@ sub register ( @types ) {
 
 sub read_from ( $wb ) {
     my $sheet = $wb->sheet( q{PanelTypes} );
-    return unless defined $sheet;
-    return unless $sheet->get_is_open();
+    defined $sheet
+        or return;
+    $sheet->get_is_open()
+        or return;
 
     my $header = $sheet->get_next_line();
-    return unless defined $header;
+    defined $header
+        or return;
     my @san_header = canonical_headers( @{ $header } );
 
     while ( my $raw = $sheet->get_next_line() ) {

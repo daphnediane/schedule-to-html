@@ -568,6 +568,14 @@ DISTRIBUTIONS
     requirements:
       ExtUtils::MakeMaker 6.17
       perl 5.006001
+  ExtUtils-CChecker-0.12
+    pathname: P/PE/PEVANS/ExtUtils-CChecker-0.12.tar.gz
+    provides:
+      ExtUtils::CChecker 0.12
+    requirements:
+      ExtUtils::CBuilder 0
+      Module::Build 0.4004
+      perl 5.014
   ExtUtils-Config-0.010
     pathname: L/LE/LEONT/ExtUtils-Config-0.010.tar.gz
     provides:
@@ -1600,6 +1608,25 @@ DISTRIBUTIONS
       perl v5.6.0
       strict 0
       warnings 0
+  Object-Pad-0.820
+    pathname: P/PE/PEVANS/Object-Pad-0.820.tar.gz
+    provides:
+      Object::Pad 0.820
+      Object::Pad::ExtensionBuilder 0.820
+      Object::Pad::MOP::Class 0.820
+      Object::Pad::MOP::Field 0.820
+      Object::Pad::MOP::FieldAttr 0.820
+      Object::Pad::MOP::Method 0.820
+      Object::Pad::MetaFunctions 0.820
+    requirements:
+      ExtUtils::CBuilder 0
+      File::ShareDir 1.00
+      Module::Build 0.4004
+      XS::Parse::Keyword 0.47
+      XS::Parse::Keyword::Builder 0.48
+      XS::Parse::Sublike 0.35
+      XS::Parse::Sublike::Builder 0.35
+      perl 5.018
   PPI-1.281
     pathname: M/MI/MITHALDU/PPI-1.281.tar.gz
     provides:
@@ -2589,6 +2616,31 @@ DISTRIBUTIONS
     requirements:
       ExtUtils::MakeMaker 0
       XML::Parser 2.23
+  XS-Parse-Keyword-0.48
+    pathname: P/PE/PEVANS/XS-Parse-Keyword-0.48.tar.gz
+    provides:
+      XS::Parse::Infix 0.48
+      XS::Parse::Infix::Builder 0.48
+      XS::Parse::Keyword 0.48
+      XS::Parse::Keyword::Builder 0.48
+    requirements:
+      ExtUtils::CBuilder 0
+      ExtUtils::CChecker 0.11
+      ExtUtils::ParseXS 3.16
+      File::ShareDir 1.00
+      Module::Build 0.4004
+      perl 5.014
+  XS-Parse-Sublike-0.37
+    pathname: P/PE/PEVANS/XS-Parse-Sublike-0.37.tar.gz
+    provides:
+      Sublike::Extended 0.37
+      XS::Parse::Sublike 0.37
+      XS::Parse::Sublike::Builder 0.37
+    requirements:
+      ExtUtils::CBuilder 0
+      File::ShareDir 1.00
+      Module::Build 0.4004
+      perl 5.016
   YAML-PP-v0.39.0
     pathname: T/TI/TINITA/YAML-PP-v0.39.0.tar.gz
     provides:

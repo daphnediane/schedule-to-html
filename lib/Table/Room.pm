@@ -4,7 +4,6 @@ use base qw{Exporter};
 
 use v5.38.0;
 use utf8;
-use Carp qw{ croak };
 
 use Canonical       qw{ :all };
 use Data::Partition qw{};
@@ -53,11 +52,13 @@ sub read_room_ ( $header, $san_header, $raw ) {
     my $long_name  = $room_data{ $Field::Room::LONG_NAME } // $short_name;
     $short_name //= $long_name;
 
-    return unless defined $short_name;
+    defined $short_name
+        or return;
 
     my $hotel = $room_data{ $Field::Room::HOTEL };
 
-    return unless needed_( $long_name, $short_name, $hotel );
+    needed_( $long_name, $short_name, $hotel )
+        or return;
 
     my $room = Data::Room->new(
         sort_key   => $room_data{ $Field::Room::SORT_KEY } // -1,
@@ -81,7 +82,8 @@ sub visible_rooms () {
 }
 
 sub lookup ( $name ) {
-    return unless defined $name;
+    defined $name
+        or return;
     return if $name eq q{};
     $name = canonical_header( $name );
     $name = lc $name;
@@ -111,14 +113,18 @@ sub register ( @rooms ) {
 } ## end sub register
 
 sub read_from ( $wb ) {
-    return unless defined $wb;
+    defined $wb
+        or return;
 
     my $sheet = $wb->sheet( q{Rooms} );
-    return unless defined $sheet;
-    return unless $sheet->get_is_open();
+    defined $sheet
+        or return;
+    $sheet->get_is_open()
+        or return;
 
     my $header = $sheet->get_next_line();
-    return unless defined $header;
+    defined $header
+        or return;
     my @san_header = canonical_headers( @{ $header } );
 
     while ( my $raw = $sheet->get_next_line() ) {

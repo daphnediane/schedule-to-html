@@ -14,7 +14,6 @@ use Getopt::Long    qw{ GetOptionsFromArray };
 use List::MoreUtils qw{ apply before };
 use List::Util      qw{ any uniq };
 use Readonly        qw{ Readonly };
-use Sub::Name       qw{ subname };
 
 use TimeDecoder qw{ :from_text };
 Readonly my $OPTION_PAT => qr{^ [#][#] \s (?= - ) }xms;
@@ -79,7 +78,8 @@ sub _gen_mod_list ( $self, $opt_name, @rest ) {
 
     return sub ( $flag, $opt ) {
         $opt = to_str_ $opt;
-        return unless defined $opt;
+        defined $opt
+            or return;
         push @{ $self->{ $opt_name } }, $opt;
         return;
     }; ## end sub
@@ -369,7 +369,8 @@ sub is_desc_everyone_together ( $self ) {
 
 sub is_desc_by_guest ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return 1 if $hash->{ $VAL_BY_GUEST };
     return   if defined $hash->{ $VAL_BY_GUEST };
     return   if $hash->{ $VAL_BY_JUDGE };
@@ -380,7 +381,8 @@ sub is_desc_by_guest ( $self ) {
 
 sub is_desc_by_judge ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return 1 if $hash->{ $VAL_BY_JUDGE };
     return   if defined $hash->{ $VAL_BY_JUDGE };
     return   if $hash->{ $VAL_BY_GUEST };
@@ -391,7 +393,8 @@ sub is_desc_by_judge ( $self ) {
 
 sub is_desc_by_staff ( $self ) {
     my $hash = $self->{ $OPT_DESC_BY_ };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return 1 if $hash->{ $VAL_BY_STAFF };
     return   if defined $hash->{ $VAL_BY_STAFF };
     return   if $hash->{ $VAL_BY_GUEST };
@@ -829,7 +832,8 @@ sub is_just_everyone ( $self ) {
 
 sub is_just_guest ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return 1 if $hash->{ $VAL_BY_GUEST };
     return   if defined $hash->{ $VAL_BY_GUEST };
     return   if $hash->{ $VAL_BY_JUDGE };
@@ -840,7 +844,8 @@ sub is_just_guest ( $self ) {
 
 sub is_just_judge ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return 1 if $hash->{ $VAL_BY_JUDGE };
     return   if defined $hash->{ $VAL_BY_JUDGE };
     return   if $hash->{ $VAL_BY_GUEST };
@@ -851,7 +856,8 @@ sub is_just_judge ( $self ) {
 
 sub is_just_staff ( $self ) {
     my $hash = $self->{ $OPT_JUST_ };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return 1 if $hash->{ $VAL_BY_STAFF };
     return   if defined $hash->{ $VAL_BY_STAFF };
     return   if $hash->{ $VAL_BY_GUEST };
@@ -968,27 +974,31 @@ push @opt_parse,
 
 sub get_rooms_shown ( $self ) {
     my $hash = $self->{ $OPT_ROOM_VIS };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return grep { $hash->{ $_ } } keys %{ $hash };
-}
+} ## end sub get_rooms_shown
 
 sub get_rooms_hidden ( $self ) {
     my $hash = $self->{ $OPT_ROOM_VIS };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return grep { !$hash->{ $_ } } keys %{ $hash };
-}
+} ## end sub get_rooms_hidden
 
 sub get_paneltypes_shown ( $self ) {
     my $hash = $self->{ $OPT_PANELTYPE_VIS };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return grep { $hash->{ $_ } } keys %{ $hash };
-}
+} ## end sub get_paneltypes_shown
 
 sub get_paneltypes_hidden ( $self ) {
     my $hash = $self->{ $OPT_PANELTYPE_VIS };
-    return unless defined $hash;
+    defined $hash
+        or return;
     return grep { !$hash->{ $_ } } keys %{ $hash };
-}
+} ## end sub get_paneltypes_hidden
 
 ## --show-all-rooms
 ##     Show rooms even if they have no events scheduled
@@ -1395,7 +1405,8 @@ sub get_copies ( $self ) {
 }
 
 sub register_option_ ( $known, @names ) {
-    return unless @names;
+    @names
+        or return;
 
     my $option_doc = parse_internal_doc_();
     my $first_known;

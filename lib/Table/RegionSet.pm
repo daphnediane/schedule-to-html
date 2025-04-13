@@ -1,10 +1,10 @@
-package Table::RegionSet;
-
 use v5.38.0;
 use utf8;
+use Feature::Compat::Class;
 
-use Feature::Compat::Class qw{ :all };
+class Table::RegionSet {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage)
 
-class Table::RegionSet;
+    package Table::RegionSet;
+}
 
 1;

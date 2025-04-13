@@ -5,7 +5,6 @@ use base qw{Exporter};
 use v5.38.0;
 use utf8;
 
-use Carp        qw{ confess };
 use Date::Parse qw{ str2time };
 use POSIX       qw{ strftime };
 use Readonly    qw{ Readonly };
@@ -44,7 +43,8 @@ my $earliest_time;
 my %timepoints_seen;
 
 sub text_to_datetime ( $value ) {
-    return unless defined $value;
+    defined $value
+        or return;
     return        if $value eq q{};
     return $value if $value =~ m{\A \d+ \z}xms;
 
@@ -56,11 +56,13 @@ sub text_to_datetime ( $value ) {
 } ## end sub text_to_datetime
 
 sub text_to_duration ( $value ) {
-    return unless defined $value;
+    defined $value
+        or return;
     return        if $value eq q{};
     return $value if $value =~ m{\A \d+ \z}xms;
 
-    return unless $value =~ m{ \A \d+ : \d{1,2} \z}xms;
+    $value =~ m{ \A \d+ : \d{1,2} \z}xms
+        or return;
 
     my ( $hour, $min ) = split m{:}xms, $value, 2;
     $min += $hour * $MIN_PER_HOUR;
@@ -102,12 +104,15 @@ sub datetime_to_kiosk_id ( $time ) {
 } ## end sub datetime_to_kiosk_id
 
 sub same_day ( $time1, $time2 ) {
-    return unless defined $time1;
-    return unless defined $time2;
+    defined $time1
+        or return;
+    defined $time2
+        or return;
     return if abs( $time2 - $time1 ) > $SEC_PER_DAY;
     my @ltime1 = localtime $time1;
     my @ltime2 = localtime $time2;
-    return unless $ltime1[ $LOCALTIME_DAY ] == $ltime2[ $LOCALTIME_DAY ];
+    $ltime1[ $LOCALTIME_DAY ] == $ltime2[ $LOCALTIME_DAY ]
+        or return;
     return 1;
 } ## end sub same_day
 

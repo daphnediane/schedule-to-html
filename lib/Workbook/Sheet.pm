@@ -81,9 +81,11 @@ sub init_ :Init {
 
 sub get_next_line ( $self ) {
     my $wb = $self->get_workbook();
-    return unless defined $wb;
+    defined $wb
+        or return;
     my $sheet_handle = $self->get_sheet_handle_();
-    return unless defined $sheet_handle;
+    defined $sheet_handle
+        or return;
 
     my $row = $self->get_next_row_();
     return if $row > $self->get_last_row_();

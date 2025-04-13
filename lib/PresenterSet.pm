@@ -1,244 +1,255 @@
-package PresenterSet;
-
-use v5.38.0;
+use v5.38.0;    ## no critic (Modules::ProhibitExcessMainComplexity)
 use utf8;
+use Feature::Compat::Class;
 
-use Feature::Compat::Class qw{ :all };
-use HTML::Tiny             qw{ };
-use Readonly               qw{ Readonly };
+class PresenterSet {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage)
 
-use Presenter qw{};
+    package PresenterSet;
 
-Readonly our $UNLISTED => 1;
-Readonly our $LISTED   => 2;
+    use HTML::Tiny qw{ };
+    use Readonly   qw{ Readonly };
 
-class PresenterSet;
+    use Presenter qw{};
 
-# MARK: credit_cache field
+    Readonly our $UNLISTED => 1;
+    Readonly our $LISTED   => 2;
 
-field $credit_cache;
+    # MARK: credit_cache field
 
-# MARK: pid_set field
+    field $credit_cache;
 
-field %pid_set;
+    # MARK: pid_set field
 
-method _add_presenters ( $level, @presenters ) {
-    return unless @presenters;
+    field %pid_set;
 
-    push @presenters, $UNLISTED if $level >= $LISTED;
+    method _add_presenters ( $level, @presenters ) {
+        @presenters
+            or return;
 
-    my $any_seen;
-    my $guest_seen;
+        push @presenters, $UNLISTED if $level >= $LISTED;
 
-    while ( @presenters ) {
-        my $presenter = shift @presenters;
-        next unless defined $presenter;
-        if ( !ref $presenter ) {
-            $level = $presenter;
-            next;
-        }
+        my $any_seen;
+        my $guest_seen;
 
-        next if $level < $UNLISTED;
+        while ( @presenters ) {
+            my $presenter = shift @presenters;
+            next unless defined $presenter;
+            if ( !ref $presenter ) {
+                $level = $presenter;
+                next;
+            }
 
-        my $pid       = $presenter->get_pid();
-        my $old_level = $pid_set{ $pid } || 0;
+            next if $level < $UNLISTED;
 
-        next if $old_level >= $level;
+            my $pid       = $presenter->get_pid();
+            my $old_level = $pid_set{ $pid } || 0;
 
-        $any_seen = 1;
+            next if $old_level >= $level;
 
-        $pid_set{ $pid } = $level;
+            $any_seen = 1;
 
-        push @presenters, $presenter->get_groups();
-        if (  !$guest_seen
-            && $presenter->get_presenter_rank() <= $Presenter::RANK_GUEST ) {
-            $guest_seen = 1;
-            push @presenters, Presenter->any_guest();
-        }
-    } ## end while ( @presenters )
+            $pid_set{ $pid } = $level;
 
-    $credit_cache = undef if $any_seen;
+            push @presenters, $presenter->get_groups();
+            if (  !$guest_seen
+                && $presenter->get_presenter_rank()
+                <= $Presenter::RANK_GUEST ) {
+                $guest_seen = 1;
+                push @presenters, Presenter->any_guest();
+            } ## end if ( !$guest_seen && $presenter...)
+        } ## end while ( @presenters )
 
-    return;
-} ## end sub _add_presenters
+        $credit_cache = undef if $any_seen;
 
-method add_credited_presenters ( @presenters ) {
-    return unless @presenters;
+        return;
+    } ## end sub _add_presenters
 
-    $self->_add_presenters( $LISTED, @presenters );
-    return;
-} ## end sub add_credited_presenters
+    method add_credited_presenters ( @presenters ) {
+        @presenters
+            or return;
 
-method add_unlisted_presenters ( @presenters ) {
-    return unless @presenters;
+        $self->_add_presenters( $LISTED, @presenters );
+        return;
+    } ## end sub add_credited_presenters
 
-    $self->_add_presenters( $UNLISTED, @presenters );
-    return;
-} ## end sub add_unlisted_presenters
+    method add_unlisted_presenters ( @presenters ) {
+        @presenters
+            or return;
 
-method is_presenter_hosting ( $presenter ) {
-    return unless defined $presenter;
+        $self->_add_presenters( $UNLISTED, @presenters );
+        return;
+    } ## end sub add_unlisted_presenters
 
-    return 1 if exists $pid_set{ $presenter->get_pid() };
-    return;
-} ## end sub is_presenter_hosting
+    method is_presenter_hosting ( $presenter ) {
+        defined $presenter
+            or return;
 
-method is_presenter_credited ( $presenter ) {
-    return unless defined $presenter;
+        return 1 if exists $pid_set{ $presenter->get_pid() };
+        return;
+    } ## end sub is_presenter_hosting
 
-    return 1 if $pid_set{ $presenter->get_pid() } >= $LISTED;
-    return;
-} ## end sub is_presenter_credited
+    method is_presenter_credited ( $presenter ) {
+        defined $presenter
+            or return;
 
-method is_presenter_unlisted ( $presenter ) {
-    return unless defined $presenter;
+        return 1 if $pid_set{ $presenter->get_pid() } >= $LISTED;
+        return;
+    } ## end sub is_presenter_credited
 
-    return 1 if $pid_set{ $presenter->get_pid() } == $UNLISTED;
-    return;
-} ## end sub is_presenter_unlisted
+    method is_presenter_unlisted ( $presenter ) {
+        defined $presenter
+            or return;
 
-# MARK: hide_credits field
+        return 1 if $pid_set{ $presenter->get_pid() } == $UNLISTED;
+        return;
+    } ## end sub is_presenter_unlisted
 
-field $hide_credits :param(are_credits_hidden) //= undef;
+    # MARK: hide_credits field
 
-method get_are_credits_hidden () {
-    return $hide_credits ? 1 : 0;
-}
+    field $hide_credits :param(are_credits_hidden) //= undef;
 
-method set_are_credits_hidden( $new_state = 1 ) {
-    $hide_credits = $new_state;
-    return $self;
-}
+    method get_are_credits_hidden () {
+        return $hide_credits ? 1 : 0;
+    }
 
-method clear_are_credits_hidden() {
-    $hide_credits = 0;
-    return $self;
-}
+    method set_are_credits_hidden( $new_state = 1 ) {
+        $hide_credits = $new_state;
+        return $self;
+    }
 
-# MARK: override_credits field
+    method clear_are_credits_hidden() {
+        $hide_credits = 0;
+        return $self;
+    }
 
-field $override_credits :param(override_credits) //= undef;
+    # MARK: override_credits field
 
-method get_override_credits () {
-    return unless defined $override_credits;
-    return $override_credits;
-}
+    field $override_credits :param(override_credits) //= undef;
 
-method set_override_credits( $new_credit ) {
-    $override_credits = $new_credit;
-    return $self;
-}
+    method get_override_credits () {
+        defined $override_credits
+            or return;
+        return $override_credits;
+    }
 
-method clear_override_credits() {
-    $override_credits = undef;
-    return $self;
-}
+    method set_override_credits( $new_credit ) {
+        $override_credits = $new_credit;
+        return $self;
+    }
 
-# MARK: Compute credits
+    method clear_override_credits() {
+        $override_credits = undef;
+        return $self;
+    }
 
-method _get_credits_shown ( ) {
-    my %shown;
+    # MARK: Compute credits
 
-PRESENTER:
-    while ( my ( $pid, $state ) = each %pid_set ) {
-        next if $state < $LISTED;
-        my $presenter = Presenter->find_by_pid( $pid );
-        next unless defined $presenter;
+    method _get_credits_shown ( ) {
+        my %shown;
 
-        next if defined $shown{ $pid };
+    PRESENTER:
+        while ( my ( $pid, $state ) = each %pid_set ) {
+            next if $state < $LISTED;
+            my $presenter = Presenter->find_by_pid( $pid );
+            next unless defined $presenter;
 
-        # Check if group should be shown instead
-        # Groups will be should if either
-        # -- All members are hosting
-        # -- Group is listed as always shown
-    GROUP:
-        foreach my $group ( $presenter->get_groups() ) {
-            my $gid = $group->get_pid();
-            next PRESENTER if defined $shown{ $gid };
+            next if defined $shown{ $pid };
 
-            if ( $group->get_is_always_shown() ) {
+            # Check if group should be shown instead
+            # Groups will be should if either
+            # -- All members are hosting
+            # -- Group is listed as always shown
+        GROUP:
+            foreach my $group ( $presenter->get_groups() ) {
+                my $gid = $group->get_pid();
+                next PRESENTER if defined $shown{ $gid };
+
+                if ( $group->get_is_always_shown() ) {
+                    $shown{ $gid } = $group;
+                    next PRESENTER;
+                }
+                foreach my $member ( $group->get_members() ) {
+                    next GROUP unless exists $pid_set{ $member->get_pid() };
+                }
                 $shown{ $gid } = $group;
                 next PRESENTER;
-            }
-            foreach my $member ( $group->get_members() ) {
-                next GROUP unless exists $pid_set{ $member->get_pid() };
-            }
-            $shown{ $gid } = $group;
-            next PRESENTER;
-        } ## end GROUP: foreach my $group ( $presenter...)
+            } ## end GROUP: foreach my $group ( $presenter...)
 
-        $shown{ $pid } = $presenter;
-    } ## end PRESENTER: while ( my ( $pid, $state...))
+            $shown{ $pid } = $presenter;
+        } ## end PRESENTER: while ( my ( $pid, $state...))
 
-    return values %shown;
-} ## end sub _get_credits_shown ( )
+        return values %shown;
+    } ## end sub _get_credits_shown ( )
 
-method _get_credited_as ( $presenter ) {
-    my $name = $presenter->get_presenter_name();
-    if ( $presenter->get_is_always_shown() && $presenter->is_group() ) {
-        my $count = 0;
-        my @hosting;
-        my $not_all;
-        foreach my $member ( $presenter->get_members() ) {
-            if ( exists $pid_set{ $member->get_pid() } ) {
-                if ( $member->get_is_always_grouped() ) {
-                    return $name;
+    method _get_credited_as ( $presenter ) {
+        my $name = $presenter->get_presenter_name();
+        if ( $presenter->get_is_always_shown() && $presenter->is_group() ) {
+            my $count = 0;
+            my @hosting;
+            my $not_all;
+            foreach my $member ( $presenter->get_members() ) {
+                if ( exists $pid_set{ $member->get_pid() } ) {
+                    if ( $member->get_is_always_grouped() ) {
+                        return $name;
+                    }
+                    push @hosting, $member;
+                } ## end if ( exists $pid_set{ ...})
+                else {
+                    $not_all = 1;
                 }
-                push @hosting, $member;
-            } ## end if ( exists $pid_set{ ...})
-            else {
-                $not_all = 1;
+            } ## end foreach my $member ( $presenter...)
+            if ( $not_all && 1 == scalar @hosting ) {
+                return
+                      $name . q{ (}
+                    . $hosting[ 0 ]->get_presenter_name() . q{)};
             }
-        } ## end foreach my $member ( $presenter...)
-        if ( $not_all && 1 == scalar @hosting ) {
-            return $name . q{ (} . $hosting[ 0 ]->get_presenter_name() . q{)};
+        } ## end if ( $presenter->get_is_always_shown...)
+        return $name;
+    } ## end sub _get_credited_as
+
+    method get_credits ( ) {
+        if ( $hide_credits ) {
+            return;
         }
-    } ## end if ( $presenter->get_is_always_shown...)
-    return $name;
-} ## end sub _get_credited_as
 
-method get_credits ( ) {
-    if ( $hide_credits ) {
-        return;
-    }
+        if ( defined $override_credits ) {
+            return $override_credits if $override_credits ne q{};
+            return;
+        }
 
-    if ( defined $override_credits ) {
-        return $override_credits if $override_credits ne q{};
-        return;
-    }
+        if ( defined $credit_cache ) {
+            return $credit_cache if $credit_cache ne q{};
+            return;
+        }
 
-    if ( defined $credit_cache ) {
+        my @presenters;
+
+        foreach my $presenter ( sort $self->_get_credits_shown() ) {
+            push @presenters, $self->_get_credited_as( $presenter );
+        }
+
+        my $credits = q{};
+
+        # Handle long presenter names
+        while ( @presenters ) {
+            my $name = shift @presenters;
+            $name .= q{,} if @presenters;
+
+            # Check for 20 characters in a row
+            if ( $name =~ m{\S{20}}xms ) {
+                state $h = HTML::Tiny->new( mode => q{html} );
+
+                $name = $h->span( { class => q{longPanelist} }, $name );
+            }
+            $name .= q{ } if @presenters;
+
+            $credits .= $name;
+        } ## end while ( @presenters )
+
+        $credit_cache = $credits;
         return $credit_cache if $credit_cache ne q{};
         return;
-    }
-
-    my @presenters;
-
-    foreach my $presenter ( sort $self->_get_credits_shown() ) {
-        push @presenters, $self->_get_credited_as( $presenter );
-    }
-
-    my $credits = q{};
-
-    # Handle long presenter names
-    while ( @presenters ) {
-        my $name = shift @presenters;
-        $name .= q{,} if @presenters;
-
-        # Check for 20 characters in a row
-        if ( $name =~ m{\S{20}}xms ) {
-            state $h = HTML::Tiny->new( mode => q{html} );
-
-            $name = $h->span( { class => q{longPanelist} }, $name );
-        }
-        $name .= q{ } if @presenters;
-
-        $credits .= $name;
-    } ## end while ( @presenters )
-
-    $credit_cache = $credits;
-    return $credit_cache if $credit_cache ne q{};
-    return;
-} ## end sub get_credits ( )
+    } ## end sub get_credits ( )
+} ## end package PresenterSet
 
 1;

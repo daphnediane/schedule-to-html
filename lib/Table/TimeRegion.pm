@@ -37,9 +37,11 @@ my @sort_regions_;
 # Private
 
 sub add_starting_panels_ ( $state, $time, $panel ) {
-    return unless defined $panel;
+    defined $panel
+        or return;
     my $panel_type = $panel->get_panel_type();
-    return unless defined $panel_type;
+    defined $panel_type
+        or return;
     return if $panel_type->get_is_hidden();
 
     if ( $panel_type->is_break() ) {
@@ -139,7 +141,8 @@ sub process_time_slot_ ( $state, $time ) {
 } ## end sub process_time_slot_
 
 sub process_half_hours_upto_ ( $state, $split_time ) {
-    return unless $state->has_last_time();
+    $state->has_last_time()
+        or return;
 
     my $time = $state->get_last_time() + $HALF_HOUR_IN_SEC;
     while ( $time < $split_time ) {
@@ -153,7 +156,8 @@ sub process_half_hours_upto_ ( $state, $split_time ) {
 sub check_if_new_region_ ( $options, $time, $prev_region ) {
     if ( defined $prev_region ) {
         return if $options->is_split_none();
-        return unless exists $split_points_{ $time };
+        exists $split_points_{ $time }
+            or return;
         if ( $options->is_split_day() ) {
             my $prev_time = $prev_region->get_start_seconds();
             my $prev_day  = datetime_to_text( $prev_time, qw{ day } );
@@ -184,8 +188,10 @@ sub check_if_new_region_ ( $options, $time, $prev_region ) {
 } ## end sub check_if_new_region_
 
 sub finalize_region_ ( $options, $state ) {
-    return unless defined $state->get_active_region();
-    return unless $options->is_mode_kiosk();
+    defined $state->get_active_region()
+        or return;
+    $options->is_mode_kiosk()
+        or return;
     my @times
         = reverse sort { $a <=> $b }
         $state->get_active_region()->get_unsorted_times();
@@ -213,9 +219,10 @@ sub handle_region_changes_ ( $options, $state, $split_time ) {
     my $region = check_if_new_region_(
         $options,
         $split_time,
-        $state->get_active_region()
+        $state->get_active_region() // undef
     );
-    return unless defined $region;
+    defined $region
+        or return;
 
     finalize_region_( $options, $state );
     $state->set_active_region( $region );

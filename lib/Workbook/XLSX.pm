@@ -27,7 +27,8 @@ sub find_sheet_handle ( $self, $sheet ) {
     $sheet //= 0;
 
     my $wb = $self->get_workbook_();
-    return unless defined $wb;
+    defined $wb
+        or return;
 
     my $handle = $wb->worksheet( $sheet );
     return $handle if defined $handle;
@@ -42,12 +43,14 @@ sub find_sheet_handle ( $self, $sheet ) {
 } ## end sub find_sheet_handle
 
 sub get_line_range ( $self, $sheet_handle ) {
-    return unless defined $sheet_handle;
+    defined $sheet_handle
+        or return;
     return $sheet_handle->row_range();
 }
 
 sub get_line ( $self, $sheet_handle, $line_no ) {
-    return unless defined $sheet_handle;
+    defined $sheet_handle
+        or return;
 
     my @columns = $sheet_handle->col_range();
     my ( $first_row, $last_row ) = $sheet_handle->row_range();

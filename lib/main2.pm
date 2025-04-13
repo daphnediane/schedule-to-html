@@ -76,7 +76,8 @@ sub join_subclass ( $base, @subclasses ) {
 } ## end sub join_subclass
 
 sub out_class ( @fields ) {
-    return unless @fields;
+    @fields
+        or return;
     my $res = join q{ }, @fields;
     $res =~ s{\s\s+}{ }xms;
     $res =~ s{\A\s}{}xms;
@@ -141,9 +142,11 @@ sub dump_file_header ( $writer ) {
 } ## end sub dump_file_header
 
 sub dump_grid_panel ( $writer, $panel_state, @rooms ) {
-    return unless defined $panel_state;
+    defined $panel_state
+        or return;
     my $panel = $panel_state->get_active_panel();
-    return unless defined $panel;
+    defined $panel
+        or return;
 
     my @classes;
     push @classes, join q{}, qw{ time-start- },
@@ -244,7 +247,8 @@ sub dump_grid_time ( $writer, $same_day ) {
 
 sub dump_grid_timeslice () {
     my @times = sort { $a <=> $b } $local_region->get_unsorted_times();
-    return unless @times;
+    @times
+        or return;
 
     $local_region->set_day_being_output( q{} );
     $local_region->set_last_output_time( $times[ -1 ] );
@@ -294,7 +298,7 @@ sub dump_grid_regions () {
         foreach my $region ( @regions ) {
             local $local_region    = $region;
             local $local_focus_map = $local_region->room_focus_map_by_id(
-                select_room => $local_filter->get_selected_room(),
+                select_room => $local_filter->get_selected_room() // undef,
                 $options->has_rooms()
                 ? ( focus_rooms => [ $options->get_rooms() ] )
                 : ()
@@ -311,12 +315,13 @@ sub dump_grid_regions () {
     } ## end if ( $options->show_sect_grid...)
 
     return if $any_desc_shown;
-    return unless $need_desc;
+    $need_desc
+        or return;
 
     foreach my $region ( @regions ) {
         local $local_region    = $region;
         local $local_focus_map = $local_region->room_focus_map_by_id(
-            select_room => $local_filter->get_selected_room(),
+            select_room => $local_filter->get_selected_room() // undef,
             $options->has_rooms()
             ? ( focus_rooms => [ $options->get_rooms() ] )
             : ()

@@ -41,8 +41,10 @@ sub gen_by_panelist_match_ ( $flags ) {
     croak q{Unrecognized parameter: },
         join q{, }, keys %{ $flags } if %{ $flags };
 
-    return unless defined $ranks;
-    return unless @{ $ranks };
+    defined $ranks
+        or return;
+    @{ $ranks }
+        or return;
     my @shown_rank;
     foreach my $rank ( @{ $ranks } ) {
         $shown_rank[ $rank ] = 1;
@@ -52,7 +54,8 @@ sub gen_by_panelist_match_ ( $flags ) {
         return sub ( $per_info ) {
 
             return if $per_info->get_is_other();
-            return unless $shown_rank[ $per_info->get_presenter_rank() ];
+            $shown_rank[ $per_info->get_presenter_rank() ]
+                or return;
             return
                 if $is_by_desc
                 && ( $per_info->get_is_meta() || $per_info->is_in_group() );
@@ -71,8 +74,10 @@ sub gen_by_panelist_match_ ( $flags ) {
 sub split_filter_by_panelist ( $flags, @filters ) {
     my $match_panelist = gen_by_panelist_match_( $flags );
 
-    return          unless @filters;
-    return @filters unless defined $match_panelist;
+    @filters
+        or return;
+    defined $match_panelist
+        or return @filters;
 
     my @res;
     foreach my $filter ( @filters ) {
@@ -106,7 +111,8 @@ sub split_filter_by_panelist ( $flags, @filters ) {
 } ## end sub split_filter_by_panelist
 
 sub split_filter_by_room ( $rooms, @filters ) {
-    return unless defined $rooms;
+    defined $rooms
+        or return;
 
     my @res;
     foreach my $filter ( @filters ) {

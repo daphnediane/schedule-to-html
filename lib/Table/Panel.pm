@@ -34,8 +34,11 @@ my %by_base_uniq_id_;
 my @splits_;
 
 sub to_presenters_ ( $per_info, $names ) {
-    return           unless defined $per_info;
-    return $per_info unless $per_info->get_is_other();
+    defined $per_info
+        or return;
+
+    $per_info->get_is_other()
+        or return $per_info;
 
     my @indices   = $per_info->get_index_array();
     my $sub_index = 0;
@@ -51,7 +54,8 @@ sub to_presenters_ ( $per_info, $names ) {
 } ## end sub to_presenters_
 
 sub read_presenter_column_ ( $presenter_set, $per_info_index, $raw_text ) {
-    return unless defined $raw_text;
+    defined $raw_text
+        or return;
 
     my $unlisted = $raw_text =~ m{\A[*]}xms || $raw_text =~ m{[*]\z}xms;
 
@@ -68,7 +72,8 @@ sub read_presenter_column_ ( $presenter_set, $per_info_index, $raw_text ) {
 } ## end sub read_presenter_column_
 
 sub to_room_ ( $panel_data, $room_name ) {
-    return unless defined $room_name;
+    defined $room_name
+        or return;
     return if $room_name eq q{};
 
     my $room = Table::Room::lookup( $room_name );
@@ -92,7 +97,8 @@ sub to_room_ ( $panel_data, $room_name ) {
         return $room if defined $room;
     }
 
-    return unless defined $short_name;
+    defined $short_name
+        or return;
 
     my $uniq_id = $panel_data->{ $Field::Panel::UNIQUE_ID };
     $sort_key //= $Data::Room::HIDDEN_SORT_KEY
@@ -114,7 +120,8 @@ sub to_room_ ( $panel_data, $room_name ) {
 
 sub read_room_column_ ( $panel_data ) {
     my $rooms = $panel_data->{ $Field::Panel::ROOM_NAME };
-    return unless defined $rooms;
+    defined $rooms
+        or return;
 
     my %seen;
     my @rooms;
@@ -143,8 +150,10 @@ sub read_panel_ ( $header, $san_header, $presenters_by_column, $raw ) {
         $san_header,
         $raw,
         sub ( $raw_text, $column, $header_text, $header_alt ) {
-            return unless defined $raw_text;
-            return unless defined $presenters_by_column->[ $column ];
+            defined $raw_text
+                or return;
+            defined $presenters_by_column->[ $column ]
+                or return;
             read_presenter_column_(
                 $presenter_set,
                 $presenters_by_column->[ $column ], $raw_text
@@ -160,7 +169,8 @@ sub read_panel_ ( $header, $san_header, $presenters_by_column, $raw ) {
         if exists $panel_data{ $Field::Panel::PANELIST_ALT };
 
     my @rooms = read_room_column_( \%panel_data );
-    return unless @rooms;
+    @rooms
+        or return;
 
     return Data::Panel->new(
         uniq_id       => $panel_data{ $Field::Panel::UNIQUE_ID },
@@ -184,11 +194,14 @@ sub read_panel_ ( $header, $san_header, $presenters_by_column, $raw ) {
 } ## end sub read_panel_
 
 sub process_panel_ ( $panel ) {
-    return unless defined $panel;
+    defined $panel
+        or return;
 
-    return unless defined $panel->get_start_seconds();
+    defined $panel->get_start_seconds()
+        or return;
 
-    return unless defined $panel->get_name();
+    defined $panel->get_name()
+        or return;
 
     if ( any { $_->get_is_split() } $panel->get_rooms() ) {
         push @splits_, $panel;
@@ -216,15 +229,17 @@ sub get_split_panels () {
 
 sub get_panels_by_start ( $time ) {
     my $panels = $by_start_{ $time };
-    return unless defined $panels;
+    defined $panels
+        or return;
     return @{ $panels };
-}
+} ## end sub get_panels_by_start
 
 sub get_related_panels ( $panel ) {
     my $related = $by_base_uniq_id_{ $panel->get_uniq_id_base() };
-    return $panel unless defined $related;
-    return @{ $related };
-}
+    return @{ $related } if defined $related;
+
+    return $panel;
+} ## end sub get_related_panels
 
 sub get_prereq_panels ( $panel ) {
     my @prereq = $panel->get_base_prereq_ids();
@@ -237,7 +252,8 @@ sub get_prereq_panels ( $panel ) {
         next unless defined $related;
         push @res, @{ $related };
     } ## end foreach my $prereq ( @prereq)
-    return unless @res;
+    @res
+        or return;
     return @res;
 } ## end sub get_prereq_panels
 

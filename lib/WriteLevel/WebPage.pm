@@ -163,7 +163,8 @@ sub write_to ( $self, $fh //= \*STDOUT, $level //= 0 ) {
 
     $before->write_to( $fh, $level ) if defined $before;
 
-    return unless $need_html;
+    $need_html
+        or return;
 
     my $h = $self->get_formatter();
 

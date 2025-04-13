@@ -11,13 +11,13 @@ our @EXPORT_OK = qw{
     to_room_id
     to_room_id_checked
 };
-our %EXPORT_TAGS = [
-    all => \@EXPORT_OK,
-];
-our $VERSION = 1.0;
+our %EXPORT_TAGS = (
+    all => [ @EXPORT_OK ],
+);
 
 sub to_room_id ( $room ) {
-    return unless defined $room;
+    defined $room
+        or return;
 
     if ( blessed $room ) {
         my $method = $room->can( q{get_room_id} );

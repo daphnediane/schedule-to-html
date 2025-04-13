@@ -7,6 +7,7 @@ requires 'File::Slurp';
 requires 'HTML::Tiny';
 requires 'List::MoreUtils';
 requires 'Object::InsideOut';
+requires 'Object::Pad';    # For older perls
 requires 'Readonly';
 requires 'Spreadsheet::ParseXLSX';
 requires 'Sub::Name';
@@ -19,4 +20,4 @@ on 'develop' => sub {
     requires 'Perl::Critic::TooMuchCode';
     requires 'Perl::LanguageServer';
     requires 'Perl::Tidy';
-};
+}; ## end 'develop' => sub

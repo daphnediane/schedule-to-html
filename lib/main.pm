@@ -10,7 +10,6 @@ use File::Spec      qw{};
 use FindBin         qw{};
 use Getopt::Long    qw{ GetOptionsFromArray };
 use HTML::Tiny      qw{};
-use List::Util      qw{ any };
 use List::MoreUtils qw{ firstidx };
 use Readonly;
 use Scalar::Util qw{ blessed };
@@ -153,7 +152,8 @@ sub join_subclass ( $base, @subclasses ) {
 } ## end sub join_subclass
 
 sub out_class ( @fields ) {
-    return unless @fields;
+    @fields
+        or return;
     my $res = join q{ }, @fields;
     $res =~ s{\s\s+}{ }xms;
     $res =~ s{\A\s}{}xms;
@@ -271,7 +271,8 @@ sub dump_grid_header ( $writer, $filter, $region, $room_focus_map ) {
 } ## end sub dump_grid_header
 
 sub css_subclasses_for_panel ( $panel ) {
-    return q{} unless defined $panel;
+    defined $panel
+        or return q{};
 
     my $panel_type = $panel->get_panel_type();
     my @subclasses = ( q{} );
@@ -299,7 +300,8 @@ sub dump_grid_row_cell_group (
     $writer,      $filter, $room_focus_map, $time_slot,
     $panel_state, @rooms
 ) {
-    return unless @rooms;
+    @rooms
+        or return;
 
     if ( !defined $panel_state ) {
         foreach ( @rooms ) {
@@ -548,12 +550,13 @@ sub dump_grid_timeslice ( $writer, $filter, $region ) {
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
     $region->set_last_output_time( $times[ -1 ] );
 
-    return unless @times;
+    @times
+        or return;
 
     # todo(dpfister) Filter for times?
 
     my $room_focus_map = $region->room_focus_map_by_id(
-        select_room => $filter->get_selected_room(),
+        select_room => $filter->get_selected_room() // undef,
         $options->has_rooms()
         ? ( focus_rooms => [ $options->get_rooms() ] )
         : ()
@@ -636,45 +639,48 @@ sub dump_desc_time_start ( $writer, $time, @hdr_suffix ) {
     return $writer;
 } ## end sub dump_desc_time_start
 
-sub dump_desc_panel_note ( $writer, $panel, $conflict ) {
-    my @note;
-    if ( $conflict ) {
-        push @note, $h->b( q{Conflicts with one of your panels.} );
-    }
+sub gen_desc_panel_work_cap_note ( $panel ) {
+    my @cap_note;
+
+    push @cap_note, q{ (Capacity: } . $panel->get_capacity() . q{)}
+        if $panel->get_capacity();
+
     if ( $panel->get_is_free_kid_panel() ) {
-        push @note, $h->b( q{Kid friendly workshop:} ),
-            (
-            $panel->get_capacity()
-            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
-            : ()
-            ),
+        return $h->b( q{Kid friendly workshop:} ),
+            @cap_note,
             q{ Priority given to kids 13 and under.};
-    } ## end if ( $panel->get_is_free_kid_panel...)
-    elsif ( defined $panel->get_cost() ) {
-        push @note, $h->b( q{Premium workshop:} ),
-            (
-            $panel->get_capacity()
-            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
-            : ()
-            ),
+    }
+
+    if ( defined $panel->get_cost() ) {
+        return $h->b( q{Premium workshop:} ),
+            @cap_note,
             $panel->get_cost_is_model()
             ? q{ Requires a model which may be purchased separately.}
             : ( $panel->get_cost_is_missing() // 0 )
             ? q{ May require a separate purchase.}
             : q{ Requires a separate purchase.};
-    } ## end elsif ( defined $panel->get_cost...)
-    elsif ( $panel->get_panel_type()->is_workshop() ) {
-        push @note, $h->b( q{Workshop:} ),
-            (
-            $panel->get_capacity()
-            ? q{ (Capacity: } . $panel->get_capacity() . q{)}
-            : ()
-            );
-    } ## end elsif ( $panel->get_panel_type...)
-    elsif ( $panel->get_capacity() ) {
-        push @note, $h->b( q{Limited space: } ),
-            q{(Capacity: } . $panel->get_capacity() . q{)};
+    } ## end if ( defined $panel->get_cost...)
+
+    if ( $panel->get_panel_type()->is_workshop() ) {
+        return $h->b( q{Workshop:} ),
+            @cap_note;
     }
+
+    if ( $panel->get_capacity() ) {
+        return $h->b( q{Limited space:} ), @cap_note;
+    }
+
+    return;
+} ## end sub gen_desc_panel_work_cap_note
+
+sub dump_desc_panel_note ( $writer, $panel, $conflict ) {
+    my @note;
+    if ( $conflict ) {
+        push @note, $h->b( q{Conflicts with one of your panels.} );
+    }
+
+    push @note, gen_desc_panel_work_cap_note( $panel );
+
     if ( defined $panel->get_note() ) {
         push @note, $h->i( $panel->get_note() );
     }
@@ -805,12 +811,14 @@ sub should_panel_desc_be_dumped (
 ) {
 
     my $room = $panel_state->get_room();
-    return unless defined $room;
+    defined $room
+        or return;
     return if $room_focus_map->is_unfocused( $room );
 
     my $panel = $panel_state->get_active_panel();
 
-    return unless $panel->get_start_seconds() == $time;
+    $panel->get_start_seconds() == $time
+        or return;
 
     return if $panel->get_panel_type()->get_is_hidden();
 
@@ -827,7 +835,8 @@ sub should_panel_desc_be_dumped (
                 return if $show_unbusy_panels;
             }
             else {
-                return unless $show_unbusy_panels;
+                $show_unbusy_panels
+                    or return;
             }
         } ## end if ( defined $filter_panelist)
     } ## end else [ if ( $panel_state->get_is_break...)]
@@ -1053,7 +1062,7 @@ sub dump_desc_body_regions ( $writer, $filter, $region, $show_unbusy_panels )
 
     if ( defined $region ) {
         my $room_focus_map = $region->room_focus_map_by_id(
-            select_room => $filter->get_selected_room(),
+            select_room => $filter->get_selected_room() // undef,
             $options->has_rooms()
             ? ( focus_rooms => [ $options->get_rooms() ] )
             : ()
@@ -1068,7 +1077,7 @@ sub dump_desc_body_regions ( $writer, $filter, $region, $show_unbusy_panels )
 
     foreach my $region ( get_time_regions() ) {
         my $room_focus_map = $region->room_focus_map_by_id(
-            select_room => $filter->get_selected_room(),
+            select_room => $filter->get_selected_room() // undef,
             $options->has_rooms()
             ? ( focus_rooms => [ $options->get_rooms() ] )
             : ()
@@ -1137,7 +1146,8 @@ sub dump_desc_timeslice ( $writer, $filter, $region ) {
 } ## end sub dump_desc_timeslice
 
 sub cache_inline_style ( $file ) {
-    return unless defined $file;
+    defined $file
+        or return;
     state %cache;
     if (   !File::Spec->file_name_is_absolute( $file )
         && !-e $file
@@ -1344,7 +1354,8 @@ sub dump_table_regions ( $writer, $filter ) {
     } ## end if ( $options->show_sect_grid...)
 
     return if $any_desc_shown;
-    return unless $need_desc;
+    $need_desc
+        or return;
 
     dump_desc_timeslice( $writer, $filter, $filter_region );
 
