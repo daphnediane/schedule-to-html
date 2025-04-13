@@ -1,14 +1,15 @@
 package Data::PanelType;
 
-use Object::InsideOut;
-
 use v5.38.0;
 use utf8;
 
-use Carp qw{croak};
-use Readonly;
+use Carp                   qw{ croak };
+use Feature::Compat::Class qw{ :all };
+use Readonly               qw{ Readonly };
 
 use Canonical qw{ :all };
+
+class Data::PanelType;
 
 Readonly our $RE_BREAK       => qr{ \A br }xmsi;
 Readonly our $RE_CAFE        => qr{ \A caf[eé] \z }xmsi;
@@ -17,151 +18,82 @@ Readonly our $RE_ID_WORKSHOP => qr{ \A . W \z}xmsi;
 Readonly our $DEF_COLOR_SET => q{Color};
 
 ## no critic(TooMuchCode::ProhibitDuplicateLiteral)
-q{Café}  =~ $RE_CAFE or croak q{Assertion fail};
-q{CAFE}  =~ $RE_CAFE or croak q{Assertion fail};
-q{CAFET} !~ $RE_CAFE or croak q{Assertion fail};
+q{Café}        =~ $RE_CAFE or croak q{Assertion fail};
+q{CAFE}        =~ $RE_CAFE or croak q{Assertion fail};
+q{CAFE} . q{T} !~ $RE_CAFE or croak q{Assertion fail};
 ## use critic
 
-## no critic (ProhibitUnusedVariables)
+# MARK: prefix field
 
-my @prefix_key
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{prefix}, Mand => 1)
-    :Get(Name => q{get_prefix});
+field $prefix :param(prefix) :reader(get_prefix);
 
-my @kind_key
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{kind}, Mand => 1)
-    :Get(Name => q{get_kind});
+# MARK: kind field
 
-my @is_break_key
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_break})
-    :Set(Name => q{set_is_break_}, Restricted => 1)
-    :Get(Name => q{get_is_break_}, Restricted => 1);
+field $kind :param(kind) :reader(get_kind);
 
-my @is_cafe_key
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_cafe})
-    :Set(Name => q{set_is_cafe_}, Restricted => 1)
-    :Get(Name => q{get_is_cafe_}, Restricted => 1);
+# MARK: is_break field
 
-my @is_hidden_key
-    :Field
-    :Type(scalar)
-    :Default(0)
-    :Arg(Name => q{is_hidden})
-    :Set(Name => q{set_is_hidden_}, Restricted => 1)
-    :Get(Name => q{get_is_hidden_}, Restricted => 1);
+field $is_break :param(is_break) :reader(is_break) //=
+    $kind =~ $RE_BREAK ? 1 : 0;
 
-my @is_override_hidden_key
-    :Field
-    :Type(scalar)
-    :Default(2)
-    :Set(Name => q{set_is_override_hidden_}, Restricted => 1)
-    :Get(Name => q{get_is_override_hidden_}, Restricted => 1);
+# MARK: is_cafe field
 
-my @is_workshop_key
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{is_workshop})
-    :Set(Name => q{set_is_workshop_}, Restricted => 1)
-    :Get(Name => q{get_is_workshop_}, Restricted => 1);
+field $is_cafe :param(is_cafe) :reader(is_cafe) //= $kind =~ $RE_CAFE ? 1 : 0;
 
-my @color_sets_key
-    :Field
-    :Type(scalar)
-    :Default({})
-    :Get(Name => q{get_color_sets_}, Restricted => 1);
+# MARK: is_workshop field
 
-## use critic
+field $is_workshop :param(is_workshop) :reader(is_workshop) //=
+    $prefix =~ $RE_ID_WORKSHOP ? 1 : 0;
 
-sub is_break ( $self ) {
-    my $res = $self->get_is_break_();
-    return 1 if $res;
-    return   if defined $res;
-    if ( $self->get_kind() =~ $RE_BREAK ) {
-        $self->set_is_break_( 1 );
-        return 1;
-    }
-    $self->set_is_break_( 0 );
-    return;
-} ## end sub is_break
+# MARK: is_hidden field
 
-sub is_cafe ( $self ) {
-    my $res = $self->get_is_cafe_();
-    return 1 if $res;
-    return   if defined $res;
-    if ( $self->get_kind() =~ $RE_CAFE ) {
-        $self->set_is_cafe_( 1 );
-        return 1;
-    }
-    $self->set_is_cafe_( 0 );
-    return;
-} ## end sub is_cafe
+field $is_hidden :param(is_hidden) //= 0;
+field $is_override_hidden //= undef;
 
-sub override_make_shown ( $self ) {
-    $self->set_is_override_hidden_( 0 );
+method override_make_shown ( ) {
+    $is_override_hidden = 0;
+    return $self;
+}
+
+method override_make_hidden ( ) {
+    $is_override_hidden = 1;
+    return $self;
+}
+
+method clear_override_hidden ( ) {
+    $is_override_hidden = undef;
+    return $self;
+}
+
+method get_is_hidden () {
+    return 1 if $is_override_hidden // $is_hidden;
     return;
 }
 
-sub override_make_hidden ( $self ) {
-    $self->set_is_override_hidden_( 1 );
-    return;
-}
+# MARK: color_sets field
 
-sub clear_override_hidden ( $self ) {
-    $self->set_is_override_hidden_( 2 );
-    return;
-}
+field %color_sets;
 
-sub get_is_hidden ( $self ) {
-    my $res = $self->get_is_override_hidden_() // 2;
-    $res = $self->get_is_hidden_() if $res > 1;
-    return 1 if $res > 0;
-    return;
-} ## end sub get_is_hidden
-
-sub is_workshop ( $self ) {
-    my $res = $self->get_is_workshop_();
-    return 1 if $res;
-    return   if defined $res;
-    if ( $self->get_prefix() =~ $RE_ID_WORKSHOP ) {
-        $self->set_is_workshop_( 1 );
-        return 1;
-    }
-    $self->set_is_workshop_( 0 );
-    return;
-} ## end sub is_workshop
-
-sub set_color ( $self, $value, $color_set ) {
-    $color_set //= $DEF_COLOR_SET;
+method set_color ( $value, $color_set //= $DEF_COLOR_SET ) {
     $color_set = $DEF_COLOR_SET if $color_set eq q{};
     $color_set = canonical_header( $color_set );
     $color_set = lc $color_set;
 
-    my $sets = $self->get_color_sets_();
     if ( !defined $value || $value eq q{} ) {
-        delete $sets->{ $color_set };
+        delete $color_sets{ $color_set };
         return;
     }
 
-    $sets->{ $color_set } = $value;
+    $color_sets{ $color_set } = $value;
     return $value;
 } ## end sub set_color
 
-sub get_color ( $self, $color_set ) {
-    $color_set //= $DEF_COLOR_SET;
+method get_color ( $color_set //= $DEF_COLOR_SET ) {
     $color_set = $DEF_COLOR_SET if $color_set eq q{};
     $color_set = canonical_header( $color_set );
     $color_set = lc $color_set;
 
-    my $sets  = $self->get_color_sets_();
-    my $value = $sets->{ $color_set };
+    my $value = $color_sets{ $color_set };
     return unless defined $value;
     return if $value eq q{};
     return $value;
