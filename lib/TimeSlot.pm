@@ -7,9 +7,7 @@ use Carp                   qw{ croak };
 use Feature::Compat::Class qw{ :all };
 use Scalar::Util           qw{ blessed };
 
-use ActivePanel  qw{};
-use Data::Panel  qw{};
-use PresenterSet qw{};
+use Data::RoomId qw{ to_room_id };
 
 class TimeSlot :isa(TimeRange);
 
@@ -22,8 +20,8 @@ method get_all_current () {
 }
 
 method lookup_current ( $room ) {
-    my $id = blessed $room
-        && $room->can( q{get_room_id} ) ? $room->get_room_id() : $room;
+    my $id = to_room_id( $room );
+    return unless defined $id;
     my $panel = $current_panels{ $id };
     return $panel if defined $panel;
     return;
@@ -45,8 +43,8 @@ method get_all_upcoming () {
 }
 
 method lookup_upcoming ( $room ) {
-    my $id = blessed $room
-        && $room->can( q{get_room_id} ) ? $room->get_room_id() : $room;
+    my $id = to_room_id( $room );
+    return unless defined $id;
     my $panel = $upcoming_panels{ $id };
     return $panel if defined $panel;
     return;

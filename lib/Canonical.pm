@@ -35,7 +35,7 @@ sub canonical_class ( $class ) {
     $class = canonical_header( $class );
     $class =~ s{_(\w)}{\u$1}xmsg;
     return $class;
-} ## end sub canonical_class
+}
 
 # Takes in a hash reference to store the canonicalized data, an array reference containing the header text,
 # an array reference containing the sanitized header text, an array reference containing the raw data,

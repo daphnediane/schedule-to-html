@@ -7,10 +7,9 @@ use Carp                   qw{ croak };
 use Feature::Compat::Class qw{ :all };
 use Scalar::Util           qw{ blessed };
 
-use Data::Room      qw{};
-use Table::Room     qw{ :all };
-use Table::FocusMap qw{};
-use TimeSlot        qw{};
+use Data::RoomId    qw{ to_room_id };
+use Table::FocusMap qw{ };
+use TimeSlot        qw{ };
 
 class Data::RegionForTable :isa(TimeRange);
 
@@ -28,17 +27,19 @@ field %active_rooms;
 
 method add_active_room ( $room ) {
     return $self unless defined $room;
-    blessed $room && $room->isa( q{Data::Room} )
+    my $id = to_room_id( $room );
+    defined $id
         or croak q{add_active_room requires a Data::Room object};
-    $active_rooms{ $room->get_room_id() } = $room;
+    $active_rooms{ $id } = $room;
     return $self;
 } ## end sub add_active_room
 
 method is_room_active ( $room ) {
     return unless defined $room;
-    blessed $room && $room->isa( q{Data::Room} )
+    my $id = to_room_id( $room );
+    defined $id
         or croak q{is_room_active requires a Data::Room object};
-    return 1 if exists $active_rooms{ $room->get_room_id() };
+    return 1 if exists $active_rooms{ $id };
     return;
 } ## end sub is_room_active
 

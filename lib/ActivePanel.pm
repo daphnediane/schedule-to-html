@@ -63,13 +63,20 @@ method get_is_break () {
 # MARK: room field
 
 field $room :param(room);
+field $room_id;
 ADJUST {
     blessed $room && $room->isa( q{Data::Room} )
         or croak qq{active_panel must be Data::Room\n};
+    $room_id = $room->get_room_id();
 }
 
 method get_room() {
     return $room;
+}
+
+method get_room_id() {
+    return $room_id if defined $room_id;
+    return;
 }
 
 # MARK: Clone

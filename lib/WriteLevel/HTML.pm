@@ -131,7 +131,7 @@ foreach my $tag ( @KNOWN_ELEMENTS ) {
         $self->wl_()
             ->add_line( $self->get_formatter()->auto_tag( $tag, @args ) );
         return $self;
-    }; ## end $add_sub = sub
+    };
 
     {
         ## no critic(TestingAndDebugging::ProhibitNoStrict)
@@ -159,7 +159,7 @@ foreach my $tag ( @KNOWN_ELEMENTS ) {
             [ $h->close( $tag ) ],
         );
         return $child;
-    }; ## end $nested_sub = sub
+    }; ## end sub
 
     {
         ## no critic(TestingAndDebugging::ProhibitNoStrict)

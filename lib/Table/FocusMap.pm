@@ -7,13 +7,9 @@ use Carp                   qw{ confess };
 use Feature::Compat::Class qw{ :all };
 use List::Util             qw{ any };
 
-class Table::FocusMap;
+use Data::RoomId qw{ to_room_id };
 
-sub _to_room_id ( $room ) {
-    return $room->get_room_id() if ref $room;
-    return $room                if $room =~ m{\A\d+\z}xms;
-    confess qq{Not a room: $room \n};
-}
+class Table::FocusMap;
 
 # MARK: room_state
 
@@ -21,7 +17,7 @@ field %room_state_;
 field $has_focus_;
 
 method set_focused ( @rooms ) {
-    @rooms = map { _to_room_id( $_ ) } @rooms;
+    @rooms = map { to_room_id( $_ ) } @rooms;
 
     foreach my $id ( @rooms ) {
         $room_state_{ $id } = 1;
@@ -32,7 +28,7 @@ method set_focused ( @rooms ) {
 } ## end sub set_focused
 
 method set_unfocused ( @rooms ) {
-    @rooms = map { _to_room_id( $_ ) } @rooms;
+    @rooms = map { to_room_id( $_ ) } @rooms;
 
     foreach my $id ( @rooms ) {
         delete $room_state_{ $id };
@@ -51,7 +47,7 @@ method unfocus_all ( ) {
 method is_focused ( @rooms ) {
     return unless $has_focus_;
 
-    @rooms = map { _to_room_id( $_ ) } @rooms;
+    @rooms = map { to_room_id( $_ ) } @rooms;
     return 1 if any { $room_state_{ $_ } } @rooms;
 
     return;
@@ -60,7 +56,7 @@ method is_focused ( @rooms ) {
 method is_unfocused ( @rooms ) {
     return unless $has_focus_;
 
-    @rooms = map { _to_room_id( $_ ) } @rooms;
+    @rooms = map { to_room_id( $_ ) } @rooms;
     return if any { $room_state_{ $_ } } @rooms;
 
     return 1;
