@@ -357,7 +357,7 @@ method get_is_full () {
 field $presenter_set :param(presenter_set) //= PresenterSet->new();
 ADJUST {
     blessed $presenter_set && $presenter_set->isa( q{PresenterSet} )
-        || croak q{Presenter set must be of type presenter set};
+        or croak q{Presenter set must be of type presenter set};
 }
 
 method get_presenter_set () {

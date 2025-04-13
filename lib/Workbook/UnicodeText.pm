@@ -6,7 +6,7 @@ use v5.38.0;
 use utf8;
 
 use English     qw( -no_match_vars );
-use File::Slurp qw{read_file};
+use File::Slurp qw{ read_file };
 
 ## no critic (ProhibitUnusedVariables)
 

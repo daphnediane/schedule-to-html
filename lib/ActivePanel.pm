@@ -16,7 +16,7 @@ class ActivePanel :isa(TimeRange);
 field $panel :param(active_panel);
 ADJUST {
     blessed $panel && $panel->isa( q{Data::Panel} )
-        || croak qq{active_panel must be Data::Panel\n};
+        or croak qq{active_panel must be Data::Panel\n};
 }
 
 method get_active_panel () {
@@ -28,7 +28,7 @@ method get_active_panel () {
 field $rows :param(rows) //= 0;
 ADJUST {
     $rows =~ m{^(?:0|[1-9]\d*)\z}xms
-        || croak qq{rows must be integer\n};
+        or croak qq{rows must be integer\n};
 }
 
 method get_rows () {
@@ -42,7 +42,7 @@ method set_rows ( $new_rows ) {
 
 method increment_rows ( $amount //= 1 ) {
     $amount =~ m{^-?(?:0|[1-9]\d*)\z}xms
-        || croak qq{amount must be integer\n};
+        or croak qq{amount must be integer\n};
     $rows += $amount;
     return $rows;
 } ## end sub increment_rows
@@ -65,7 +65,7 @@ method get_is_break () {
 field $room :param(room);
 ADJUST {
     blessed $room && $room->isa( q{Data::Room} )
-        || croak qq{active_panel must be Data::Room\n};
+        or croak qq{active_panel must be Data::Room\n};
 }
 
 method get_room() {

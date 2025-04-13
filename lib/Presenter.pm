@@ -198,7 +198,7 @@ ADJUST {
     push @pid_map,    $self;
     push @presenters, $self unless $is_other;
     defined $caching
-        || croak q{Do not call new directly};
+        or croak q{Do not call new directly};
     $caching->{ lc $name } = $self;
     $caching = undef;
 } ## end ADJUST

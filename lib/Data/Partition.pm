@@ -1,58 +1,59 @@
 package Data::Partition;
 
-use Object::InsideOut;
-
 use v5.38.0;
 use utf8;
 
-use Carp qw{ croak };
+use Carp                   qw{ croak };
+use Feature::Compat::Class qw{ :all };
+use Scalar::Util           qw{ blessed };
 
-use Data::Room        qw{};
-use Presenter         qw{};
-use Table::TimeRegion qw{};
+use Data::Room        qw{ };
+use Presenter         qw{ };
+use Table::TimeRegion qw{ };
 
-## no critic (ProhibitUnusedVariables)
+class Data::Partition;
 
-my @region_
-    :Field
-    :Type(Data::RegionForTable)
-    :Arg(Name => q{region})
-    :Get(Name => q{get_selected_region});
+field $region :param(region) :reader(get_selected_region) //= undef;
+ADJUST {
+    blessed $region && $region->isa( q{Data::RegionForTable} )
+        or !defined $region
+        or croak q{region must be a Data::RegionForTable};
+}
 
-my @presenter_
-    :Field
-    :Type(Presenter)
-    :Arg(Name => q{presenter})
-    :Get(Name => q{get_selected_presenter});
+field $presenter :param(presenter) :reader(get_selected_presenter) //= undef;
+ADJUST {
+    blessed $presenter && $presenter->isa( q{Presenter} )
+        or !defined $presenter
+        or croak q{presenter must be a Presenter};
+}
 
-my @room_
-    :Field
-    :Type(Data::Room)
-    :Arg(Name => q{room})
-    :Get(Name => q{get_selected_room});
+field $room :param(room) :reader(get_selected_room) //= undef;
+ADJUST {
+    blessed $room && $room->isa( q{Data::Room} )
+        or !defined $room
+        or croak q{room must be a Data::Room};
+}
 
-my @output_name_
-    :Field
-    :Type(list)
-    :Arg(Name => q{output_name})
-    :Get(Name => q{get_output_name_}, Restricted => 1);
+field @output_name;
 
-## use critic
+method _init_output_name ( @pieces ) {
+    0 == scalar @output_name
+        or croak q{output_name can only be set once};
+    @output_name = @pieces;
+    return $self;
+} ## end sub _init_output_name
 
-sub get_output_name_pieces ( $self ) {
-    my $out_name = $self->get_output_name_();
-    return           unless defined $out_name;
-    return $out_name unless ref $out_name;
-    return @{ $out_name };
-} ## end sub get_output_name_pieces
+method get_output_name_pieces() {
+    return @output_name;
+}
 
 sub unfiltered ( $class ) {
     $class = ref $class || $class || __PACKAGE__;
-    state $def_filter = $class->new();
-    return $def_filter;
+    state %def_filter;
+    return $def_filter{ $class } //= $class->new();
 }
 
-sub clone_arg_ ( $orig, $args, $key, $current ) {
+method _clone_arg ( $args, $key, $current ) {
     if ( defined $current ) {
         if ( exists $args->{ $key } ) {
             return if defined $args->{ $key } && $args->{ $key } == $current;
@@ -64,38 +65,26 @@ sub clone_arg_ ( $orig, $args, $key, $current ) {
 
     $args->{ _need_clone } = 1 if exists $args->{ $key };
     return;
-} ## end sub clone_arg_
+} ## end sub _clone_arg
 
-sub combine :MergeArgs {
-    my ( $orig, $args ) = @_;
-    croak q{Unsupported clone} unless __PACKAGE__ eq ref $orig;
+method combine ( %args ) {
 
-    return $orig unless %{ $args };
+    return $self unless %args;
 
-    $orig->clone_arg_( $args, region    => $orig->get_selected_region() );
-    $orig->clone_arg_( $args, presenter => $orig->get_selected_presenter() );
-    $orig->clone_arg_( $args, room      => $orig->get_selected_room() );
+    $self->_clone_arg( \%args, region    => $region );
+    $self->_clone_arg( \%args, presenter => $presenter );
+    $self->_clone_arg( \%args, room      => $room );
 
     # Empty list, conflicting filters, allow use in maps
-    return if delete $args->{ _conflict };
+    return if delete $args{ _conflict };
 
     # No need to add name if filter is identical
-    return $orig unless delete $args->{ _need_clone };
+    return $self unless delete $args{ _need_clone };
 
-    my @add;
-    if ( defined $args->{ output_name } ) {
-        my $add = $args->{ output_name };
-        @add = ( $add );
-        @add = @{ $add } if ref $add;
-    }
-    if ( @add ) {
-        $args->{ output_name } = [ $orig->get_output_name_pieces(), @add ];
-    }
-    else {
-        $args->{ output_name } = $orig->get_output_name_();
-    }
+    my $add_arg = delete $args{ output_name };
+    my @add     = ref $add_arg ? @{ $add_arg } : ( $add_arg );
 
-    return $orig->new( $args );
+    return __CLASS__->new( %args )->_init_output_name( @output_name, @add );
 } ## end sub combine
 
 1;
