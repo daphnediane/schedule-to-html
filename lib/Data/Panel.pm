@@ -10,6 +10,7 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
     use Readonly        qw{ Readonly };
     use List::MoreUtils qw{ all };
     use Scalar::Util    qw{ reftype blessed };
+    use Sub::Name       qw{ subname };
 
     use Data::PanelType  qw{};
     use Data::Room       qw{};
@@ -392,14 +393,35 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
 
     our $AUTOLOAD;
 
+    sub _create_presenter_impl ( $method_name ) {
+        my $presenter_func = PresenterSet->can( $method_name );
+        return unless $presenter_func;
+
+        my $full_name = join q{::}, __PACKAGE__, $method_name;
+        my $method    = subname $full_name, sub ( $self, @args ) {
+            return $self->get_presenter_set()->$presenter_func( @args );
+        };
+
+        {
+            no strict qw{ refs };
+            *{ $full_name } = $method;
+        }
+
+        return $method;
+    } ## end sub _create_presenter_impl
+
+    sub _create_presenter_method ( $method ) {
+        state %func_cache;
+        return $func_cache{ $method } //= _create_presenter_impl( $method );
+    }
+
     method AUTOLOAD ( @args ) {    ## no critic (CodeLayout::ProhibitParensWithBuiltins)
         ( my $called = $AUTOLOAD ) =~ s{.*::}{}xms;
 
-        my $presenter_func = q{PresenterSet::} . $called;
-        my $mem_func       = $presenter_set->can( $presenter_func );
+        my $try_func;
 
-        if ( defined $mem_func ) {
-            return $presenter_set->$mem_func( @args );
+        if ( defined( $try_func = _create_presenter_method( $called ) ) ) {
+            return $self->$try_func( @args );
         }
 
         croak q{Can't locate object method "}, $called, q{" via package "},
@@ -408,15 +430,17 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
 
     sub can ( $class, $method ) {    ## no critic (BuiltinFunctions::ProhibitUniversalCan,CodeLayout::ProhibitParensWithBuiltins)
         $class = ref $class || $class;
-        my $res = $class->SUPER::can( $method );
-        return $res if defined $res;
 
-        if ( defined( $res = PresenterSet->can( $method ) ) ) {
-            return sub ( $self, @method_args ) {
-                return $self->get_presenter_set()->$res( @method_args );
-                }
-                if defined $res;
-        } ## end if ( defined( $res = PresenterSet...))
+        my $try_func;
+
+        if ( defined( $try_func = $class->SUPER::can( $method ) ) ) {
+            return $try_func;
+        }
+
+        if ( defined( $try_func = _create_presenter_method( $method ) ) ) {
+            return $try_func;
+        }
+
         return;
     } ## end sub can
 
