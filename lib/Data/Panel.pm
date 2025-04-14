@@ -406,8 +406,9 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
             __CLASS__, q{"};
     } ## end sub AUTOLOAD
 
-    method can ( $method ) {    ## no critic (BuiltinFunctions::ProhibitUniversalCan,CodeLayout::ProhibitParensWithBuiltins)
-        my $res = $self->SUPER::can( $method );
+    sub can ( $class, $method ) {    ## no critic (BuiltinFunctions::ProhibitUniversalCan,CodeLayout::ProhibitParensWithBuiltins)
+        $class = ref $class || $class;
+        my $res = $class->SUPER::can( $method );
         return $res if defined $res;
 
         if ( defined( $res = PresenterSet->can( $method ) ) ) {
