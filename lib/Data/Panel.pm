@@ -403,7 +403,7 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
         };
 
         {
-            no strict qw{ refs };
+            no strict qw{ refs };    ## no critic (TestingAndDebugging::ProhibitNoStrict
             *{ $full_name } = $method;
         }
 

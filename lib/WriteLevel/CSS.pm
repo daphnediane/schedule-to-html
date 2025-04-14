@@ -21,7 +21,7 @@ sub nested_selector ( $self, @content ) {
     return $child;
 } ## end sub nested_selector
 
-sub _get_write_level ( $self ) {
+sub get_write_level ( $self ) {
     return $self;
 }
 

@@ -1,8 +1,8 @@
-use v5.38.0;
+use v5.38.0;    ## no critic (Modules::ProhibitExcessMainComplexity)
 use utf8;
 use Feature::Compat::Class;
 
-class WriteLevel::HTML {
+class WriteLevel::HTML {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage)
 
     use Carp       qw{ croak};
     use HTML::Tiny qw{};
@@ -38,20 +38,16 @@ class WriteLevel::HTML {
         wbr
     } );
 
-## no critic (ProhibitUnusedVariables)
-
     Readonly::Array my @OBSOLETE_ELEMENTS => ( qw{
         acronym big center dir font frame frameset image marquee menuitem
         nobr noembed noframes param plaintext rb rtc strike tt xml
     } );
 
-## use critic
-
     # MARK: WriteLevel field
 
-    field $wl = WriteLevel->new();
+    field $wl //= WriteLevel->new();
 
-    method _get_write_level () {
+    method get_write_level () {
         return $wl;
     }
 
@@ -88,7 +84,7 @@ class WriteLevel::HTML {
             formatter => $formatter,
             tag       => $parent_tag,
         );
-        $wl->embed( $child->_get_write_level() );
+        $wl->embed( $child->get_write_level() );
         return $child;
     } ## end sub nested_inline
 
@@ -104,7 +100,7 @@ class WriteLevel::HTML {
         my $child = $self->_create_child( $tag );
         $wl->nested(
             [ $formatter->open( $tag, @rest ) ],
-            $child->_get_write_level(),
+            $child->get_write_level(),
             [ $formatter->close( $tag ) ],
         );
         return $child;
@@ -120,13 +116,13 @@ class WriteLevel::HTML {
         my $method_name = join q{_},  qw{ add }, $tag;
         my $full_name   = join q{::}, __PACKAGE__, $method_name;
         my $method      = subname $full_name, sub ( $self, @args ) {
-            $self->_get_write_level()
+            $self->get_write_level()
                 ->add_line( $self->get_formatter()->auto_tag( $tag, @args ) );
             return $self;
         };
 
         {
-            no strict qw{ refs };
+            no strict qw{ refs };    ## no critic (TestingAndDebugging::ProhibitNoStrict)
             *{ $full_name } = $method;
         }
 
@@ -152,7 +148,7 @@ class WriteLevel::HTML {
         }; ## end sub
 
         {
-            no strict qw{ refs };
+            no strict qw{ refs };    ## no critic (TestingAndDebugging::ProhibitNoStrict
             *{ $full_name } = $method;
         }
 
@@ -176,13 +172,15 @@ class WriteLevel::HTML {
             return $wl->$try_func( @args );
         }
 
-        if ( $called =~ m{\A add_ (?<elem> .*+ ) \z}xms
-            && defined( $try_func = _create_add_method( $+{ elem } ) ) ) {
+        if ($called =~ m{\A add_ (?<elem> .*+ ) \z}xms    ## no critic (RegularExpressions::ProhibitUnusedCapture)
+            && defined( $try_func = _create_add_method( $+{ elem } ) )
+        ) {
             return $self->$try_func( @args );
         }
 
-        if ( $called =~ m{\A nested_ (?<elem> .*+ ) \z}xms
-            && defined( $try_func = _create_nested_method( $+{ elem } ) ) ) {
+        if ($called =~ m{\A nested_ (?<elem> .*+ ) \z}xms    ## no critic (RegularExpressions::ProhibitUnusedCapture)
+            && defined( $try_func = _create_nested_method( $+{ elem } ) )
+        ) {
             return $self->$try_func( @args );
         }
 
@@ -203,13 +201,15 @@ class WriteLevel::HTML {
         } ## end if ( defined( $res = WriteLevel...))
 
         my $try_func;
-        if ( $method =~ m{\A add_ (?<elem> .*+ ) \z}xms
-            && defined( $try_func = _create_add_method( $+{ elem } ) ) ) {
+        if ($method =~ m{\A add_ (?<elem> .*+ ) \z}xms    ## no critic (RegularExpressions::ProhibitUnusedCapture)
+            && defined( $try_func = _create_add_method( $+{ elem } ) )
+        ) {
             return $try_func;
         }
 
-        if ( $method =~ m{\A nested_ (?<elem> .*+ ) \z}xms
-            && defined( $try_func = _create_nested_method( $+{ elem } ) ) ) {
+        if ($method =~ m{\A nested_ (?<elem> .*+ ) \z}xms    ## no critic (RegularExpressions::ProhibitUnusedCapture)
+            && defined( $try_func = _create_nested_method( $+{ elem } ) )
+        ) {
             return $try_func;
         }
 
