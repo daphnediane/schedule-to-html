@@ -10,7 +10,6 @@
             "extensions": [
                 "GitHub.vscode-pull-request-github",
                 "Kaktus.perltidy-more",
-                "ms-azuretools.vscode-docker",
                 "streetsidesoftware.code-spell-checker",
                 "yzhang.markdown-all-in-one",
                 "zhiyuan-lin.simple-perl",

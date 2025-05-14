@@ -14,6 +14,11 @@ class PresenterSet {    ## no critic (Modules::RequireEndWithOne,Modules::Requir
     Readonly our $UNLISTED => 1;
     Readonly our $LISTED   => 2;
 
+    Readonly our $SEPARATOR_RE => qr{
+        \s*+
+        (?: , (?:\s++ (?: and \s++ )? )? | \b and \s++ )
+    }xms;
+
     # MARK: credit_cache field
 
     field $credit_cache;

@@ -6,6 +6,7 @@ use v5.38.0;
 use utf8;
 
 use List::Util qw{ any };
+use Readonly qw{ Readonly };
 
 use Canonical    qw{ :all };
 use Data::Room   qw{};
@@ -50,7 +51,7 @@ sub to_presenters_ ( $per_info, $names ) {
             $per_info->get_presenter_rank()
         )
         }
-        split m{\s*(?:,(?:\s+and)?+|and)\s*}xms, $names;
+        split $PresenterSet::SEPARATOR_RE, $names;
 } ## end sub to_presenters_
 
 sub read_presenter_column_ ( $presenter_set, $per_info_index, $raw_text ) {

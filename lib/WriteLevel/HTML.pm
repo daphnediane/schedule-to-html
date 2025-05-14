@@ -7,7 +7,7 @@ class WriteLevel::HTML {    ## no critic (Modules::RequireEndWithOne,Modules::Re
     use Carp       qw{ croak};
     use HTML::Tiny qw{};
     use Readonly;
-    use Scalar::Util qw{ reftype };
+    use Scalar::Util qw{ blessed reftype };
     use Sub::Name    qw{ subname };
 
     use WriteLevel      qw{};
@@ -80,7 +80,8 @@ class WriteLevel::HTML {    ## no critic (Modules::RequireEndWithOne,Modules::Re
     }
 
     method nested_inline () {
-        my $child = $self->new(
+        my $class = blessed $self || $self;
+        my $child = $class->new(
             formatter => $formatter,
             tag       => $parent_tag,
         );
@@ -90,7 +91,8 @@ class WriteLevel::HTML {    ## no critic (Modules::RequireEndWithOne,Modules::Re
 
     method _create_child ( $tag ) {
         return WriteLevel::CSS->new() if $tag eq q{style};
-        return $self->new(
+        my $class = blessed $self || $self;
+        return $class->new(
             formatter => $formatter,
             tag       => join q{.}, $parent_tag, $tag
         );

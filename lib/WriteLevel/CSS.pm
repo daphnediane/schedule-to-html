@@ -5,7 +5,8 @@ use base qw{WriteLevel};
 use v5.38.0;
 use utf8;
 
-use HTML::Tiny qw{};
+use HTML::Tiny   qw{};
+use Scalar::Util qw{ blessed };
 
 our @EXPORT_OK = qw {
 };
@@ -15,7 +16,8 @@ our %EXPORT_TAGS = (
 );
 
 sub nested_selector ( $self, @content ) {
-    my $child = $self->new();
+    my $class = blessed $self || $self;
+    my $child = $class->new();
     push @content, q{ } if @content;
     $self->WriteLevel::nested( [ @content, qw[ { ] ], $child, [ qw[ } ] ] );
     return $child;
