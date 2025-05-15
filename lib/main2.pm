@@ -169,7 +169,7 @@ sub dump_grid_panel ( $writer, $panel_state, @rooms ) {
     );
     $writer->add_span(
         { out_class( qw{ panel-presenter } ) },
-        $panel->get_credits()
+        join q{, }, $panel->get_credits()
     );
     $writer->nested_p(
         { out_class( qw{ panel-description } ) },

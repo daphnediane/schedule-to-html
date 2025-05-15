@@ -102,29 +102,31 @@ Readonly our $CLASS_KIOSK_GRID_ROWS          => q{table_rows};
 Readonly our $CLASS_KIOSK_HIDDEN             => q{inactiveDesc};
 Readonly our $CLASS_KIOSK_LOGO               => q{logo};
 Readonly our $CLASS_KIOSK_TIME               => q{time};
+Readonly our $CLASS_LONG_PANELIST            => q{longPanelist};
 
 # CSS Subclasses
-Readonly our $SUBCLASS_BUSY_PANEL        => q{ConflictGuest};
-Readonly our $SUBCLASS_FMT_DIFFICULTY    => q{Difficulty%s};
-Readonly our $SUBCLASS_FMT_TYPE          => q{Type%s};
-Readonly our $SUBCLASS_FULL              => q{Full};
-Readonly our $SUBCLASS_GUEST_PANEL       => q{SelectedGuest};
-Readonly our $SUBCLASS_NEED_COST         => q{NeedCost};
-Readonly our $SUBCLASS_PIECE_COST        => q{Cost};
-Readonly our $SUBCLASS_PIECE_DESCRIPTION => q{Description};
-Readonly our $SUBCLASS_PIECE_DESC_TBD    => q{DescTBD};
-Readonly our $SUBCLASS_PIECE_DIFFICULTY  => q{Difficulty};
-Readonly our $SUBCLASS_PIECE_FULL        => q{FullLabel};
-Readonly our $SUBCLASS_PIECE_ID          => q{ID};
-Readonly our $SUBCLASS_PIECE_NAME        => q{Name};
-Readonly our $SUBCLASS_PIECE_NOTE        => q{Note};
-Readonly our $SUBCLASS_PIECE_PARTS_LINE  => q{PartsLine};
-Readonly our $SUBCLASS_PIECE_PARTS_LIST  => q{ListParts};
-Readonly our $SUBCLASS_PIECE_PARTS_NUM   => q{PartsNum};
-Readonly our $SUBCLASS_PIECE_PARTS_TIME  => q{PartsTime};
-Readonly our $SUBCLASS_PIECE_PRESENTER   => q{Panelist};
-Readonly our $SUBCLASS_PIECE_ROOM        => q{RoomName};
-Readonly our $SUBCLASS_PIECE_START       => q{Start};
+Readonly our $SUBCLASS_BUSY_PANEL           => q{ConflictGuest};
+Readonly our $SUBCLASS_FMT_DIFFICULTY       => q{Difficulty%s};
+Readonly our $SUBCLASS_FMT_TYPE             => q{Type%s};
+Readonly our $SUBCLASS_FULL                 => q{Full};
+Readonly our $SUBCLASS_GUEST_PANEL          => q{SelectedGuest};
+Readonly our $SUBCLASS_NEED_COST            => q{NeedCost};
+Readonly our $SUBCLASS_PIECE_COST           => q{Cost};
+Readonly our $SUBCLASS_PIECE_DESCRIPTION    => q{Description};
+Readonly our $SUBCLASS_PIECE_DESC_TBD       => q{DescTBD};
+Readonly our $SUBCLASS_PIECE_DIFFICULTY     => q{Difficulty};
+Readonly our $SUBCLASS_PIECE_FULL           => q{FullLabel};
+Readonly our $SUBCLASS_PIECE_ID             => q{ID};
+Readonly our $SUBCLASS_PIECE_NAME           => q{Name};
+Readonly our $SUBCLASS_PIECE_NOTE           => q{Note};
+Readonly our $SUBCLASS_PIECE_PARTS_LINE     => q{PartsLine};
+Readonly our $SUBCLASS_PIECE_PARTS_LIST     => q{ListParts};
+Readonly our $SUBCLASS_PIECE_PARTS_NUM      => q{PartsNum};
+Readonly our $SUBCLASS_PIECE_PARTS_TIME     => q{PartsTime};
+Readonly our $SUBCLASS_PIECE_PRESENTER      => q{Panelist};
+Readonly our $SUBCLASS_PIECE_PRESENTER_NAME => q{PanelistName};
+Readonly our $SUBCLASS_PIECE_ROOM           => q{RoomName};
+Readonly our $SUBCLASS_PIECE_START          => q{Start};
 
 Readonly our $LINK_SUFFIX_GRID => q{Grid};
 
@@ -296,6 +298,39 @@ sub css_subclasses_for_panel ( $panel ) {
     return @subclasses;
 } ## end sub css_subclasses_for_panel
 
+sub dump_panelist_list ( $writer, $class_base, @credit_list ) {
+    return unless @credit_list;
+
+    my $cdata = $class_base eq $CLASS_DESC_BASE
+        ? $writer->nested_p(
+        {   out_class( join_subclass(
+                $class_base, $SUBCLASS_PIECE_PRESENTER ) )
+        },
+        )
+        : $writer->nested_span(
+        {   out_class( join_subclass(
+                $class_base, $SUBCLASS_PIECE_PRESENTER ) )
+        },
+        );
+
+    while ( @credit_list ) {
+        my $name = shift @credit_list;
+        $cdata->add_span(
+            {   out_class(
+                    join_subclass(
+                        $class_base,
+                        $SUBCLASS_PIECE_PRESENTER_NAME
+                    ),
+                    ( $name =~ m{\S{20}}xms ? ( $CLASS_LONG_PANELIST ) : () )
+                ),
+            },
+            $name
+        );
+        $cdata->append_line( q{,} ) if @credit_list;
+    } ## end while ( @credit_list )
+
+} ## end sub dump_panelist_list
+
 sub dump_grid_row_cell_group (
     $writer,      $filter, $room_focus_map, $time_slot,
     $panel_state, @rooms
@@ -325,13 +360,13 @@ sub dump_grid_row_cell_group (
 
     my $first_room = $rooms[ 0 ];
 
-    my $name               = $panel->get_name();
-    my $credited_presenter = $panel->get_credits();
-    my $panel_type         = $panel->get_panel_type();
+    my $name        = $panel->get_name();
+    my @credit_list = $panel->get_credits();
+    my $panel_type  = $panel->get_panel_type();
 
     if ( $panel_type->is_cafe() ) {
-        $credited_presenter = $name;
-        $name               = q{Café featuring};
+        @credit_list = split $PresenterSet::SEPARATOR_RE, $name;
+        $name = q{Café featuring};
     }
 
     my @subclasses = css_subclasses_for_panel( $panel );
@@ -418,15 +453,7 @@ sub dump_grid_row_cell_group (
         } ## end else [ if ( defined $url ) ]
     } ## end if ( defined $cost && ...)
 
-    if ( defined $credited_presenter ) {
-        $tdata->add_span(
-            {   out_class( join_subclass(
-                    $CLASS_GRID_CELL_BASE, $SUBCLASS_PIECE_PRESENTER
-                ) )
-            },
-            $credited_presenter
-        );
-    } ## end if ( defined $credited_presenter)
+    dump_panelist_list( $tdata, $CLASS_GRID_CELL_BASE, @credit_list );
 
     shift @rooms;
     foreach ( @rooms ) {
@@ -879,8 +906,8 @@ sub dump_desc_panel_body (
         }
     } ## end if ( defined $filter->...)
 
-    my $name               = $panel->get_name();
-    my $credited_presenter = $panel->get_credits();
+    my $name        = $panel->get_name();
+    my @credit_list = $panel->get_credits();
 
     if ( $panel_type->is_cafe() ) {
         $name = q{Cosplay Café Featuring } . $name;
@@ -969,15 +996,8 @@ sub dump_desc_panel_body (
             map { $_->get_long_room_name() } $panel->get_rooms()
         );
     } ## end else [ if ( $options->is_mode_kiosk...)]
-    if ( defined $credited_presenter ) {
-        $writer->add_p(
-            {   out_class( join_subclass(
-                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_PRESENTER
-                ) )
-            },
-            $credited_presenter
-        );
-    } ## end if ( defined $credited_presenter)
+
+    dump_panelist_list( $writer, $CLASS_DESC_BASE, @credit_list );
 
     my $desc = $panel->get_description();
     $writer->add_p(

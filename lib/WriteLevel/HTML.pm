@@ -74,6 +74,11 @@ class WriteLevel::HTML {    ## no critic (Modules::RequireEndWithOne,Modules::Re
         return $self;
     }
 
+    method append_line ( @args ) {
+        $wl->append_line( @args );
+        return $self;
+    }
+
     method add_tag ( @args ) {
         $wl->add_line( $formatter->tag( @args ) );
         return $self;

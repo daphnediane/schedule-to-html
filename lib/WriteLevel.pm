@@ -25,6 +25,10 @@ sub add_line ( $self, @content ) {
     return $self;
 } ## end sub add_line
 
+sub append_line( $self, @content ) {
+    return $self->add_line( ( pop @{ $self } ), @content );
+}
+
 sub embed ( $self, $embedded ) {
     defined $embedded
         or return;

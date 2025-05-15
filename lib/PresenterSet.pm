@@ -21,7 +21,7 @@ class PresenterSet {    ## no critic (Modules::RequireEndWithOne,Modules::Requir
 
     # MARK: credit_cache field
 
-    field $credit_cache;
+    field @credit_cache;
 
     # MARK: pid_set field
 
@@ -64,7 +64,7 @@ class PresenterSet {    ## no critic (Modules::RequireEndWithOne,Modules::Requir
             } ## end if ( !$guest_seen && $presenter...)
         } ## end while ( @presenters )
 
-        $credit_cache = undef if $any_seen;
+        @credit_cache = () if $any_seen;
 
         return;
     } ## end sub _add_presenters
@@ -212,49 +212,20 @@ class PresenterSet {    ## no critic (Modules::RequireEndWithOne,Modules::Requir
         return $name;
     } ## end sub _get_credited_as
 
-    method get_credits ( ) {
-        if ( $hide_credits ) {
-            return;
-        }
+    method get_credits() {
+        return if $hide_credits;
+
+        return @credit_cache if @credit_cache;
 
         if ( defined $override_credits ) {
-            return $override_credits if $override_credits ne q{};
-            return;
+            @credit_cache = split $SEPARATOR_RE, $override_credits;
+            return @credit_cache;
         }
 
-        if ( defined $credit_cache ) {
-            return $credit_cache if $credit_cache ne q{};
-            return;
-        }
-
-        my @presenters;
-
-        foreach my $presenter ( sort $self->_get_credits_shown() ) {
-            push @presenters, $self->_get_credited_as( $presenter );
-        }
-
-        my $credits = q{};
-
-        # Handle long presenter names
-        while ( @presenters ) {
-            my $name = shift @presenters;
-            $name .= q{,} if @presenters;
-
-            # Check for 20 characters in a row
-            if ( $name =~ m{\S{20}}xms ) {
-                state $h = HTML::Tiny->new( mode => q{html} );
-
-                $name = $h->span( { class => q{longPanelist} }, $name );
-            }
-            $name .= q{ } if @presenters;
-
-            $credits .= $name;
-        } ## end while ( @presenters )
-
-        $credit_cache = $credits;
-        return $credit_cache if $credit_cache ne q{};
-        return;
-    } ## end sub get_credits ( )
+        @credit_cache = map { $self->_get_credited_as( $_ ) }
+            sort $self->_get_credits_shown();
+        return @credit_cache;
+    } ## end sub get_credits
 } ## end package PresenterSet
 
 1;
