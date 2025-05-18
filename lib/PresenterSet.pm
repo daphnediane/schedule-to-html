@@ -6,8 +6,7 @@ class PresenterSet {    ## no critic (Modules::RequireEndWithOne,Modules::Requir
 
     package PresenterSet;
 
-    use HTML::Tiny qw{ };
-    use Readonly   qw{ Readonly };
+    use Readonly qw{ Readonly };
 
     use Presenter qw{};
 
