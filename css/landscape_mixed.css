@@ -1,0 +1,38 @@
+@page {
+	size: landscape;
+}
+
+html {
+	column-count: 2;
+	column-span: none;
+}
+
+.schedule {
+	column-span: none;
+	break-before: column !important;
+	break-inside: avoid;
+	break-after: column;
+	font-size: 7px;
+}
+
+.scheduleFriday {
+	break-before: page;
+}
+
+.scheduleSaturday {
+	break-before: page;
+}
+
+.scheduleSunday {
+	break-before: page;
+}
+
+.schedHeader {
+	height: 3em;
+}
+
+.descriptions {
+	font-size: 7.2pt;
+	column-count: 2;
+	break-after: column;
+}

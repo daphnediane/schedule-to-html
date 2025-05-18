@@ -39,6 +39,15 @@ args+=(
     --hide-unused-rooms
 )
 
+args+=(
+    --
+    --style print:landscape_mixed.css
+    --output output/flyers/single_mixed.html
+    --split-day
+    --desc-loc-mixed
+    --hide-unused-rooms
+)
+
 mkdir -p output/flyers/desc
 args+=(
     --

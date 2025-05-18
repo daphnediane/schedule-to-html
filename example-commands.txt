@@ -43,3 +43,7 @@ CosAm: Use schedule_html / dump_flyers or update_flyers.sh instead
 ./desc_tbl --show-room xyz --hide-room xyz --show-room abc --show-room xyz
 ./desc_tbl --style license-fonts.css --style common.css --style screen.css --style print.css --style guest4x6.css --style bw.css --postcard --input input/Test.xlsx --output report/postcards --file-by-guest --just-guest --hide-unused --hide-descriptions
 ./desc_tbl --help-markdown >> README.md
+
+Text to add to fix first column
+	<h1 style="break-before: column; break-after: column;">Cosplay</h1>
+	<h1 style="break-before: column; break-after: column;">America</h1>
