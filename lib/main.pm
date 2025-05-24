@@ -432,6 +432,7 @@ sub dump_grid_row_cell_group (
     my $cost = $panel->get_cost();
     if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
         my $url = $panel->get_ticket_sale();
+        $url = $options->get_workshop_ticket_link( $url ) if defined $url;
         if ( defined $url ) {
             $tdata->add_a(
                 {   href => $url,
@@ -961,6 +962,7 @@ sub dump_desc_panel_body (
     if ( defined $cost ) {
         $cost = q{(} . $cost . q{)} if $panel->get_uniq_id_part() != 1;
         my $url = $panel->get_ticket_sale();
+        $url = $options->get_workshop_ticket_link( $url ) if defined $url;
         if ( defined $url ) {
             $writer->add_a(
                 {   href => $url,

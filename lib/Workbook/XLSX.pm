@@ -61,7 +61,14 @@ sub get_line ( $self, $sheet_handle, $line_no ) {
     my @res;
     foreach my $col ( $columns[ 0 ] .. $columns[ 1 ] ) {
         my $cell  = $sheet_handle->get_cell( $line_no, $col );
-        my $value = defined $cell ? $cell->value() : undef;
+        my $raw   = defined $cell ? $cell->{ Formula } : undef;
+        my $value = defined $cell ? $cell->value()     : undef;
+        if ( defined $raw
+            && $raw
+            =~ m{ \A HYPERLINK \( " (?<url>[^"]+) " (?:, " (?<title>[^"]+) " )? \) \s*\z }xms
+        ) {
+            $value = $+{ url };
+        } ## end if ( defined $raw && $raw...)
         undef $value unless defined $value && $value =~ m{\S}xms;
         push @res, $value;
     } ## end foreach my $col ( $columns[...])

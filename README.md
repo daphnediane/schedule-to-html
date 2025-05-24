@@ -73,6 +73,8 @@ just install the dependencies using carton, carmel, or cpanm.
 | --just-judge                 | Hide descriptions for other presenters, implies --file-by-judge                                 |
 | --just-presenter             | Hide descriptions for other presenters, implies --file-by-presenter                             |
 | --just-staff                 | Hide descriptions for other presenters, implies --file-by-staff                                 |
+| --link-workshop              | Link to the workshop page, default                                                              |
+| --link-workshop-url _url_    | Link all workshops to _url_                                                                     |
 | --mode-flyer                 | Generate flyers, default mode                                                                   |
 | --mode-kiosk                 | Generate files for use in a realtime kiosk                                                      |
 | --mode-postcard              | Output for use in schedule postcards                                                            |
@@ -84,6 +86,7 @@ just install the dependencies using carton, carmel, or cpanm.
 | --no-file-by-judge           | Do not generate a file for each judge                                                           |
 | --no-file-by-presenter       | Do not generate a file for each presenter                                                       |
 | --no-file-by-staff           | Do not generate a file for each staff                                                           |
+| --no-link-workshop           | Do not link to the workshop page                                                                |
 | --no-section-by-guest        | Do not generate a section for each guest                                                        |
 | --no-section-by-judge        | Do not generate a section for each judge                                                        |
 | --no-section-by-presenter    | Do not generate a section for each presenter                                                    |

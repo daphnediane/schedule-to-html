@@ -55,7 +55,7 @@ main() {
     SRC_DATE="$(date -r "input/${EXCEL_FILE}" +'%b %d %I:%M %p')"
 
     # Generate new schedule
-    cmd ./dump_flyers --title "Cosplay America ${YEAR} Schedule Draft, Updated: ${SRC_DATE}"
+    cmd ./dump_flyers --title "Cosplay America ${YEAR} Schedule Draft, Updated: ${SRC_DATE}" --link-workshop-url "https://cosplayamerica.simpletix.com/"
 
     # Output schedule
     cmd rsync -aPHAX --delete-after "${OUTPUT_DIR}/" "${SRC_DIR}/COS${YEAR}Schedule/html/"

@@ -1254,6 +1254,40 @@ sub show_presenter_as_time ( $self ) {
     return;
 }
 
+## --link-workshop
+##     Link to the workshop page, default
+## --no-link-workshop
+##     Do not link to the workshop page
+## --link-workshop-url _url_
+##     Link all workshops to _url_
+
+Readonly our $OPT_LINK_ => q{link};
+
+push @opt_parse,
+    [ $OPT_LINK_, [ qw{ link-workshop } ],     $MOD_FLAG, q{} ],
+    [ $OPT_LINK_, [ qw{ no-link-workshop } ],  $MOD_FLAG, q{-} ],
+    [ $OPT_LINK_, [ qw{ link-workshop-url } ], $MOD_VALUE_STR ];
+
+push @opt_on_kiosk,
+    [ $OPT_LINK_, $MOD_FLAG, undef ];
+
+sub are_workshop_tickets_linked( $self ) {
+    my $value = $self->{ $OPT_LINK_ };
+    return   unless defined $value;
+    return 1 unless $value eq q{-};
+    return;
+} ## end sub are_workshop_tickets_linked
+
+sub get_workshop_ticket_link( $self, $url ) {
+    my $base_url = $self->{ $OPT_LINK_ };
+    return           if !defined $base_url;
+    return           if $base_url eq q{-};
+    return $base_url if $base_url ne q{};
+    return unless defined $url;
+    $url = $url->get_ticket_sale() if $url->can( q{get_ticket_sale} );
+    return $url;
+} ## end sub get_workshop_ticket_link
+
 ## --unified
 ##     Do not split table by SPLIT time segments or days
 ## --split-timeregion
