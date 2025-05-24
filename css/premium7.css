@@ -26,6 +26,13 @@ html {
     text-decoration: underline;
 }
 
+.descDuration {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: lighter;
+    font-style: italic;
+}
+
 .desc {
     break-before: none;
     break-inside: avoid;

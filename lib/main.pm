@@ -114,6 +114,7 @@ Readonly our $SUBCLASS_NEED_COST            => q{NeedCost};
 Readonly our $SUBCLASS_PIECE_COST           => q{Cost};
 Readonly our $SUBCLASS_PIECE_DESCRIPTION    => q{Description};
 Readonly our $SUBCLASS_PIECE_DESC_TBD       => q{DescTBD};
+Readonly our $SUBCLASS_PIECE_DURATION       => q{Duration};
 Readonly our $SUBCLASS_PIECE_DIFFICULTY     => q{Difficulty};
 Readonly our $SUBCLASS_PIECE_FULL           => q{FullLabel};
 Readonly our $SUBCLASS_PIECE_ID             => q{ID};
@@ -129,6 +130,9 @@ Readonly our $SUBCLASS_PIECE_ROOM           => q{RoomName};
 Readonly our $SUBCLASS_PIECE_START          => q{Start};
 
 Readonly our $LINK_SUFFIX_GRID => q{Grid};
+
+# @todo Make this an option
+Readonly our $MIN_PANEL_GAP => 900;    # 15 minutes
 
 # Grid headers
 Readonly our $HEADING_DAY  => q{Day};
@@ -954,7 +958,8 @@ sub dump_desc_panel_body (
     } ## end else [ if ( $options->show_sect_grid...)]
 
     my $cost = $panel->get_cost();
-    if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
+    if ( defined $cost ) {
+        $cost = q{(} . $cost . q{)} if $panel->get_uniq_id_part() != 1;
         my $url = $panel->get_ticket_sale();
         if ( defined $url ) {
             $writer->add_a(
@@ -977,7 +982,31 @@ sub dump_desc_panel_body (
                 $cost
             );
         } ## end else [ if ( defined $url ) ]
-    } ## end if ( defined $cost && ...)
+    } ## end if ( defined $cost )
+
+    if (   !$options->is_mode_kiosk()
+        && defined $panel->get_start_seconds()
+        && defined $panel->get_end_seconds() ) {
+        my $start = $panel->get_start_seconds();
+        my $end   = $panel->get_end_seconds();
+        if ( $panel->get_duration_seconds() > $MIN_PANEL_GAP
+            && has_immediate_next_panel( $panel ) ) {
+            $end -= $MIN_PANEL_GAP;
+        }
+        $writer->add_div(
+            {   out_class( join_subclass(
+                    $CLASS_DESC_BASE, $SUBCLASS_PIECE_DURATION
+                ) )
+            },
+            datetime_to_text( $start, qw{ time } )
+                . q{&mdash;}
+                . datetime_to_text(
+                $end,
+                qw{ time }
+                ),
+        );
+    } ## end if ( !$options->is_mode_kiosk...)
+
     if ( $options->is_mode_kiosk() ) {
         $writer->add_p(
             {   out_class( join_subclass(

@@ -14,6 +14,13 @@
     text-decoration: underline;
 }
 
+.descDuration {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: lighter;
+    font-style: italic;
+}
+
 .descTypeHeader {
     font-size: x-large
 }

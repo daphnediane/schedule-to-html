@@ -6,7 +6,7 @@ use v5.38.0;
 use utf8;
 
 use List::Util qw{ any };
-use Readonly qw{ Readonly };
+use Readonly   qw{ Readonly };
 
 use Canonical    qw{ :all };
 use Data::Room   qw{};
@@ -21,6 +21,7 @@ our @EXPORT_OK = qw {
     get_split_panels
     get_panels_by_start
     get_related_panels
+    has_immediate_next_panel
     get_prereq_panels
     read_from
     read_spreadsheet_file
@@ -241,6 +242,15 @@ sub get_related_panels ( $panel ) {
 
     return $panel;
 } ## end sub get_related_panels
+
+sub has_immediate_next_panel( $panel ) {
+    my $next_time = $panel->get_end_seconds();
+    my $panels    = $by_start_{ $next_time };
+    defined $panels
+        or return;
+    return 1 if $panel->are_sharing_rooms( @{ $panels } );
+    return;
+} ## end sub has_immediate_next_panel
 
 sub get_prereq_panels ( $panel ) {
     my @prereq = $panel->get_base_prereq_ids();

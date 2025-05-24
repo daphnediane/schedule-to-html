@@ -8,7 +8,7 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
 
     use Carp            qw{ croak };
     use Readonly        qw{ Readonly };
-    use List::MoreUtils qw{ all };
+    use List::MoreUtils qw{ any all };
     use Scalar::Util    qw{ reftype blessed };
     use Sub::Name       qw{ subname };
 
@@ -193,6 +193,13 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
     method get_rooms() {
         return @rooms;
     }
+
+    method are_sharing_rooms( @panels ) {
+        my %other_rooms
+            = map { $_->get_room_id() => 1 } map { $_->get_rooms() } @panels;
+        return 1 if any { $other_rooms{ $_->get_room_id() } } @rooms;
+        return;
+    } ## end sub are_sharing_rooms
 
     # MARK: description field
 
