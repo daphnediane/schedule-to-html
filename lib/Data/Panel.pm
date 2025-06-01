@@ -218,19 +218,20 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
     field $prereq_arg :param(prereq) //= undef;
     field @prereq;
     ADJUST {
+        my @prereq_in;
         if (   blessed $prereq_arg
             || !ref $prereq_arg
             || q{ARRAY} ne reftype $prereq_arg ) {
-            @prereq = ( $prereq_arg ) if defined $prereq_arg;
+            @prereq_in = ( $prereq_arg ) if defined $prereq_arg;
         }
         else {
-            @prereq = @{ $prereq_arg };
+            @prereq_in = @{ $prereq_arg };
         }
         $prereq_arg = undef;
         @prereq     = grep { $_ ne $id_base }
             map  { ( _uniq_to_base_type_remain( $_ ) )[ 0 ] }
-            map  { split m{[,;/]\s*}xms }
-            grep { defined } @prereq;
+            map  { split m{(?:[,;/]\s*|\s+)}xms }
+            grep { defined } @prereq_in;
     } ## end ADJUST
 
     method get_base_prereq_ids () {
