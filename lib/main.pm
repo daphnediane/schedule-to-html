@@ -430,7 +430,9 @@ sub dump_grid_row_cell_group (
     );
 
     my $cost = $panel->get_cost();
-    if ( defined $cost && $panel->get_uniq_id_part() == 1 ) {
+    if ( defined $cost ) {
+        $cost = q{(} . $cost . q{)}
+            unless $panel->get_uniq_id_is_first_part();
         my $url = $panel->get_ticket_sale();
         $url = $options->get_workshop_ticket_link( $url ) if defined $url;
         if ( defined $url ) {
@@ -456,7 +458,7 @@ sub dump_grid_row_cell_group (
                 $cost
             );
         } ## end else [ if ( defined $url ) ]
-    } ## end if ( defined $cost && ...)
+    } ## end if ( defined $cost )
 
     dump_panelist_list( $tdata, $CLASS_GRID_CELL_BASE, @credit_list );
 
@@ -752,21 +754,47 @@ sub dump_desc_panel_note ( $writer, $panel, $conflict ) {
 } ## end sub dump_desc_panel_note
 
 sub dump_desc_panel_parts ( $writer, $panel ) {
-    my $part   = $panel->get_uniq_id_part();
-    my @series = grep {
-        defined $_->get_start_seconds() && $_->get_uniq_id_part() != $part
-    } get_related_panels( $panel );
+
+    my @related = get_related_panels( $panel );
+    my @series;
+    if ( $panel->get_uniq_id_is_part() ) {
+        my $part = $panel->get_uniq_id_part_index();
+        my %part_map;
+        foreach my $related ( @related ) {
+            my $related_part = $related->get_uniq_id_part_index();
+            next if $related_part == $part;
+            push @{ $part_map{ $related_part } },
+                $related;
+        } ## end foreach my $related ( @related)
+
+        foreach my $related_part ( sort { $a <=> $b } keys %part_map ) {
+            my @sessions = sort {
+                       $a->get_start_seconds() <=> $b->get_start_seconds()
+                    || $a->get_room() <=> $b->get_room()
+                    || $a->get_uniq_id_session_index()
+                    <=> $b->get_uniq_id_session_index()
+            } @{ $part_map{ $related_part } };
+            my $label = q{Part } . $related_part;
+            push @series, [ $label, shift @sessions ];
+            $label = q{or } . $label;
+            push @series, map { [ $label, $_ ] } @sessions;
+        } ## end foreach my $related_part ( ...)
+    } ## end if ( $panel->get_uniq_id_is_part...)
+    elsif ( $panel->get_uniq_id_has_reruns() && 0 == scalar @series ) {
+        my $session  = $panel->get_uniq_id_session_index();
+        my @sessions = sort {
+                   $a->get_start_seconds() <=> $b->get_start_seconds()
+                || $a->get_room() <=> $b->get_room()
+                || $a->get_uniq_id_session_index()
+                <=> $b->get_uniq_id_session_index()
+        } grep { $_->get_uniq_id_session_index() != $session } @related;
+        push @series, map { [ q{Rerun at}, $_ ] } @sessions;
+    } ## end elsif ( $panel->get_uniq_id_has_reruns...)
+
     my @prereq = grep { defined $_->get_start_seconds() }
         get_prereq_panels( $panel );
 
     return if 0 == scalar @series && 0 == scalar @prereq;
-
-    my $series_type = $panel->get_uniq_id_is_part() ? q{Part } : q{Session };
-
-    @series = sort {
-               $a->get_uniq_id_part()  <=> $b->get_uniq_id_part()
-            || $a->get_start_seconds() <=> $b->get_start_seconds()
-    } @series;
 
     $writer->add_ul(
         {   out_class( join_subclass(
@@ -781,7 +809,7 @@ sub dump_desc_panel_parts ( $writer, $panel ) {
                         ) )
                     },
                     $h->a(
-                        { href => q{#} . $_->get_href_anchor() },
+                        { href => q{#} . $_->[ 1 ]->get_href_anchor() },
                         join q{ },
                         $h->span(
                             {   out_class( join_subclass(
@@ -789,7 +817,7 @@ sub dump_desc_panel_parts ( $writer, $panel ) {
                                     $SUBCLASS_PIECE_PARTS_NUM
                                 ) )
                             },
-                            $series_type . $_->get_uniq_id_part() . q{: }
+                            $_->[ 0 ] . q{: }
                         ),
                         $h->span(
                             {   out_class( join_subclass(
@@ -797,7 +825,9 @@ sub dump_desc_panel_parts ( $writer, $panel ) {
                                     $SUBCLASS_PIECE_PARTS_TIME
                                 ) )
                             },
-                            datetime_to_text( $_->get_start_seconds() )
+                            datetime_to_text(
+                                $_->[ 1 ]->get_start_seconds()
+                            )
                         )
                     )
                 )
@@ -960,7 +990,8 @@ sub dump_desc_panel_body (
 
     my $cost = $panel->get_cost();
     if ( defined $cost ) {
-        $cost = q{(} . $cost . q{)} if $panel->get_uniq_id_part() != 1;
+        $cost = q{(} . $cost . q{)}
+            unless $panel->get_uniq_id_is_first_part();
         my $url = $panel->get_ticket_sale();
         $url = $options->get_workshop_ticket_link( $url ) if defined $url;
         if ( defined $url ) {
@@ -1468,7 +1499,7 @@ sub dump_tables ( $filter ) {
 } ## end sub dump_tables
 
 sub dump_kiosk_desc ( $writer, $region ) {
-    die qq{Reqion required\n} unless defined $region;
+    die qq{Region required\n} unless defined $region;
 
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
 

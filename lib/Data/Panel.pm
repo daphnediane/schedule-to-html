@@ -108,8 +108,8 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
     field $id_base;
     field $id_type;
     field $id_number;
-    field $id_part_type  = q{};
-    field $id_part_index = 1;
+    field $id_session_index = undef;
+    field $id_part_index    = undef;
     field $id_remain;
 
     ADJUST {
@@ -117,10 +117,16 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
         ( $id_base, $id_type, $id_remain )
             = _uniq_to_base_type_remain( $uniq_id );
 
-        if ( $id_remain =~ s{ (?<type> [PS] ) (?<index> \d+ ) }{}xms ) {    ## no critic(RegularExpressions::ProhibitUnusedCapture)
-            $id_part_type  = $+{ type };
-            $id_part_index = 0 + $+{ index };
-        }
+        while ( $id_remain =~ s{ (?<type> [PS] ) (?<index> \d+ ) }{}xms ) {  ## no critic(RegularExpressions::ProhibitUnusedCapture)
+            my $type  = $+{ type };
+            my $index = 0 + $+{ index };
+            if ( $type eq q{P} ) {
+                $id_part_index = $index;
+            }
+            else {
+                $id_session_index = $index;
+            }
+        } ## end while ( $id_remain =~ ...)
     } ## end ADJUST
 
     method get_uniq_id () {
@@ -131,12 +137,28 @@ class Data::Panel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
         return $id_base;
     }
 
-    method get_uniq_id_part () {
-        return $id_part_index;
+    method get_uniq_id_is_part () {
+        return 1 if defined $id_part_index;
+        return;
     }
 
-    method get_uniq_id_is_part () {
-        return $id_part_type eq q{P} ? 1 : 0;
+    method get_uniq_id_part_index () {
+        return $id_part_index // 1;
+    }
+
+    method get_uniq_id_is_first_part () {
+        return 1 unless defined $id_part_index;
+        return 1 if $id_part_index == 1;
+        return;
+    }
+
+    method get_uniq_id_has_reruns () {
+        return 1 if defined $id_session_index;
+        return;
+    }
+
+    method get_uniq_id_session_index () {
+        return $id_session_index // 1;
     }
 
     # MARK: href_anchor field
