@@ -589,6 +589,10 @@ sub dump_grid_timeslice ( $writer, $filter, $region ) {
 
     # todo(dpfister) Filter for times?
 
+    if ( defined( my $room = $filter->get_selected_room() ) ) {
+        return unless $region->is_room_active( $room );
+    }
+
     my $room_focus_map = $region->room_focus_map_by_id(
         select_room => $filter->get_selected_room() // undef,
         $options->has_rooms()

@@ -142,6 +142,7 @@ args+=(
     --input input/Test.xlsx
     --output output/flyers/rooms
     --split-day
+    --copies 2
     --hide-unused-rooms
     --section-by-room
     --file-by-day
