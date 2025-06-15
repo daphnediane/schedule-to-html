@@ -5,6 +5,7 @@ use base qw{Exporter};
 use v5.38.0;
 use utf8;
 
+use List::MoreUtils qw{ any };
 use Readonly;
 
 use ActivePanel              qw{};
@@ -39,6 +40,7 @@ my @sort_regions_;
 sub add_starting_panels_ ( $state, $time, $panel ) {
     defined $panel
         or return;
+
     my $panel_type = $panel->get_panel_type();
     defined $panel_type
         or return;
@@ -98,33 +100,26 @@ sub process_time_slot_ ( $state, $time ) {
 
     update_ongoing_panels_( $state, $time );
 
-    my %timeslot_info;
-    foreach my $panel_state ( $state->get_all_active() ) {
-        my $panel   = $panel_state->get_active_panel();
-        my $room_id = $panel_state->get_room()->get_room_id();
-        $timeslot_info{ $room_id } = $panel_state;
+    if ( !$state->has_any_active() ) {
+        $state->add_empty_times( $time ) if $state->has_last_time();
+        return;
+    }
 
+    foreach my $panel_state ( $state->get_all_active() ) {
         $state->get_active_region()
             ->add_active_room( $panel_state->get_room() )
             unless $panel_state->get_is_break();
-    } ## end foreach my $panel_state ( $state...)
-
-    if ( %timeslot_info ) {
-        foreach my $empty ( $state->get_and_clear_empty_times() ) {
-            $state->get_active_region()
-                ->get_time_slot( $empty )
-                ->init_current();
-        }
-
-        $state->get_active_region()
-            ->get_time_slot( $time )
-            ->init_current( %timeslot_info );
-
-        $state->set_last_time( $time );
-    } ## end if ( %timeslot_info )
-    elsif ( $state->has_last_time() ) {
-        $state->add_empty_times( $time );
     }
+
+    foreach my $empty ( $state->get_and_clear_empty_times() ) {
+        $state->get_active_region()->get_time_slot( $empty )->init_current();
+    }
+
+    $state->get_active_region()
+        ->get_time_slot( $time )
+        ->init_current( $state->get_all_active() );
+
+    $state->set_last_time( $time );
     return;
 } ## end sub process_time_slot_
 
@@ -183,20 +178,23 @@ sub finalize_region_ ( $options, $state ) {
     my @times
         = reverse sort { $a <=> $b }
         $state->get_active_region()->get_unsorted_times();
-    my %next_panels = ();
+    my @next_panels = ();
 
     foreach my $time ( @times ) {
         my $time_slot = $state->get_active_region()->get_time_slot( $time );
 
         # Save current next panels
-        $time_slot->init_upcoming( %next_panels );
+        $time_slot->init_upcoming( @next_panels );
 
         # Update next panels
+        my @prev_next      = @next_panels;
         my @current_panels = grep { $_->get_start_seconds() == $time }
             $time_slot->get_all_current();
-        foreach my $panel_state ( @current_panels ) {
-            $next_panels{ $panel_state->get_room()->get_room_id() }
-                = $panel_state;
+        @next_panels = @current_panels;
+        foreach my $prev_next ( @next_panels ) {
+            push @next_panels, $prev_next
+                unless any { $_->get_room_id() == $prev_next->get_room_id() }
+                @current_panels;
         }
     } ## end foreach my $time ( @times )
 

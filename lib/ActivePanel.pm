@@ -13,6 +13,7 @@ class ActivePanel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
     # MARK: active_panel field
 
     field $panel :param(active_panel);
+    field $panel_uid;
     ADJUST {
         $panel isa Data::Panel
             or croak qq{active_panel must be Data::Panel\n};
@@ -20,6 +21,10 @@ class ActivePanel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
 
     method get_active_panel () {
         return $panel;
+    }
+
+    method get_internal_id () {
+        return $panel_uid //= $panel->get_panel_internal_id();
     }
 
     # MARK: is_break field

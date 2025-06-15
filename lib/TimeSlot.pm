@@ -6,56 +6,53 @@ class TimeSlot :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,Mod
 
     package TimeSlot;
 
-    use Carp qw{ croak };
+    use Carp            qw{ croak };
+    use List::MoreUtils qw{ any };
 
     use Data::RoomId qw{ to_room_id };
 
-    # MARK: current panels field
+    # MARK: current panels filed
 
-    field %current_panels;
+    field @current_panels;
 
-    method get_all_current () {
-        return values %current_panels;
+    method get_all_current() {
+        return @current_panels;
     }
 
-    method lookup_current ( $room ) {
-        my $id = to_room_id( $room );
-        defined $id
-            or return;
-
-        my $panel = $current_panels{ $id };
-        return $panel if defined $panel;
-        return;
-    } ## end sub lookup_current
-
-    method init_current( %panels ) {
-        ( !%current_panels )
-            or croak q{Current already set};
-        %current_panels = %panels;
+    method init_current( @panels ) {
+        @current_panels
+            && croak q{Current already set};
+        @current_panels = @panels;
         return $self;
     } ## end sub init_current
 
-    # MARK: upcoming panels field
+    method get_inactive_rooms_among ( @rooms ) {
+        my @res;
+        foreach my $room ( @rooms ) {
+            my $id = to_room_id( $room );
+            next if any { $_->get_room_id() == $id } @current_panels;
+            push @res, $room;
+        }
+        return @res;
+    } ## end sub get_inactive_rooms_among
 
-    field %upcoming_panels;
-
-    method get_all_upcoming () {
-        return values %upcoming_panels;
+    method get_inactive_rooms () {
+        require Table::Room;
+        return $self->get_inactive_rooms_among( Table::Room::all_rooms() );
     }
 
-    method lookup_upcoming ( $room ) {
-        my $id = to_room_id( $room );
-        defined $id
-            or return;
-        my $panel = $upcoming_panels{ $id };
-        return $panel if defined $panel;
-        return;
-    } ## end sub lookup_upcoming
+    # MARK: upcoming panels field
 
-    method init_upcoming( %panels ) {
-        %upcoming_panels
+    field @upcoming_panels;
+
+    method get_all_upcoming() {
+        return @upcoming_panels;
+    }
+
+    method init_upcoming( @panels ) {
+        @upcoming_panels
             && croak q{Upcoming already set};
-        %upcoming_panels = %panels;
+        @upcoming_panels = @panels;
         return $self;
     } ## end sub init_upcoming
 
@@ -65,7 +62,7 @@ class TimeSlot :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,Mod
         defined $presenter
             or return;
 
-        foreach my $panel_state ( values %current_panels ) {
+        foreach my $panel_state ( @current_panels ) {
             next unless defined $panel_state;
             my $panel = $panel_state->get_active_panel();
             return 1 if $panel->is_presenter_hosting( $presenter );
@@ -77,7 +74,7 @@ class TimeSlot :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,Mod
         defined $presenter
             or return;
 
-        foreach my $panel_state ( values %current_panels ) {
+        foreach my $panel_state ( @current_panels ) {
             next unless defined $panel_state;
             my $panel = $panel_state->get_active_panel();
             return 1 if $panel->is_presenter_credited( $presenter );
@@ -89,7 +86,7 @@ class TimeSlot :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,Mod
         defined $presenter
             or return;
 
-        foreach my $panel_state ( values %current_panels ) {
+        foreach my $panel_state ( @current_panels ) {
             next unless defined $panel_state;
             my $panel = $panel_state->get_active_panel();
             return 1 if $panel->is_presenter_unlisted( $presenter );

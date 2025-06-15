@@ -476,45 +476,75 @@ sub dump_grid_row_cell_group (
     return;
 } ## end sub dump_grid_row_cell_group
 
+sub dump_grid_cell_group_queue (
+    $writer,    $filter, $room_focus_map,
+    $time_slot, $panel_queue
+) {
+    my $rooms = delete $panel_queue->{ rooms };
+    my $state = delete $panel_queue->{ state };
+    return unless defined $rooms;
+    dump_grid_row_cell_group(
+        $writer, $filter, $room_focus_map, $time_slot,
+        $state,  @{ $rooms }
+    );
+} ## end sub dump_grid_cell_group_queue
+
 sub dump_grid_row_make_cell_groups (
     $writer,         $filter, $region,
     $room_focus_map, $time_slot
 ) {
 
-    my @room_queue;
-    my $last_room;
-    my $last_state;
+    my @panel_queue;
+    my %empty_queue = ();
+    push @panel_queue, \%empty_queue;
+    my %by_panel_uid;
+
+    my @panel_states = $time_slot->get_all_current();
 
     foreach my $room ( visible_rooms() ) {
         next
             unless $options->show_all_rooms()
             || $region->is_room_active( $room );
 
-        my $state = $time_slot->lookup_current( $room );
-        if (   scalar @room_queue
-            && defined $state
-            && defined $last_state
-            && $state->get_active_panel() == $last_state->get_active_panel()
-            && $state->get_start_seconds() == $last_state->get_start_seconds()
-            && $state->get_end_seconds() == $last_state->get_end_seconds() ) {
-            push @room_queue, $room;
+        my $room_id = $room->get_room_id();
+        my @panels  = grep { $_->get_room_id() == $room_id } @panel_states;
+
+        if ( 0 == scalar @panels ) {
+            dump_grid_cell_group_queue(
+                $writer,    $filter, $room_focus_map,
+                $time_slot, $_
+            ) foreach @panel_queue;
+            push @{ $empty_queue{ rooms } //= [] }, $room;
             next;
-        } ## end if ( scalar @room_queue...)
+        } ## end if ( 0 == scalar @panels)
 
-        dump_grid_row_cell_group(
-            $writer,     $filter, $room_focus_map, $time_slot,
-            $last_state, @room_queue
-        ) if @room_queue;
+        dump_grid_cell_group_queue(
+            $writer,    $filter, $room_focus_map,
+            $time_slot, \%empty_queue
+        );
 
-        @room_queue = ( $room );
-        $last_room  = $room;
-        $last_state = $state;
+        $_->{ to_dump } = 1 for @panel_queue;
+
+        foreach my $panel_state ( @panel_states ) {
+            next unless $panel_state->get_room_id() == $room_id;
+            my $uid   = $panel_state->get_internal_id();
+            my $queue = $by_panel_uid{ $uid } //= { to_add => 1 };
+            push @panel_queue, $queue if delete $queue->{ to_add };
+            $queue->{ to_dump } = 0;
+            $queue->{ state } //= $panel_state;
+            push @{ $queue->{ rooms } //= [] }, $room;
+        } ## end foreach my $panel_state ( @panel_states)
+
+        dump_grid_cell_group_queue(
+            $writer,    $filter, $room_focus_map,
+            $time_slot, $_
+        ) foreach grep { $_->{ to_dump } } @panel_queue;
     } ## end foreach my $room ( visible_rooms...)
 
-    dump_grid_row_cell_group(
-        $writer,     $filter, $room_focus_map, $time_slot,
-        $last_state, @room_queue
-    ) if @room_queue;
+    dump_grid_cell_group_queue(
+        $writer,    $filter, $room_focus_map,
+        $time_slot, $_
+    ) foreach @panel_queue;
 
     return;
 } ## end sub dump_grid_row_make_cell_groups
@@ -1603,16 +1633,26 @@ sub dump_kiosk_desc ( $writer, $region ) {
                 },
                 $name
             );
+            my $room_id = $room->get_room_id();
+
+            # @TODO: This does not happen sub panels being active
+            my ( $current_panel )
+                = grep { $_->get_room_id() == $room_id }
+                $time_slot->get_all_current();
+            my ( $upcoming_panel )
+                = grep { $_->get_room_id() == $room_id }
+                $time_slot->get_all_upcoming();
+
             dump_desc_panel_body(
                 $room_row,
                 Data::Partition->unfiltered(), $time_slot,
-                $time_slot->lookup_current( $room ) // undef,
+                $current_panel,
                 $CLASS_KIOSK_DESC_CELL_CURRENT
             );
             dump_desc_panel_body(
                 $room_row,
                 Data::Partition->unfiltered(), $time_slot,
-                $time_slot->lookup_upcoming( $room ) // undef,
+                $upcoming_panel,
                 $CLASS_KIOSK_DESC_CELL_FUTURE
             );
         } ## end foreach my $room ( @region_rooms)

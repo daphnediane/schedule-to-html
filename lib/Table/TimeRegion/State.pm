@@ -119,7 +119,7 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
 
     method get_inactive_rooms () {
         require Table::Room;
-        return get_inactive_rooms_among( Table::Room::all_rooms() );
+        return $self->get_inactive_rooms_among( Table::Room::all_rooms() );
     }
 
     method add_active_panel ( $new_active //= undef ) {
@@ -138,7 +138,7 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
         @active_panels = grep {
                    $_->get_room_id() != $id
                 || $_->get_end_seconds()
-                <= $time
+                > $time
         } @active_panels;
         push @active_panels, $new_active;
         return $self;
