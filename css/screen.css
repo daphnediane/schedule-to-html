@@ -1,3 +1,7 @@
+.blankPage {
+    display: none;
+}
+
 .descriptions {
     column-count: auto;
     column-width: 25em;

@@ -16,5 +16,6 @@ html {
 
 .descriptions {
     column-count: auto;
+    column-fill: auto;
     column-width: 25em;
 }

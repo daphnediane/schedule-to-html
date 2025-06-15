@@ -23,37 +23,42 @@ html {
 
 }
 
+.schedule {
+    gap: 2px;
+    background-color: #999;
+    border-width: 2px;
+    border-style: solid;
+    border-color: #999;
+}
+
 .schedHeader {
     background-color: #000;
     color: #fff;
 }
 
 .schedRoomEmpty {
-    background-color: #ccc
+    background-color: #ccc;
+    /*
+    border-width: thin;
+    border-style: solid;
+    border-color: #fff;
+    */
 }
 
-.schedule td {
+.schedule .panel {
+    /*
     border-width: thin;
     border-style: solid;
     border-color: #000;
+    */
 }
 
-.schedule td.schedHeader {
-    border-width: thin;
-    border-style: solid;
-    border-color: #ccc
-}
-
-.schedule th.schedHeader {
-    border-width: thin;
-    border-style: solid;
-    border-color: #ccc
-}
-
-.schedule th {
+.schedHeader {
+    /*
     border-width: thin;
     border-style: solid;
     border-color: #000;
+    */
 }
 
 /* Overrides */

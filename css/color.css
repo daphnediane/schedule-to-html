@@ -31,7 +31,12 @@ html {
 
 .schedRowTimeSlot {
     border-top: medium groove rgba(183, 235, 248, .5);
-    border-bottom: medium groove rgba(183, 235, 248, .5)
+    /*border-bottom: medium groove rgba(183, 235, 248, .5);*/
+}
+
+.schedRoomEmpty {
+    border-top: medium groove rgba(183, 235, 248, .5);
+    /*border-bottom: medium groove rgba(183, 235, 248, .5);*/
 }
 
 /* Overrides */

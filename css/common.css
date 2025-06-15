@@ -2,6 +2,15 @@ html {
     font-family: 'Avenir LT W01_55 Roman1475520', Avenir, nunito-sans, Arial, Helvetica, sans-serif;
 }
 
+:root {
+    --day-width: minmax(4.5em, auto);
+    --time-width: minmax(4.5em, auto);
+    --room-width: 1fr;
+    --header-height: auto;
+    /*--time-height: auto;*/
+    --footer-height: auto;
+}
+
 .desc a {
     text-decoration: none;
     display: block;
@@ -128,9 +137,8 @@ html {
 .panel {
     vertical-align: top;
     break-inside: avoid;
-    z-index: -1;
+    z-index: 1;
     position: relative;
-    height: 3em
 }
 
 .panelID {
@@ -152,19 +160,6 @@ html {
     /*text-decoration: underline;*/
 }
 
-.schedColumnDay {
-    width: 8%
-}
-
-.schedColumnsRoom {
-    width: 11.5%
-}
-
-.schedColumnTime {
-    min-width: 4.5em;
-    width: 8%
-}
-
 .schedHeader {
     font-family: 'Trade Gothic LT W01 Bold', 'Trade Gothic', nunito-sans, Arial, Helvetica, sans-serif;
     font-weight: 700;
@@ -175,22 +170,13 @@ html {
     z-index: 998;
 }
 
-.schedRoomEmpty {
-    height: 3em
-}
-
-.schedRowHeaders .schedColumnTime {
-    z-index: 999
-}
-
-.schedule tfoot {
+.schedRowFooters {
     display: none
 }
 
 .schedule {
+    display: grid;
     border-collapse: collapse;
-    margin-top: 1em;
-    table-layout: fixed;
 }
 
 tr.descPanelRow {

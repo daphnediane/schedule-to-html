@@ -14,14 +14,16 @@ our @EXPORT_OK = qw{
     text_to_duration
     datetime_to_text
     datetime_to_kiosk_id
+    datetime_to_grid_id
     same_day
     mark_timepoint_seen
     get_timepoints
 };
 our %EXPORT_TAGS = (
-    all        => [ @EXPORT_OK ],
-    from_text  => [ qw{ text_to_datetime text_to_duration  } ],
-    to_text    => [ qw{ datetime_to_text datetime_to_kiosk_id } ],
+    all       => [ @EXPORT_OK ],
+    from_text => [ qw{ text_to_datetime text_to_duration  } ],
+    to_text   =>
+        [ qw{ datetime_to_text datetime_to_kiosk_id datetime_to_grid_id } ],
     utility    => [ qw{ same_day } ],
     timepoints => [ qw{ mark_timepoint_seen get_timepoints } ],
 );
@@ -102,6 +104,20 @@ sub datetime_to_kiosk_id ( $time ) {
     }
     return ( ( $day * $HOUR_PER_DAY ) + $hour ) * $MIN_PER_HOUR + $min;
 } ## end sub datetime_to_kiosk_id
+
+sub datetime_to_grid_id ( $time ) {
+    state %solved_times;
+    state %seen_time;
+    return $solved_times{ $time } if exists $solved_times{ $time };
+
+    my $grid_time = strftime q{%A-%I%M%p}, localtime $time;
+
+    if ( exists $seen_time{ $grid_time } ) {
+        $grid_time .= q{-} . $time;
+    }
+    $seen_time{ $grid_time } //= 1;
+    return $solved_times{ $time } = $grid_time;
+} ## end sub datetime_to_grid_id
 
 sub same_day ( $time1, $time2 ) {
     defined $time1

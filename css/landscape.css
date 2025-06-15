@@ -4,6 +4,7 @@
 
 html {
 	column-count: 2;
+	column-fill: auto;
 	column-span: none;
 }
 
@@ -17,11 +18,8 @@ html {
 	font-size: 6.7px !important;
 }
 
-.schedHeader {
-	height: 3em;
-}
-
 .descriptions {
 	font-size: 7.3pt;
 	column-count: 2;
+	column-fill: auto;
 }

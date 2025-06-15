@@ -23,6 +23,15 @@ sub nested_selector ( $self, @content ) {
     return $child;
 } ## end sub nested_selector
 
+sub nested_property ( $self, $property ) {
+    my $class = blessed $self || $self;
+    my $child = $class->new();
+    $property =~ s{:\s*\z}{}xms;
+    $property =~ s{\s*\z}{}xms;
+    $self->WriteLevel::nested( [ $property . q[:] ], $child, [ qw[;] ] );
+    return $child;
+} ## end sub nested_property
+
 sub get_write_level ( $self ) {
     return $self;
 }

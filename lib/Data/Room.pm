@@ -109,7 +109,7 @@ class Data::Room {    ## no critic (Modules::RequireEndWithOne,Modules::RequireE
             && $sort_key <= $HIDDEN_SORT_KEY;
     } ## end ADJUST
 
-    method get_sort_key ( ) {
+    method _get_sort_key ( ) {
         return $sort_key if defined $sort_key;
 
         return $sort_key = $HIDDEN_SORT_KEY if $is_split || $is_break;
@@ -122,7 +122,7 @@ class Data::Room {    ## no critic (Modules::RequireEndWithOne,Modules::RequireE
         ++$sort_key_used[ $sort_key ];
 
         return $sort_key;
-    } ## end sub get_sort_key ( )
+    } ## end sub _get_sort_key ( )
 
     # MARK: is_hidden field
 
@@ -176,6 +176,48 @@ class Data::Room {    ## no critic (Modules::RequireEndWithOne,Modules::RequireE
         return;
     } ## end sub find_by_room_id
 
+    # MARK: uniq name
+
+    our %css_grid_conflicts;
+    our %css_grid_used;
+    field $css_grid_name;
+
+    sub _to_css_grid_name_candidate ( $name ) {
+        return unless defined $name;
+        $name = lc $name;
+        $name =~ s{ \W+ }{-}xmsg;
+        $name =~ s{ \A -+ }{}xms;
+        $name =~ s{ -+ \z }{}xms;
+        return $name if $name ne q{};
+        return;
+    } ## end sub _to_css_grid_name_candidate
+    ADJUST {
+        foreach my $name (
+            map { _to_css_grid_name_candidate( $_ ) } $short_name,
+            $long_name, $hotel_room
+        ) {
+            ++$css_grid_conflicts{ $name };
+        } ## end foreach my $name ( map { _to_css_grid_name_candidate...})
+    } ## end ADJUST
+
+    method get_css_grid_name() {
+        return $css_grid_name if defined $css_grid_name;
+
+        foreach my $name (
+            map { _to_css_grid_name_candidate( $_ ) } $short_name,
+            $long_name, $hotel_room,
+            ( join q{-}, $long_name, $self->_get_sort_key() ),
+            ( join q{-}, $long_name, $uid )
+        ) {
+            next if $css_grid_used{ $name };
+            next if 1 < ( $css_grid_conflicts{ $name } //= 1 );
+            $css_grid_used{ $name } = 1;
+            return $css_grid_name = q{room-} . $name;
+        } ## end foreach my $name ( map { _to_css_grid_name_candidate...})
+
+        return $css_grid_name = q{uid-room-} . $uid;
+    } ## end sub get_css_grid_name
+
     # MARK: compare
 
     method compare ( $other, $swap //= undef ) {
@@ -191,7 +233,7 @@ class Data::Room {    ## no critic (Modules::RequireEndWithOne,Modules::RequireE
         my $rhs = $swap ? $self  : $other;
 
         return
-               $lhs->get_sort_key() <=> $rhs->get_sort_key()
+               $lhs->_get_sort_key() <=> $rhs->_get_sort_key()
             || $lhs->get_long_room_name() cmp $rhs->get_long_room_name()
             || $lhs->get_room_id() <=> $rhs->get_room_id();
     } ## end sub compare

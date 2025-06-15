@@ -7,6 +7,9 @@ html {
   background-color: black;
 }
 
+:root {
+  --time-width: 3em;
+}
 ::-webkit-scrollbar {
   display: none;
 }
@@ -97,15 +100,6 @@ html {
   background-color: #18191C;
   color: #00BCDD;
   text-align: center;
-}
-
-.schedColumnTime {
-  width: 3em;
-}
-
-.schedColumnsRoom {
-  min-width: calc((890px - 3em) / 8);
-  width: calc((100vw - 3em) / 8);
 }
 
 .schedRowTimeSlot {

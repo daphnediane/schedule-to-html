@@ -135,7 +135,6 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
             next unless defined $active;
             next if $split_time >= $active->get_end_seconds();
             my $new_state = $active->clone();
-            $new_state->set_rows( 0 );
             $new_state->set_start_time( $split_time );
             $active->truncate_end_seconds( $split_time );
             $active_by_room{ $active->get_room_id() } = $new_state;

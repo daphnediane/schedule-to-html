@@ -19,4 +19,5 @@
 .descriptions {
     font-size: 13px;
     column-count: 6;
+    column-fill: auto;
 }

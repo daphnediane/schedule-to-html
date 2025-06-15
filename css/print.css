@@ -6,6 +6,29 @@
     font-weight: lighter
 }
 
+.blankPage {
+    column-span: all;
+    font-size: 120px;
+    text-align: center;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    vertical-align: middle;
+    break-after: page;
+    height: 95vh;
+    width: 95vw;
+}
+
+.schedule {
+    height: calc(100vh - 4px);
+    gap: 1px;
+    overflow: hidden;
+}
+
+.descriptions {
+    break-after: page;
+}
+
 .schedHeader {
     vertical-align: middle
 }

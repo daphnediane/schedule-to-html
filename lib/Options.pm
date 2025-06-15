@@ -1428,14 +1428,26 @@ sub get_pre_title ( $self ) {
 
 ## --copies _number_
 ##     How many copies in the same html
+## --blank-first
+##     Add a blank page at the start
+## --no-blank-first
+##     Don't add a blank page at the start
 
-Readonly our $OPT_COPIES_ => q{copies};
+Readonly our $OPT_COPIES_     => q{copies};
+Readonly our $OPT_BLANK_PAGE_ => q{blank};
 
 push @opt_parse,
-    [ $OPT_COPIES_, [ qw{ copies } ], $MOD_VALUE_NUM ];
+    [ $OPT_COPIES_,     [ qw{ copies } ],       $MOD_VALUE_NUM ],
+    [ $OPT_BLANK_PAGE_, [ qw{ blank-first } ],  $MOD_FLAG, 1 ],
+    [ $OPT_BLANK_PAGE_, [ qw{ !blank-first } ], $MOD_FLAG, 0 ];
 
 sub get_copies ( $self ) {
     return $self->{ $OPT_COPIES_ } || 1;
+}
+
+sub should_create_blank_page_at_start ( $self ) {
+    return 1 if $self->{ $OPT_BLANK_PAGE_ };
+    return;
 }
 
 sub register_option_ ( $known, @names ) {

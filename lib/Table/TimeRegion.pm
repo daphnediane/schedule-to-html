@@ -60,7 +60,6 @@ sub add_starting_panels_ ( $state, $time, $panel ) {
 
         $state->add_active_panel( ActivePanel->new(
             active_panel => $panel,
-            rows         => 0,
             start_time   => $time,
             end_time     => $panel->get_end_seconds(),
             room         => $room,
@@ -87,7 +86,6 @@ sub update_ongoing_panels_ ( $state, $time ) {
 
         my $panel_state = ActivePanel->new(
             active_panel => $active_break,
-            rows         => 0,
             start_time   => $time,
             end_time     => $active_break->get_end_seconds(),
             room         => $room,
@@ -113,8 +111,6 @@ sub process_time_slot_ ( $state, $time ) {
         my $panel   = $panel_state->get_active_panel();
         my $room_id = $panel_state->get_room()->get_room_id();
         $timeslot_info{ $room_id } = $panel_state;
-
-        $panel_state->increment_rows();
 
         $state->get_active_region()
             ->add_active_room( $panel_state->get_room() )

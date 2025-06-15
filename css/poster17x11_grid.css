@@ -5,7 +5,14 @@
 
 html {
     column-count: 3;
+    column-fill: auto;
     column-span: none;
+}
+
+:root {
+    --day-width: minmax(4.5em, auto);
+    --time-width: minmax(4.5em, auto);
+    --room-width: 1fr;
 }
 
 .schedule {
@@ -14,19 +21,10 @@ html {
     font-size: 8.5px;
 }
 
-.schedHeader {
-    height: 3em;
-}
-
-.schedColumnsRoom {
-    width: 0.65in;
-    min-width: 0.65in;
-    max-width: 0.65in;
-}
-
 .descriptions {
     font-size: 7.3pt;
     column-count: 2;
+    column-fill: auto;
 }
 
 .longPanelist {

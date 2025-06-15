@@ -4,6 +4,7 @@
 
 html {
     column-count: 2;
+	column-fill: auto;
     column-span: none;
 }
 
@@ -43,10 +44,6 @@ html {
 
 .scheduleSunday {
     font-size: 12px;
-}
-
-.schedHeader {
-    height: 3em;
 }
 
 .descriptions {

@@ -14,14 +14,11 @@ html {
     font-size: 7px;
 }
 
-.schedHeader {
-    height: 3em;
-}
-
 .descriptions {
     page-break-before: always;
     break-before: page;
     column-count: 4;
+	column-fill: auto;
     font-size: 7pt;
 }
 

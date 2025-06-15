@@ -4,6 +4,7 @@
 
 html {
     column-count: 2;
+	column-fill: auto;
     column-span: none;
 }
 
@@ -45,12 +46,9 @@ html {
     font-size: 12px;
 }
 
-.schedHeader {
-    height: 3em;
-}
-
 .descriptions {
     -webkit-column-break-before: always;
     font-size: 11px;
     column-count: 2;
+	column-fill: auto;
 }

@@ -22,30 +22,6 @@ class ActivePanel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
         return $panel;
     }
 
-    # MARK: rows field
-
-    field $rows :param(rows) //= 0;
-    ADJUST {
-        $rows =~ m{^(?:0|[1-9]\d*)\z}xms
-            or croak qq{rows must be integer\n};
-    }
-
-    method get_rows () {
-        return $rows;
-    }
-
-    method set_rows ( $new_rows ) {
-        $rows = $new_rows;
-        return $rows;
-    }
-
-    method increment_rows ( $amount //= 1 ) {
-        $amount =~ m{^-?(?:0|[1-9]\d*)\z}xms
-            or croak qq{amount must be integer\n};
-        $rows += $amount;
-        return $rows;
-    } ## end sub increment_rows
-
     # MARK: is_break field
 
     field $is_break :param(is_break) //= 0;
@@ -84,7 +60,6 @@ class ActivePanel :isa(TimeRange) {    ## no critic (Modules::RequireEndWithOne,
         return (
             $self->SUPER::clone_args(),
             active_panel => $panel,
-            rows         => $rows,
             ( defined $is_break ? ( is_break => $is_break ) : () ),
             room => $room,
         );

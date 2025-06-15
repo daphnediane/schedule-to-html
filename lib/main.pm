@@ -56,6 +56,7 @@ Readonly our $COMMENT_STYLE_START    => q{/* "};
 Readonly our $COMMENT_STYLE_END      => q{" */};
 
 # CSS Classes
+Readonly our $CLASS_BLANK_PAGE               => q{blankPage};
 Readonly our $CLASS_DESC_BASE                => q{desc};
 Readonly our $CLASS_DESC_PANEL_ROW           => q{descPanelRow};
 Readonly our $CLASS_DESC_SECTION             => q{descriptions};
@@ -75,11 +76,9 @@ Readonly our $CLASS_GRID_CELL_PRESENTER_BUSY => q{schedTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_CELL_ROOM_NAME      => q{schedRoomName};
 Readonly our $CLASS_GRID_CELL_TIME_SLOT      => q{schedTimeSlot};
 Readonly our $CLASS_GRID_CELL_UNFOCUS        => q{roomUnfocus};
-Readonly our $CLASS_GRID_COLUMN_DAY          => q{schedColumnDay};
 Readonly our $CLASS_GRID_COLUMN_FMT_ROOM_IDX => q{schedColumnRoom%s};
-Readonly our $CLASS_GRID_COLUMN_ROOM         => q{schedColumnsRoom};
-Readonly our $CLASS_GRID_COLUMN_TIME         => q{schedColumnTime};
 Readonly our $CLASS_GRID_ROW_HEADER          => q{schedRowHeaders};
+Readonly our $CLASS_GRID_ROW_FOOTER          => q{schedRowFooters};
 Readonly our $CLASS_GRID_ROW_PRESENTER_BUSY  => q{schedRowTimeSlotGuestBusy};
 Readonly our $CLASS_GRID_ROW_TIME_SLOT       => q{schedRowTimeSlot};
 Readonly our $CLASS_GRID_TABLE               => q{schedule};
@@ -175,24 +174,27 @@ sub room_focus_class ( $room_focus_map, @rooms ) {
     return;
 } ## end sub room_focus_class
 
-sub dump_grid_row_room_names ( $writer, $filter, $region, $room_focus_map ) {
-    my $is_head = $writer->get_tag() =~ m{ thead [.] tr \z }xms;
-
+sub dump_grid_row_room_names (
+    $writer, $row_class, $filter, $region,
+    $room_focus_map
+) {
     if ( $options->show_day_column() ) {
-        $writer->add_th(
+        $writer->add_div(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
-                    $is_head ? $CLASS_GRID_COLUMN_DAY : ()
-                )
+                    $row_class,
+                ),
+                style => qq{grid-column: day; grid-row: ${row_class};},
             },
             $HEADING_DAY
         );
     } ## end if ( $options->show_day_column...)
-    $writer->add_th(
+    $writer->add_div(
         {   out_class(
                 $CLASS_GRID_CELL_HEADER,
-                $is_head ? $CLASS_GRID_COLUMN_TIME : ()
-            )
+                $row_class
+            ),
+            style => qq{grid-column: time; grid-row: ${row_class};},
         },
         $options->show_presenter_as_time()
             && defined $filter->get_selected_presenter()
@@ -211,18 +213,18 @@ sub dump_grid_row_room_names ( $writer, $filter, $region, $room_focus_map ) {
         {
             $name = $name . $h->br() . $h->i( $hotel );
         }
-        $writer->add_th(
+
+        my $room_col = $room->get_css_grid_name();
+
+        $writer->add_div(
             {   out_class(
                     $CLASS_GRID_CELL_HEADER,
-                    $CLASS_GRID_COLUMN_ROOM,
                     $CLASS_GRID_CELL_ROOM_NAME,
+                    $row_class,
                     room_focus_class( $room_focus_map, $room ),
-                    $is_head
-                    ? ( sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
-                        $room->get_sort_key()
-                        )
-                    : (),
-                )
+                ),
+                style =>
+                    qq{grid-column: ${room_col}; grid-row: ${row_class};},
             },
             $name
         );
@@ -231,49 +233,49 @@ sub dump_grid_row_room_names ( $writer, $filter, $region, $room_focus_map ) {
     return;
 } ## end sub dump_grid_row_room_names
 
-sub dump_grid_header ( $writer, $filter, $region, $room_focus_map ) {
-    $writer = $writer->nested_table( {
+sub dump_grid_header ( $webpage, $writer, $filter, $region, $room_focus_map )
+{
+    my $region_class = join_subclass(
+        $CLASS_GRID_TABLE,
+        canonical_class( $region->get_region_name() )
+    );
+    $writer = $writer->nested_div( {
         out_class(
             $CLASS_GRID_TABLE,
-            join_subclass(
-                $CLASS_GRID_TABLE,
-                canonical_class( $region->get_region_name() )
-            )
+            $region_class,
         )
     } );
-
-    my $colgroup = $writer->nested_colgroup();
+    my $css   = $webpage->get_css_style();
+    my $style = $css->nested_selector( q{.} . $region_class );
+    my $grid_columns
+        = $style->nested_property( qw{ grid-template-columns: } );
 
     if ( $options->show_day_column() ) {
-        $colgroup->add_col( { out_class( $CLASS_GRID_COLUMN_DAY ) } );
+        $grid_columns->add_line( q{[day] var(--day-width, auto)} );
     }
-    $colgroup->add_col( { out_class( $CLASS_GRID_COLUMN_TIME ) } );
+    $grid_columns->add_line( q{[time] var(--time-width, auto)} );
 
     foreach my $room ( visible_rooms() ) {
         next
             unless $options->show_all_rooms()
             || $region->is_room_active( $room );
 
-        $colgroup->add_col( {
-            out_class(
-                sprintf $CLASS_GRID_COLUMN_FMT_ROOM_IDX,
-                $room->get_sort_key()
-            )
-        } );
+        my $room_col = $room->get_css_grid_name();
+        $grid_columns->add_line(
+            q{[} . $room_col . q{] var(--room-width, 1fr)} );
     } ## end foreach my $room ( visible_rooms...)
 
-    my $head = $writer->nested_thead()
-        ->nested_tr( { out_class( $CLASS_GRID_ROW_HEADER ) } );
-    dump_grid_row_room_names( $head, $filter, $region, $room_focus_map );
+    dump_grid_row_room_names(
+        $writer, $CLASS_GRID_ROW_HEADER, $filter, $region,
+        $room_focus_map
+    );
 
-    my $body = $writer->nested_tbody();
+    dump_grid_row_room_names(
+        $writer, $CLASS_GRID_ROW_FOOTER, $filter, $region,
+        $room_focus_map
+    );
 
-    my $footer = $writer->nested_tfoot()
-        ->nested_tr( { out_class( $CLASS_GRID_ROW_HEADER ) } );
-
-    dump_grid_row_room_names( $footer, $filter, $region, $room_focus_map );
-
-    return $body;
+    return ( $style, $writer );
 } ## end sub dump_grid_header
 
 sub css_subclasses_for_panel ( $panel ) {
@@ -343,9 +345,16 @@ sub dump_grid_row_cell_group (
         or return;
 
     if ( !defined $panel_state ) {
-        foreach ( @rooms ) {
-            $writer->add_td( { out_class( $CLASS_GRID_CELL_EMPTY ) } );
-        }
+        my $grid_row = datetime_to_grid_id( $time_slot->get_start_seconds() );
+        foreach my $room ( @rooms ) {
+            my $grid_col = $room->get_css_grid_name();
+            $writer->add_div(
+                {   out_class( $CLASS_GRID_CELL_EMPTY ),
+                    style =>
+                        qq{grid-column: ${grid_col}; grid-row: ${grid_row};},
+                },
+            );
+        } ## end foreach my $room ( @rooms )
         return;
     } ## end if ( !defined $panel_state)
 
@@ -353,14 +362,8 @@ sub dump_grid_row_cell_group (
     my $panel = $panel_state->get_active_panel();
 
     if ( $panel_state->get_start_seconds() != $time ) {
-        foreach ( @rooms ) {
-            $writer->add_line(
-                $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
-                $COMMENT_CONTINUE_END
-            );
-        } ## end foreach ( @rooms )
         return;
-    } ## end if ( $panel_state->get_start_seconds...)
+    }
 
     my $first_room = $rooms[ 0 ];
 
@@ -387,19 +390,24 @@ sub dump_grid_row_cell_group (
     push @subclasses,
         room_focus_class( $room_focus_map, @rooms );
 
-    my $row_span = $panel_state->get_rows() // 1;
-    my $col_span = @rooms                   // 1;
-    my @spans;
-    push @spans, rowspan => $row_span if $row_span > 1;
-    push @spans, colspan => $col_span if $col_span > 1;
+    my $grid_column = $first_room->get_css_grid_name();
+    if ( scalar @rooms > 1 ) {
+        my $start_id = $grid_column . q{-start};
+        my $end_id   = $rooms[ -1 ]->get_css_grid_name() . q{-end};
+        $grid_column = join q{-}, $start_id, $end_id;
+    }
+    my $end_time  = $panel_state->get_end_seconds();
+    my $grid_rows = join q{ / }, map { datetime_to_grid_id( $_ ) } (
+        $time,
+        $end_time
+    );
 
-    my $tdata = $writer->nested_td( {
-        id => $panel->get_href_anchor() . $LINK_SUFFIX_GRID,
-        @spans,
+    my $tdata = $writer->nested_div( {
+        id    => $panel->get_href_anchor() . $LINK_SUFFIX_GRID,
+        style => qq{grid-column: ${grid_column}; grid-row: ${grid_rows};},
         out_class(
-            $CLASS_GRID_COLUMN_ROOM,
             map { join_subclass( $CLASS_GRID_CELL_BASE, $_ ) } @subclasses
-        )
+        ),
     } );
 
     $tdata = $tdata->nested_a( { href => q{#} . $panel->get_href_anchor() } )
@@ -462,14 +470,6 @@ sub dump_grid_row_cell_group (
 
     dump_panelist_list( $tdata, $CLASS_GRID_CELL_BASE, @credit_list );
 
-    shift @rooms;
-    foreach ( @rooms ) {
-        $writer->add_line(
-            $COMMENT_CONTINUE_START, $panel->get_uniq_id(),
-            $COMMENT_CONTINUE_END
-        );
-    } ## end foreach ( @rooms )
-
     return;
 } ## end sub dump_grid_row_cell_group
 
@@ -493,8 +493,7 @@ sub dump_grid_row_make_cell_groups (
             && defined $last_state
             && $state->get_active_panel() == $last_state->get_active_panel()
             && $state->get_start_seconds() == $last_state->get_start_seconds()
-            && $state->get_end_seconds() == $last_state->get_end_seconds()
-            && $last_state->get_rows() == $state->get_rows() ) {
+            && $state->get_end_seconds() == $last_state->get_end_seconds() ) {
             push @room_queue, $room;
             next;
         } ## end if ( scalar @room_queue...)
@@ -526,7 +525,6 @@ sub dump_grid_row_time (
     my @time_row_classes = $CLASS_GRID_ROW_TIME_SLOT;
     my @time_classes     = (
         $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_TIME_SLOT,
-        $CLASS_GRID_COLUMN_TIME,
     );
 
     if ( defined $filter->get_selected_presenter() ) {
@@ -537,22 +535,24 @@ sub dump_grid_row_time (
         }
     } ## end if ( defined $filter->...)
 
-    my $time_id = q{sched_id_} . datetime_to_kiosk_id( $time );
-
-    $writer = $writer->nested_tr(
-        { out_class( @time_row_classes ), id => $time_id } );
+    my $time_id      = q{sched_id_} . datetime_to_kiosk_id( $time );
+    my $grid_time_id = datetime_to_grid_id( $time );
 
     if ( $options->show_day_column() ) {
-        $writer->add_th(
+        $writer->add_div(
             {   out_class(
-                    $CLASS_GRID_CELL_HEADER, $CLASS_GRID_CELL_DAY,
-                    $CLASS_GRID_COLUMN_DAY
-                )
+                    $CLASS_GRID_CELL_HEADER,
+                    $CLASS_GRID_CELL_DAY,
+                    @time_row_classes,
+                ),
+                style => qq{grid-column: row; grid-row: ${grid_time_id};},
             },
             datetime_to_text( $time, qw{ day } )
         );
-        $writer->add_th(
-            { out_class( @time_classes ) },
+        $writer->add_div(
+            {   out_class( @time_row_classes, @time_classes ),
+                style => qq{grid-column: time; grid-row: ${grid_time_id};},
+            },
             datetime_to_text( $time, qw{ time } )
         );
     } ## end if ( $options->show_day_column...)
@@ -565,9 +565,13 @@ sub dump_grid_row_time (
             push @before_time, $day, $h->br();
             $region->set_day_being_output( $day );
         }
-        $writer->add_th(
-            { out_class( @time_classes ) },
-            join q{}, @before_time, $tm
+        $writer->add_div(
+            {   out_class( @time_row_classes, @time_classes ),
+                style => qq{grid-column: time; grid-row: ${grid_time_id};},
+            },
+            join q{},
+            @before_time,
+            $tm
         );
     } ## end else [ if ( $options->show_day_column...)]
 
@@ -579,7 +583,7 @@ sub dump_grid_row_time (
     return;
 } ## end sub dump_grid_row_time
 
-sub dump_grid_timeslice ( $writer, $filter, $region ) {
+sub dump_grid_timeslice ( $webpage, $writer, $filter, $region ) {
     $region->set_day_being_output( q{} );
     my @times = sort { $a <=> $b } $region->get_unsorted_times();
     $region->set_last_output_time( $times[ -1 ] );
@@ -600,13 +604,26 @@ sub dump_grid_timeslice ( $writer, $filter, $region ) {
         : ()
     );
 
-    $writer = dump_grid_header( $writer, $filter, $region, $room_focus_map );
+    my $grid_style;
+    ( $grid_style, $writer ) = dump_grid_header(
+        $webpage, $writer, $filter, $region,
+        $room_focus_map
+    );
+    my $grid_rows = $grid_style->nested_property( qw{ grid-template-rows: } );
+    $grid_rows->add_line(
+        qq{[${CLASS_GRID_ROW_HEADER}] var(--header-height, auto)} );
+
     foreach my $time ( @times ) {
+        my $grid_time_id = datetime_to_grid_id( $time );
+        $grid_rows->add_line( qq{[${grid_time_id}] var(--time-height, 1fr)} );
         dump_grid_row_time(
             $writer, $filter, $region, $room_focus_map,
             $region->get_time_slot( $time )
         );
     } ## end foreach my $time ( @times )
+
+    $grid_rows->add_line(
+        qq{[${CLASS_GRID_ROW_FOOTER}] var(--footer-height, auto)} );
 
     return;
 } ## end sub dump_grid_timeslice
@@ -1295,7 +1312,7 @@ sub close_dump_file ( $writer, $ofname ) {
     return;
 } ## end sub close_dump_file
 
-sub dump_styles ( $writer ) {
+sub dump_styles ( $webpage ) {
     foreach my $style ( $options->get_styles() ) {
         my $is_html = $style =~ m{.html?\z}xms;
         my $fname   = $style;
@@ -1308,7 +1325,7 @@ sub dump_styles ( $writer ) {
         }
 
         if ( $is_html ) {
-            my $style_out = $writer->get_html_style();
+            my $style_out = $webpage->get_html_style();
 
             my $lines = cache_inline_style( $fname );
             foreach my $line ( @{ $lines } ) {
@@ -1334,7 +1351,7 @@ sub dump_styles ( $writer ) {
                     =~ m{\A ( [#] [[:xdigit:]]++ | inherit | black | white | rgba? [(] .* ) \z}xms;
 
                 if ( !defined $style_out ) {
-                    $style_out = $writer->get_css_style( $media );
+                    $style_out = $webpage->get_css_style( $media );
                     $style_out->add_line(
                         $COMMENT_STYLE_START, $style,
                         $COMMENT_STYLE_END
@@ -1359,7 +1376,7 @@ sub dump_styles ( $writer ) {
                     if $line =~ m{\A \s* /[*] (?:[^*]++:[*][^/])*+ [*]/ }xms;
 
                 if ( !defined $style_out ) {
-                    $style_out = $writer->get_css_style( $media );
+                    $style_out = $webpage->get_css_style( $media );
                     $style_out->add_line(
                         $COMMENT_STYLE_START, $style,
                         $COMMENT_STYLE_END
@@ -1370,7 +1387,7 @@ sub dump_styles ( $writer ) {
             } ## end foreach my $line ( @{ $lines...})
         } ## end elsif ( $options->is_css_loc_embedded...)
         else {
-            my $style_out = $writer->get_html_style();
+            my $style_out = $webpage->get_html_style();
 
             $style_out->add_link( {
                 href => $fname,
@@ -1412,7 +1429,7 @@ sub dump_file_header ( $writer, $filter ) {
     return;
 } ## end sub dump_file_header
 
-sub dump_table_regions ( $writer, $filter ) {
+sub dump_table_regions ( $webpage, $writer, $filter ) {
     my $need_desc = $options->show_sect_descriptions();
     my $any_desc_shown;
     my $desc_are_last = $options->is_desc_loc_last();
@@ -1429,7 +1446,7 @@ sub dump_table_regions ( $writer, $filter ) {
 
     if ( $options->show_sect_grid() ) {
         foreach my $region ( @regions ) {
-            dump_grid_timeslice( $writer, $filter, $region );
+            dump_grid_timeslice( $webpage, $writer, $filter, $region );
             next unless $need_desc;
             next if $desc_are_last;
 
@@ -1449,11 +1466,17 @@ sub dump_table_regions ( $writer, $filter ) {
 } ## end sub dump_table_regions
 
 sub dump_tables ( $filter ) {
-    my ( $writer, $ofname ) = open_dump_file( $filter );
+    my ( $webpage, $ofname ) = open_dump_file( $filter );
 
-    dump_file_header( $writer, $filter );
+    dump_file_header( $webpage, $filter );
 
-    dump_styles( $writer );
+    dump_styles( $webpage );
+
+    if ( $options->should_create_blank_page_at_start() ) {
+        $webpage->get_body()
+            ->add_div( { out_class( $CLASS_BLANK_PAGE ) },
+            q{This page is intentionally blank} );
+    }
 
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(
@@ -1492,12 +1515,15 @@ sub dump_tables ( $filter ) {
 
     for my $copy ( 1 .. $options->get_copies() ) {
         foreach my $section_filter ( @filters ) {
-            dump_table_regions( $writer->get_body(), $section_filter );
-        }
+            dump_table_regions(
+                $webpage, $webpage->get_body(),
+                $section_filter
+            );
+        } ## end foreach my $section_filter ...
 
     } ## end for my $copy ( 1 .. $options...)
 
-    close_dump_file( $writer, $ofname );
+    close_dump_file( $webpage, $ofname );
 
     return;
 } ## end sub dump_tables
@@ -1589,28 +1615,28 @@ sub dump_kiosk_desc ( $writer, $region ) {
 } ## end sub dump_kiosk_desc
 
 sub dump_kiosk () {
-    my ( $writer, $ofname )
+    my ( $webpage, $ofname )
         = open_dump_file( Data::Partition->unfiltered(), q{kiosk} );
 
-    $writer->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
+    $webpage->get_before_html()->add_line( $HTML_DOCTYPE_HTML );
 
-    $writer->get_head()->add_meta( { charset => $HTML_CHARSET_UTF8 } );
-    $writer->get_head()
+    $webpage->get_head()->add_meta( { charset => $HTML_CHARSET_UTF8 } );
+    $webpage->get_head()
         ->add_meta( { name => $HTML_APP_OKAY, content => $HTML_YES } );
-    $writer->get_head()->add_title( $options->get_title() );
-    $writer->get_head()->add_link( {
+    $webpage->get_head()->add_title( $options->get_title() );
+    $webpage->get_head()->add_link( {
         href => q{css/kiosk.css},
         rel  => $HTML_STYLESHEET,
         type => $HTML_TEXT_CSS
     } );
 
-    dump_styles( $writer );
+    dump_styles( $webpage );
 
-    $writer->get_head()
+    $webpage->get_head()
         ->add_script( { type => q{text/javascript}, src => q{js/kiosk.js} } );
 
     my $bar
-        = $writer->get_body()
+        = $webpage->get_body()
         ->nested_div( { out_class( $CLASS_KIOSK_BAR ) } );
     $bar->add_img( {
         out_class( $CLASS_KIOSK_LOGO ),
@@ -1621,23 +1647,24 @@ sub dump_kiosk () {
         { out_class( $CLASS_KIOSK_TIME ), id => q{current_time} } )
         ->add_line( q{SOMEDAY ##:## ?M} );
 
-    $writer->get_body()
+    $webpage->get_body()
         ->add_div( { out_class( $CLASS_KIOSK_GRID_HEADERS ) } );
-    my $regions_div = $writer->get_body()
+    my $regions_div = $webpage->get_body()
         ->nested_div( { out_class( $CLASS_KIOSK_GRID_ROWS ) } );
 
     foreach my $region ( get_time_regions() ) {
         dump_grid_timeslice(
+            $webpage,
             $regions_div, Data::Partition->unfiltered(),
             $region
         );
     } ## end foreach my $region ( get_time_regions...)
 
     foreach my $region ( get_time_regions() ) {
-        dump_kiosk_desc( $writer->get_body(), $region );
+        dump_kiosk_desc( $webpage->get_body(), $region );
     }
 
-    close_dump_file( $writer, $ofname );
+    close_dump_file( $webpage, $ofname );
 
     return;
 } ## end sub dump_kiosk

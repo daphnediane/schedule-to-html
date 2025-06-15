@@ -4,6 +4,7 @@
 
 html {
 	column-count: 3;
+	column-fill: auto;
 	column-span: none;
 }
 
@@ -13,13 +14,10 @@ html {
 	font-size: 6.2px;
 }
 
-.schedHeader {
-	height: 3em;
-}
-
 .descriptions {
 	font-size: 6px;
 	column-count: 2;
+	column-fill: auto;
 }
 
 .longPanelist {

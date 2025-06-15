@@ -4,6 +4,7 @@
 
 html {
     column-count: 6;
+    column-fill: auto;
     column-span: none;
 }
 
