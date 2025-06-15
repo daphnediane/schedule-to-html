@@ -1,207 +1,144 @@
-package WriteLevel::WebPage;
-
-use Object::InsideOut;
-
-use v5.38.0;
+use v5.38.0;    ## no critic (Modules::ProhibitExcessMainComplexity)
 use utf8;
+use Feature::Compat::Class;
 
-use Carp       qw{ croak };
-use HTML::Tiny qw{};
-use List::Util qw{ any };
+class WriteLevel::WebPage {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage)
+    use Carp       qw{ croak };
+    use HTML::Tiny qw{};
+    use List::Util qw{ any };
 
-use WriteLevel       qw{};
-use WriteLevel::CSS  qw{};
-use WriteLevel::HTML qw{};
+    use WriteLevel       qw{};
+    use WriteLevel::CSS  qw{};
+    use WriteLevel::HTML qw{};
 
-## no critic (ProhibitUnusedVariables)
+    field $formatter :param(formatter) //=
+        HTML::Tiny->new( mode => qw{ html } );
 
-my @html_
-    :Field
-    :Type(HTML::Tiny)
-    :Default(HTML::Tiny->new( mode => q{html} ))
-    :Arg(name => q{formatter})
-    :Get(Name => q{get_formatter});
-
-my @whole_page_
-    :Field
-    :Set(Name => q{set_before_}, Restricted => 1)
-    :Get(Name => q{get_before_});
-
-my @head_
-    :Field
-    :Set(Name => q{set_head_}, Restricted => 1)
-    :Get(Name => q{get_head_});
-
-my @style_
-    :Field
-    :Set(Name => q{set_style_field_}, Restricted => 1)
-    :Get(Name => q{get_style_field_}, Restircted => 1);
-
-my @style_is_css_
-    :Field
-    :Set(Name => q{set_style_is_css_}, Restricted => 1)
-    :Get(Name => q{get_style_is_css_}, Restircted => 1);
-
-my @style_base_
-    :Field
-    :Set(Name => q{set_style_base_}, Restricted => 1)
-    :Get(Name => q{get_style_base_}, Restircted => 1);
-
-my @active_media_
-    :Field
-    :Set(Name => q{set_active_media_}, Restricted => 1)
-    :Get(Name => q{get_active_media_}, Restircted => 1);
-
-my @active_style_
-    :Field
-    :Set(Name => q{set_active_style_}, Restricted => 1)
-    :Get(Name => q{get_active_style_}, Restircted => 1);
-
-my @body_
-    :Field
-    :Set(Name => q{set_body_}, Restricted => 1)
-    :Get(Name => q{get_body_}, Restircted => 1);
-
-## use critic
-
-sub get_before_html ( $self ) {
-    my $writer = $self->get_before_();
-    return $writer if defined $writer;
-    my $h = $self->get_formatter();
-    $writer = WriteLevel::HTML->new(
-        formatter => $h,
-        tag       => q{},
-    );
-    $self->set_before_( $writer );
-    return $writer;
-} ## end sub get_before_html
-
-sub get_head ( $self ) {
-    my $writer = $self->get_head_();
-    return $writer if defined $writer;
-    my $h = $self->get_formatter();
-    $writer = WriteLevel::HTML->new(
-        formatter => $h,
-        tag       => qw{ html.head },
-    );
-    $self->set_head_( $writer );
-    return $writer;
-} ## end sub get_head
-
-sub get_head_style_ ( $self ) {
-    my $writer = $self->get_style_field_();
-    return $writer if defined $writer;
-    my $h = $self->get_formatter();
-    $writer = WriteLevel::HTML->new(
-        formatter => $h,
-        tag       => qw{ html.head },
-    );
-    $self->set_style_field_( $writer );
-    return $writer;
-} ## end sub get_head_style_
-
-sub get_html_style ( $self ) {
-    my $active = $self->get_active_style_();
-    if ( defined $active && !$self->get_style_is_css_() ) {
-        return $active;
+    method get_formatter () {
+        return $formatter;
     }
 
-    $active = $self->get_head_style_()->nested_inline();
-    $self->set_style_is_css_( 0 );
-    $self->set_style_base_( $active );
-    $self->set_active_style_( $active );
-    return $active;
-} ## end sub get_html_style
+    field $whole_page;
 
-sub get_css_style ( $self, $media ) {
-    $media //= q{};
+    method get_before_html () {
+        return $whole_page //= WriteLevel::HTML->new(
+            formatter => $formatter,
+            tag       => q{},
+        );
+    } ## end sub get_before_html
 
-    my $base        = $self->get_style_base_();
-    my $media_style = $self->get_active_style_();
+    field $head;
 
-    if ( !defined $base || !$self->get_style_is_css_() ) {
-        $base = $self->get_head_style_()->nested_style();
-        $self->set_style_is_css_( 1 );
-        $self->set_active_media_( q{} );
-        $self->set_style_base_( $base );
-        $self->set_active_style_( $base );
-        $media_style = $base;
-    } ## end if ( !defined $base ||...)
+    method get_head () {
+        return $head //= WriteLevel::HTML->new(
+            formatter => $formatter,
+            tag       => qw{ html.head },
+        );
+    } ## end sub get_head
 
-    if ( $media ne $self->get_active_media_() ) {
-        $media_style
-            = $media eq q{}
-            ? $base
-            : $base->nested_selector( q{@}, q{media }, $media );
-        $self->set_active_media_( $media );
-        $self->set_active_style_( $media_style );
-    } ## end if ( $media ne $self->...)
+    field $style;
 
-    return $media_style;
-} ## end sub get_css_style
+    method _get_head_style() {
+        return $style //= WriteLevel::HTML->new(
+            formatter => $formatter,
+            tag       => qw{ html.head },
+        );
+    } ## end sub _get_head_style
 
-sub get_body ( $self ) {
-    my $writer = $self->get_body_();
-    return $writer if defined $writer;
-    my $h = $self->get_formatter();
-    $writer = WriteLevel::HTML->new(
-        formatter => $h,
-        tag       => qw{ html.body },
-    );
-    $self->set_body_( $writer );
-    return $writer;
-} ## end sub get_body
+    field $style_is_css;
+    field $style_base;
+    field $active_style;
 
-sub write_to ( $self, $fh //= \*STDOUT, $level //= 0 ) {
-    my $before = $self->get_before_();
-    my $head   = $self->get_head_();
-    my $style  = $self->get_head_style_();
-    my $body   = $self->get_body_();
+    method get_html_style () {
+        return $active_style if defined $active_style && !$style_is_css;
 
-    my $need_head_element = any { defined } $head, $style;
-    my $need_html         = $need_head_element || defined $body;
+        $active_style = $self->_get_head_style()->nested_inline();
+        $style_is_css = 0;
+        $style_base   = $active_style;
+        return $active_style;
+    } ## end sub get_html_style
 
-    $before->write_to( $fh, $level ) if defined $before;
+    field $active_media;
 
-    $need_html
-        or return;
+    method get_css_style ( $media //= q{} ) {
+        if ( !defined $style_base || !$style_is_css ) {
+            $style_base   = $self->_get_head_style()->nested_style();
+            $style_is_css = 1;
+            $active_media = q{};
+            $active_style = $style_base;
+        } ## end if ( !defined $style_base...)
 
-    my $h = $self->get_formatter();
+        if ( $media ne $active_media ) {
+            $active_style
+                = $media eq q{}
+                ? $style_base
+                : $style_base->nested_selector( q{@}, q{media }, $media );
+            $active_media = $media;
+        } ## end if ( $media ne $active_media)
 
-    print { $fh } ( ( qq{\t} x $level ), $h->open( qw{ html } ), qq{\n} )
-        or croak q{Unable to open html};
-    ++$level;
+        return $active_style;
+    } ## end sub get_css_style
 
-    if ( $need_head_element ) {
-        print { $fh } ( ( qq{\t} x $level ), $h->open( qw{ head } ), qq{\n} )
-            or croak q{Unable to open html head};
-        ++$level;
+    field $body;
 
-        $head->write_to( $fh, $level )  if defined $head;
-        $style->write_to( $fh, $level ) if defined $style;
+    method get_body () {
+        return $body //= WriteLevel::HTML->new(
+            formatter => $formatter,
+            tag       => qw{ html.body },
+        );
+    } ## end sub get_body
 
-        --$level;
-        print { $fh } ( ( qq{\t} x $level ), $h->close( qw{ head } ), qq{\n} )
-            or croak q{Unable to close html head};
-
-    } ## end if ( $need_head_element)
-
-    if ( defined $body ) {
-        print { $fh } ( ( qq{\t} x $level ), $h->open( qw{ body } ), qq{\n} )
+    method _write_head_to ( $fh, $level ) {
+        print { $fh }
+            ( ( qq{\t} x $level ), $formatter->open( qw{ head } ), qq{\n} )
             or croak q{Unable to open body};
-        ++$level;
 
-        $body->write_to( $fh, $level );
+        $head->write_to( $fh, 1 + $level )  if defined $head;
+        $style->write_to( $fh, 1 + $level ) if defined $style;
 
-        --$level;
-        print { $fh } ( ( qq{\t} x $level ), $h->close( qw{ body } ), qq{\n} )
+        print { $fh }
+            ( ( qq{\t} x $level ), $formatter->close( qw{ head } ), qq{\n} )
             or croak q{Unable to close body};
-    } ## end if ( defined $body )
+    } ## end sub _write_head_to
 
-    --$level;
-    print { $fh } ( ( qq{\t} x $level ), $h->close( qw{ html } ), qq{\n} )
-        or croak q{Unable to close html};
+    method _write_body_to ( $fh, $level ) {
+        print { $fh }
+            ( ( qq{\t} x $level ), $formatter->open( qw{ body } ), qq{\n} )
+            or croak q{Unable to open body};
 
-    return;
-} ## end sub write_to
+        $body->write_to( $fh, 1 + $level );
+
+        print { $fh }
+            ( ( qq{\t} x $level ), $formatter->close( qw{ body } ), qq{\n} )
+            or croak q{Unable to close body};
+    } ## end sub _write_body_to
+
+    method write_to ( $fh //= \*STDOUT, $level //= 0 ) {
+        my $need_head_element = any { defined } $head, $style;
+        my $need_html         = $need_head_element || defined $body;
+
+        $whole_page->write_to( $fh, $level ) if defined $whole_page;
+
+        $need_html
+            or return;
+
+        print { $fh }
+            ( ( qq{\t} x $level ), $formatter->open( qw{ html } ), qq{\n} )
+            or croak q{Unable to open html};
+
+        if ( $need_head_element ) {
+            $self->_write_head_to( $fh, 1 + $level );
+        }
+
+        if ( defined $body ) {
+            $self->_write_body_to( $fh, 1 + $level );
+        }
+
+        print { $fh }
+            ( ( qq{\t} x $level ), $formatter->close( qw{ html } ), qq{\n} )
+            or croak q{Unable to close html};
+
+    } ## end sub write_to
+} ## end package WriteLevel::WebPage
+
 1;

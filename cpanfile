@@ -6,7 +6,6 @@ requires 'Feature::Compat::Class';
 requires 'File::Slurp';
 requires 'HTML::Tiny';
 requires 'List::MoreUtils';
-requires 'Object::InsideOut';
 requires 'Object::Pad';    # For older perls
 requires 'Readonly';
 requires 'Spreadsheet::ParseXLSX';

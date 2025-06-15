@@ -1,96 +1,59 @@
-package Workbook::Sheet;
-
-use Object::InsideOut;
-
-use v5.38.0;
+use v5.38.0;    ## no critic (Modules::ProhibitExcessMainComplexity)
 use utf8;
+use Feature::Compat::Class;
 
-use English qw( -no_match_vars );
+class Workbook::Sheet {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage)
+    use English qw( -no_match_vars );
+    use Carp    qw{ croak };
 
-## no critic (ProhibitUnusedVariables)
+    field $workbook :param(workbook);
+    field $sheet :param(sheet) //= 0;
+    field $sheet_handle;
+    field $next_row;
+    field $last_row;
+    field $is_open;
 
-my @workbook
-    :Field
-    :Arg(Name => q{workbook}, Mandatory => 1)
-    :Set(Name => q{set_workbook_}, Restricted => 1)
-    :Get(Name => q{get_workbook});
+    ADJUST {
+        $sheet_handle = $workbook->find_sheet_handle( $sheet )
+            if defined $workbook;
+        ( $next_row, $last_row ) = $workbook->get_line_range( $sheet_handle )
+            if defined $sheet_handle;
+        undef $sheet_handle unless defined $last_row;
+        undef $workbook     unless defined $sheet_handle;
+        $is_open = 1 if defined $sheet_handle;
+    } ## end ADJUST
 
-my @sheet
-    :Field
-    :Type(scalar)
-    :Default(0)
-    :Arg(Name => q{sheet})
-    :Get(Name => q{get_sheet});
+    method get_workbook () {
+        return $workbook;
+    }
 
-my @sheet_handle
-    :Field
-    :Set(Name => q{set_sheet_handle_}, Restricted => 1)
-    :Get(Name => q{get_sheet_handle_});
+    method get_sheet () {
+        return $sheet;
+    }
 
-my @next_row
-    :Field
-    :Type(scalar)
-    :Set(Name=>q{set_next_row_}, Restricted => 1)
-    :Get(Name=>q{get_next_row_}, Restricted => 1);
+    method release () {
+        $workbook     = undef;
+        $sheet_handle = undef;
+        $is_open      = 0;
+        return $self;
+    } ## end sub release
 
-my @last_row
-    :Field
-    :Type(scalar)
-    :Set(Name=>q{set_last_row_}, Restricted => 1)
-    :Get(Name=>q{get_last_row_}, Restricted => 1);
+    method get_next_line () {
+        defined $workbook
+            or return;
+        defined $sheet_handle
+            or return;
 
-my @is_open
-    :Field
-    :Type(scalar)
-    :Set(Name => q{set_is_open_}, Restricted => 1)
-    :Get(Name => q{get_is_open});
+        return if $next_row > $last_row;
+        my $row = $next_row;
+        ++$next_row;
+        return $workbook->get_line( $sheet_handle, $row );
+    } ## end sub get_next_line
 
-## use critic
-
-sub release ( $self ) {
-    $self->set_workbook_( undef );
-    $self->set_sheet_handle_( undef );
-    return;
-}
-
-sub init_ :Init {
-    my ( $self ) = @_;
-
-    my $wb = $self->get_workbook();
-    if ( !defined $wb ) {
+    method get_is_open() {
+        return 1 if $is_open;
         return;
     }
-    my $sheet_handle = $wb->find_sheet_handle( $self->get_sheet() );
-    if ( !defined $sheet_handle ) {
-        $self->release();
-        return;
-    }
-    $self->set_sheet_handle_( $sheet_handle );
-
-    my ( $first_row, $last_row ) = $wb->get_line_range( $sheet_handle );
-    if ( !defined $last_row ) {
-        $self->release();
-        return;
-    }
-    $self->set_next_row_( $first_row );
-    $self->set_last_row_( $last_row );
-    $self->set_is_open_( 1 );
-
-    return;
-} ## end sub init_
-
-sub get_next_line ( $self ) {
-    my $wb = $self->get_workbook();
-    defined $wb
-        or return;
-    my $sheet_handle = $self->get_sheet_handle_();
-    defined $sheet_handle
-        or return;
-
-    my $row = $self->get_next_row_();
-    return if $row > $self->get_last_row_();
-    $self->set_next_row_( $row + 1 );
-    return $wb->get_line( $sheet_handle, $row );
-} ## end sub get_next_line
+} ## end package Workbook::Sheet
 
 1;

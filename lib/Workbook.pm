@@ -1,55 +1,66 @@
-package Workbook;
-
-use Object::InsideOut;
-
-use v5.38.0;
+use v5.38.0;    ## no critic (Modules::ProhibitExcessMainComplexity)
 use utf8;
+use Feature::Compat::Class;
 
-## no critic (ProhibitUnusedVariables)
+class Workbook {    ## no critic (Modules::RequireEndWithOne,Modules::RequireExplicitPackage)
+    use Carp qw{ croak };
 
-my @filename
-    :Field Arg(Name => q{filename}, Mandatory => 1)
-    :Get(Name => q{get_filename});
+    # MARK: filename field
 
-my @default_sheet
-    :Field
-    :Type(scalar)
-    :Arg(Name => q{default_sheet})
-    :Set(Name => q{set_default_sheet})
-    :Get(Name => q{get_default_sheet});
+    field $filename :param( filename );
 
-my @is_open
-    :Field
-    :Type(scalar)
-    :Set(Name => q{set_is_open_}, Restricted => 1)
-    :Get(Name => q{get_is_open});
+    method get_filename () { return $filename; }
 
-## use critic
+    # MARK: default_sheet field
 
-sub class_for_args_ :MergeArgs {
-    my ( $class, $args ) = @_;
+    field $default_sheet :param( default_sheet ) //= undef;
 
-    if ( $args->{ filename } =~ m{[.]xlsx(?: : \d+ )?\z}xms ) {
-        return q{Workbook::XLSX};
+    method get_default_sheet () { return $default_sheet; }
+
+    method set_default_sheet ( $new_default_sheet ) {
+        $default_sheet = $new_default_sheet;
+        return $self;
     }
-    return q{Workbook::UnicodeText};
-} ## end sub class_for_args_
 
-sub new ( $class, @args ) {
-    $class = ref $class || $class;
+    sub create ( $class, %args ) {
+        my $filename      = delete $args{ filename };
+        my $default_sheet = delete $args{ default_sheet };
 
-    if ( $class eq q{Workbook} ) {
-        $class = $class->class_for_args_( @args );
-        my $class_file = $class;
-        $class_file =~ s{::}{/}xmsg;
-        $class_file .= q{.pm};
-        require $class_file;
-    } ## end if ( $class eq q{Workbook})
-    return $class->Object::InsideOut::new( @args );
-} ## end sub new
+        defined $filename
+            or croak q{Workbook->create() requires either a filename};
 
-sub sheet ( $self, $sheet //= $self->get_default_sheet() ) {
-    require Workbook::Sheet;
-    return Workbook::Sheet->new( workbook => $self, sheet => $sheet );
-}
+        if ( $filename =~ s{ : (?<sheet> [^:]+ ) \z }{}xms ) {
+            $default_sheet //= $+{ sheet };
+        }
+
+        if ( $filename =~ m{[.]xlsx\z}xmsi ) {
+            require Workbook::XLSX;
+            my $res = Workbook::XLSX->new(
+                %args,
+                filename      => $filename,
+                default_sheet => $default_sheet,
+            );
+            $res->init();
+            return $res;
+        } ## end if ( $filename =~ m{[.]xlsx\z}xmsi)
+
+        require Workbook::UnicodeText;
+        my $res = Workbook::UnicodeText->new(
+            %args,
+            filename      => $filename,
+            default_sheet => $default_sheet,
+        );
+        $res->init();
+        return $res;
+    } ## end sub create
+
+    method sheet ( $sheet //= undef ) {
+        require Workbook::Sheet;
+        return Workbook::Sheet->new(
+            workbook => $self,
+            sheet    => $sheet // $default_sheet,
+        );
+    } ## end sub sheet
+} ## end package Workbook
+
 1;

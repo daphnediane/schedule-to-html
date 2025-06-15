@@ -123,7 +123,6 @@ RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
     File::Slurp \
     HTML::Tiny \
     List::MoreUtils \
-    Object::InsideOut \
     Perl::Critic \
     Perl::Critic::TooMuchCode \
     Perl::Tidy \

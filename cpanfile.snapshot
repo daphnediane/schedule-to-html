@@ -623,6 +623,7 @@ DISTRIBUTIONS
       Feature::Compat::Class 0.07
     requirements:
       Module::Build 0.4004
+      Object::Pad 0.806
       perl 5.014
   File-Listing-6.16
     pathname: P/PL/PLICEASE/File-Listing-6.16.tar.gz
@@ -1585,29 +1586,6 @@ DISTRIBUTIONS
       OLE::Storage_Lite::PPS::Root 0.22
     requirements:
       ExtUtils::MakeMaker 0
-  Object-InsideOut-4.05
-    pathname: J/JD/JDHEDDEN/Object-InsideOut-4.05.tar.gz
-    provides:
-      Bundle::Object::InsideOut 4.05
-      Object::InsideOut 4.05
-      Object::InsideOut::Exception 4.05
-      Object::InsideOut::Metadata 4.05
-      Object::InsideOut::Results 4.05
-      Object::InsideOut::Secure 4.05
-      Object::InsideOut::Util 4.05
-      Term::YAPI 4.05
-    requirements:
-      B 0
-      Config 0
-      Data::Dumper 0
-      Exception::Class 1.22
-      Scalar::Util 1.63
-      Test::More 0.5
-      attributes 0
-      overload 0
-      perl v5.6.0
-      strict 0
-      warnings 0
   Object-Pad-0.820
     pathname: P/PE/PEVANS/Object-Pad-0.820.tar.gz
     provides:

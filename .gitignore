@@ -24,9 +24,13 @@ css/index.html
 !.vscode
 .vscode/*
 !.vscode/launch.json
+!.vscode/settings.json
 
 # Do not include our logo
 kiosk/images/*
+
+# Do not include vendor for now
+/vendor
 
 !.clang-format
 !.devcontainer

@@ -303,8 +303,8 @@ sub read_from ( $wb ) {
 } ## end sub read_from
 
 sub read_spreadsheet_file ( $filename ) {
-    my $wb = Workbook->new( filename => $filename );
-    if ( !defined $wb || !$wb->get_is_open() ) {
+    my $wb = Workbook->create( filename => $filename );
+    if ( !defined $wb ) {
         die q{Unable to read }, $filename, qq{\n};
     }
 
