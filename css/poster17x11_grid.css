@@ -26,8 +26,40 @@ html {
     width: calc(32vw - 4px);
 }
 
+.scheduleSunday {
+    min-height: 64vh;
+}
+
 .panel {
     overflow: hidden;
+}
+
+.schedRoomName {
+    font-size: 0.37vw;
+}
+
+#GM001Grid,
+#GP006Grid,
+#ME001Grid,
+#PL021Grid,
+#GP008Grid,
+#GP012Grid,
+#GW023Grid {
+    font-size: 0.45vw;
+}
+
+#GW003P1Grid,
+#GW003P2Grid,
+#GW003P3Grid,
+#GP007Grid,
+#PL015Grid,
+#GP009Grid,
+#GP011Grid {
+    font-size: 0.4vw;
+}
+
+#GP021Grid {
+    font-size: 0.37vw;
 }
 
 .descriptions {

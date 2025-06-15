@@ -99,3 +99,14 @@ html {
 .panelTypeBR {
     background-color: #999;
 }
+
+/* Work arounds */
+
+#FD001S1Grid,
+#FD001S2Grid,
+#FD001S3Grid,
+#FD001S4Grid {
+    border-width: thin;
+    border-style: solid;
+    border-color: #000;
+}

@@ -207,3 +207,9 @@ tr.descPanelRow {
 .roomUnfocus {
     opacity: .3
 }
+
+/* Work arounds */
+
+#FD001S1Grid, #FD001S2Grid, #FD001S3Grid, #FD001S4Grid {
+    z-index: 10;
+}
