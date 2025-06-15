@@ -18,7 +18,16 @@ html {
 .schedule {
     column-span: none;
     break-before: column;
-    font-size: 8.5px;
+    font-size: 8.0px;
+    /*
+    background-color: #eee;
+    border-color: #eee;
+    */
+    width: calc(32vw - 4px);
+}
+
+.panel {
+    overflow: hidden;
 }
 
 .descriptions {

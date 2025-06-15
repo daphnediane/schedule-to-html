@@ -20,8 +20,11 @@
 }
 
 .schedule {
-    height: calc(100vh - 4px);
+    max-height: calc(100vh - 4px);
     gap: 1px;
+}
+
+.panel {
     overflow: hidden;
 }
 

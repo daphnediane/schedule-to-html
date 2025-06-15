@@ -270,10 +270,13 @@ sub dump_grid_header ( $webpage, $writer, $filter, $region, $room_focus_map )
         $room_focus_map
     );
 
-    dump_grid_row_room_names(
-        $writer, $CLASS_GRID_ROW_FOOTER, $filter, $region,
-        $room_focus_map
-    );
+    # TODO(FOOTER)
+    if ( 0 ) {
+        dump_grid_row_room_names(
+            $writer, $CLASS_GRID_ROW_FOOTER, $filter, $region,
+            $room_focus_map
+        );
+    } ## end if ( 0 )
 
     return ( $style, $writer );
 } ## end sub dump_grid_header
@@ -622,8 +625,11 @@ sub dump_grid_timeslice ( $webpage, $writer, $filter, $region ) {
         );
     } ## end foreach my $time ( @times )
 
-    $grid_rows->add_line(
-        qq{[${CLASS_GRID_ROW_FOOTER}] var(--footer-height, auto)} );
+    # TODO(footer)
+    if ( 0 ) {
+        $grid_rows->add_line(
+            qq{[${CLASS_GRID_ROW_FOOTER}] var(--footer-height, auto)} );
+    }
 
     return;
 } ## end sub dump_grid_timeslice
@@ -1473,10 +1479,11 @@ sub dump_tables ( $filter ) {
     dump_styles( $webpage );
 
     if ( $options->should_create_blank_page_at_start() ) {
-        $webpage->get_body()
-            ->add_div( { out_class( $CLASS_BLANK_PAGE ) },
-            q{This page is intentionally blank} );
-    }
+        $webpage->get_body()->add_div(
+            { out_class( $CLASS_BLANK_PAGE ) },
+            q{This page is intentionally blank}
+        );
+    } ## end if ( $options->should_create_blank_page_at_start...)
 
     my @filters = ( $filter );
     @filters = split_filter_by_panelist(

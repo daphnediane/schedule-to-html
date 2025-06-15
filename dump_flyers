@@ -87,6 +87,7 @@ args+=(
     --style print:poster17x11_grid.css
     --output output/flyers/poster17x11_grid.html
     --split-day
+    --blank-first
     --show-grid
     --hide-descriptions
     --hide-unused-rooms
