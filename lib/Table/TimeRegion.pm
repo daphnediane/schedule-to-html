@@ -46,13 +46,14 @@ sub add_starting_panels_ ( $state, $time, $panel ) {
 
     if ( $panel_type->is_break() ) {
         $state->add_break( $panel );
+        return;
     }
 
     foreach my $room ( $panel->get_rooms() ) {
         next unless defined $room;
 
         if ( $room->get_room_is_hidden() ) {
-            if ( $room->get_room_is_break() || $panel_type->is_break() ) {
+            if ( $room->get_room_is_break() ) {
                 $state->add_break( $panel );
             }
             next;
@@ -70,30 +71,21 @@ sub add_starting_panels_ ( $state, $time, $panel ) {
 } ## end sub add_starting_panels_
 
 sub update_ongoing_panels_ ( $state, $time ) {
-    my $active_break = $state->get_active_break_clear_if_expired( $time );
-
-    foreach my $room ( Table::Room::all_rooms() ) {
-        next if $room->get_room_is_hidden();
-        my $room_id = $room->get_room_id();
-
-        next
-            if defined $state->is_room_active_clear_if_expired(
-            $room_id,
-            $time
-            );
-
-        next unless defined $active_break;
-
-        my $panel_state = ActivePanel->new(
-            active_panel => $active_break,
-            start_time   => $time,
-            end_time     => $active_break->get_end_seconds(),
-            room         => $room,
-            is_break     => 1,
-        );
-        $state->add_active_panel( $panel_state );
-    } ## end foreach my $room ( Table::Room::all_rooms...)
-
+    $state->clear_expired_panels( $time );
+    if ( defined(
+        my $break = $state->get_active_break_clear_if_expired( $time )
+    ) ) {
+        foreach my $room ( $state->get_inactive_rooms() ) {
+            next if $room->get_room_is_hidden();
+            $state->add_active_panel( ActivePanel->new(
+                active_panel => $break,
+                start_time   => $time,
+                end_time     => $break->get_end_seconds(),
+                room         => $room,
+                is_break     => 1,
+            ) );
+        } ## end foreach my $room ( $state->...)
+    } ## end if ( defined( my $break...))
     return;
 } ## end sub update_ongoing_panels_
 

@@ -85,6 +85,7 @@
         "userhome",
         "useshrplib",
         "vendorprefix",
+        "wantarray",
         "WORKDIR",
         "xdigit",
         "xmsg",

@@ -7,7 +7,7 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
     package Table::TimeRegion::State;
 
     use Carp            qw{ croak };
-    use List::MoreUtils qw{ uniq };
+    use List::MoreUtils qw{ any uniq };
 
     use Data::RoomId qw{ to_room_id };
 
@@ -52,9 +52,9 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
         return $self;
     }
 
-    # MARK: active_break field
+    # MARK: current_break field
 
-    field $active_break;
+    field $current_break;
 
     method add_break ( $panel ) {
         defined $panel
@@ -64,54 +64,63 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
             or croak q{add_break needs a time range};
 
         return $self
-            if defined $active_break
-            && $active_break->get_end_seconds() >= $panel->get_end_seconds();
+            if defined $current_break
+            && $current_break->get_end_seconds() >= $panel->get_end_seconds();
 
-        $active_break = $panel;
+        $current_break = $panel;
         return $self;
     } ## end sub add_break
 
     method get_active_break_clear_if_expired( $time //= undef ) {
-        defined $active_break
+        defined $current_break
             or return;
 
-        ( defined $time && $time >= $active_break->get_end_seconds() )
-            or return $active_break;
+        ( defined $time && $time >= $current_break->get_end_seconds() )
+            or return $current_break;
 
-        $active_break = undef;
+        $current_break = undef;
         return;
     } ## end sub get_active_break_clear_if_expired
 
     # MARK: active by room field
 
-    field %active_by_room;
+    field @active_panels;
 
     method has_any_active () {
-        return 1 if %active_by_room;
+        return 1 if @active_panels;
         return;
     }
 
     method get_all_active () {
-        return values %active_by_room;
+        return @active_panels;
     }
 
-    method is_room_active_clear_if_expired( $room, $time //= undef ) {
-        defined $room
-            or return;
-        my $id = to_room_id( $room );
-        defined $id
-            or croak q{is_room_active_clear_if_expired requires a room};
+    method clear_expired_panels( $time ) {
+        return unless defined $time;
 
-        my $active = $active_by_room{ $id };
-        defined $active
-            or return;
+        $current_break = undef
+            if defined $current_break
+            && $time >= $current_break->get_end_seconds();
 
-        ( defined $time && $time >= $active->get_end_seconds() )
-            or return $active;
+        @active_panels
+            = grep { $time < $_->get_end_seconds() } @active_panels;
+        return $self;
+    } ## end sub clear_expired_panels
 
-        delete $active_by_room{ $id };
-        return;
-    } ## end sub is_room_active_clear_if_expired
+    method get_inactive_rooms_among ( @rooms ) {
+        my @res;
+        foreach my $room ( @rooms ) {
+            my $id = to_room_id( $room );
+            next if any { $_->get_room_id() == $id } @active_panels;
+            push @res, $room;
+        }
+        return @res;
+    } ## end sub get_inactive_rooms_among
+
+    method get_inactive_rooms () {
+        require Table::Room;
+        return get_inactive_rooms_among( Table::Room::all_rooms() );
+    }
 
     method add_active_panel ( $new_active //= undef ) {
         defined $new_active
@@ -119,17 +128,25 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
         $new_active isa ActivePanel
             or croak q{add_active_panel requires ActivePanel};
 
-        my $id    = $new_active->get_room_id();
-        my $prior = $active_by_room{ $id };
-        $prior->truncate_end_seconds( $new_active->get_start_seconds() )
-            if defined $prior;
-        $active_by_room{ $id } = $new_active;
+        my $id   = $new_active->get_room_id();
+        my $time = $new_active->get_start_seconds();
+
+        $_->truncate_end_seconds( $time )
+            for grep { $_->get_room_id() == $id && $_->get_is_break() }
+            @active_panels;
+
+        @active_panels = grep {
+                   $_->get_room_id() != $id
+                || $_->get_end_seconds()
+                <= $time
+        } @active_panels;
+        push @active_panels, $new_active;
         return $self;
     } ## end sub add_active_panel
 
     method split_active_panels ( $split_time ) {
-        my @prior = values %active_by_room;
-        %active_by_room = ();
+        my @prior = @active_panels;
+        @active_panels = ();
 
         foreach my $active ( @prior ) {
             next unless defined $active;
@@ -137,7 +154,7 @@ class Table::TimeRegion::State {    ## no critic (Modules::RequireEndWithOne,Mod
             my $new_state = $active->clone();
             $new_state->set_start_time( $split_time );
             $active->truncate_end_seconds( $split_time );
-            $active_by_room{ $active->get_room_id() } = $new_state;
+            push @active_panels, $new_state;
         } ## end foreach my $active ( @prior)
 
         return $self;
