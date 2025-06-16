@@ -1428,25 +1428,46 @@ sub get_pre_title ( $self ) {
 
 ## --copies _number_
 ##     How many copies in the same html
-## --blank-first
-##     Add a blank page at the start
-## --no-blank-first
-##     Don't add a blank page at the start
-
-Readonly our $OPT_COPIES_     => q{copies};
-Readonly our $OPT_BLANK_PAGE_ => q{blank};
+Readonly our $OPT_COPIES_ => q{copies};
 
 push @opt_parse,
-    [ $OPT_COPIES_,     [ qw{ copies } ],       $MOD_VALUE_NUM ],
-    [ $OPT_BLANK_PAGE_, [ qw{ blank-first } ],  $MOD_FLAG, 1 ],
-    [ $OPT_BLANK_PAGE_, [ qw{ !blank-first } ], $MOD_FLAG, 0 ];
+    [ $OPT_COPIES_, [ qw{ copies } ], $MOD_VALUE_NUM ];
 
 sub get_copies ( $self ) {
     return $self->{ $OPT_COPIES_ } || 1;
 }
 
+## --blank-never
+##     Don't add blank pages
+## --blank-first
+##     Add a blank page at the start
+## --blank-before-grids
+##     Add a blank page before the grids
+Readonly our $OPT_BLANK_PAGE_        => q{blank};
+Readonly our $VAL_BLANK_NEVER        => 0;
+Readonly our $VAL_BLANK_FIRST        => 1;
+Readonly our $VAL_BLANK_BEFORE_GRIDS => 2;
+
+push @opt_parse,
+    [
+    $OPT_BLANK_PAGE_, [ qw{ -never } ], $MOD_FLAG,
+    $VAL_BLANK_NEVER
+    ],
+    [ $OPT_BLANK_PAGE_, [ qw{ -first } ], $MOD_FLAG, $VAL_BLANK_FIRST ],
+    [
+    $OPT_BLANK_PAGE_, [ qw{ -before-grids } ], $MOD_FLAG,
+    $VAL_BLANK_BEFORE_GRIDS
+    ];
+
 sub should_create_blank_page_at_start ( $self ) {
-    return 1 if $self->{ $OPT_BLANK_PAGE_ };
+    return unless $self->{ $OPT_BLANK_PAGE_ };
+    return 1 if $self->{ $OPT_BLANK_PAGE_ } == $VAL_BLANK_FIRST;
+    return;
+}
+
+sub should_create_blank_page_before_grids ( $self ) {
+    return unless $self->{ $OPT_BLANK_PAGE_ };
+    return 1 if $self->{ $OPT_BLANK_PAGE_ } == $VAL_BLANK_BEFORE_GRIDS;
     return;
 }
 

@@ -235,6 +235,13 @@ sub dump_grid_row_room_names (
 
 sub dump_grid_header ( $webpage, $writer, $filter, $region, $room_focus_map )
 {
+    if ( $options->should_create_blank_page_before_grids() ) {
+        $webpage->get_body()->add_div(
+            { out_class( $CLASS_BLANK_PAGE ) },
+            q{This page is intentionally blank}
+        );
+    } ## end if ( $options->should_create_blank_page_before_grids...)
+
     my $region_class = join_subclass(
         $CLASS_GRID_TABLE,
         canonical_class( $region->get_region_name() )

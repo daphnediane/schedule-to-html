@@ -96,8 +96,10 @@ args+=(
 args+=(
     --
     --pre-title 'tabloid-desc'
-    --style print:poster17x11v3.css
+    --style print:poster17x11v4.css
     --output output/flyers/poster17x11_desc.html
+    --split-day
+    --section-by-day
     --just-descriptions
 )
 
@@ -106,6 +108,7 @@ args+=(
     --style print:poster30x20_grid.css
     --output output/flyers/poster30x20_grid.html
     --split-day
+    --blank-first
     --show-grid
     --hide-descriptions
     --hide-unused-rooms
@@ -113,8 +116,10 @@ args+=(
 
 args+=(
     --
-    --style print:poster30x20_grid.css
+    --style print:poster30x20v4.css
     --output output/flyers/poster30x20_desc.html
+    --split-day
+    --section-by-day
     --just-descriptions
 )
 
@@ -144,7 +149,7 @@ args+=(
     --input input/Test.xlsx
     --output output/flyers/rooms
     --split-day
-    --blank-first
+    --blank-before-grids
     --hide-unused-rooms
     --section-by-room
     --file-by-day
@@ -153,7 +158,7 @@ args+=(
 args+=(
     --
     --pre-title 'workshop-poster'
-    --style print:poster17x11v3.css
+    --style print:poster17x11v4.css
     --input input/Test.xlsx
     --output output/flyers/workshop-poster.html
     --show-premium

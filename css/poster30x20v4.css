@@ -1,0 +1,59 @@
+@page {
+    size: 30in 20in;
+}
+
+.descCost {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+}
+
+.descDuration {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: lighter;
+    font-style: italic;
+}
+
+.panelCost {
+    float: right;
+    margin-inline-start: 1em;
+    font-weight: bolder;
+    text-decoration: underline;
+}
+
+.schedule {
+    column-span: none;
+    break-before: column;
+}
+
+.scheduleFriday {
+    font-size: 10px;
+}
+
+.scheduleSaturday {
+    font-size: 9px;
+}
+
+.scheduleSunday {
+    font-size: 12px;
+}
+
+.descriptions {
+    column-count: 5;
+    column-fill: auto;
+    break-after: page;
+}
+
+.descriptions1 {
+    font-size: 0.77vh;
+}
+
+.descriptions2 {
+    font-size: 0.80vh;
+}
+
+.descriptions3 {
+    font-size: 0.90vh;
+}
