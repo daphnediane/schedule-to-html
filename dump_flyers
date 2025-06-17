@@ -125,6 +125,26 @@ args+=(
 
 args+=(
     --
+    --style print:poster54x36_grid.css
+    --output output/flyers/poster54x36_grid.html
+    --split-day
+    --blank-first
+    --show-grid
+    --hide-descriptions
+    --hide-unused-rooms
+)
+
+args+=(
+    --
+    --style print:poster54x36v4.css
+    --output output/flyers/poster54x36_desc.html
+    --split-day
+    --section-by-day
+    --just-descriptions
+)
+
+args+=(
+    --
     --style print:portrait.css
     --input input/Test.xlsx
     --output output/flyers/workshop.html

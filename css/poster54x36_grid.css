@@ -1,0 +1,73 @@
+@page {
+    size: 54in 36in;
+}
+
+html {
+    column-count: 3;
+    column-fill: auto;
+    column-span: none;
+}
+
+:root {
+    --day-width: minmax(4.5em, auto);
+    --time-width: minmax(4.5em, auto);
+    --room-width: 1fr;
+}
+
+.schedule {
+    column-span: none;
+    break-before: column;
+    font-size: 21.6px;
+    /*
+    background-color: #eee;
+    border-color: #eee;
+    */
+    width: calc(32vw - 4px);
+}
+
+.scheduleSunday {
+    min-height: 64vh;
+}
+
+.panel {
+    overflow: hidden;
+}
+
+.schedRoomName {
+    font-size: 0.37vw;
+}
+
+#GM001Grid,
+#GP006Grid,
+#ME001Grid,
+#PL021Grid,
+#GP008Grid,
+#GP012Grid,
+#GW023Grid {
+    font-size: 0.45vw;
+}
+
+#GW003P1Grid,
+#GW003P2Grid,
+#GW003P3Grid,
+#GP007Grid,
+#PL015Grid,
+#GP009Grid,
+#GP011Grid {
+    font-size: 0.4vw;
+}
+
+#GP021Grid {
+    font-size: 0.37vw;
+}
+
+.descriptions {
+    font-size: 10px;
+    column-count: 2;
+    column-fill: auto;
+}
+
+.longPanelist {
+    font-stretch: condensed;
+    font-family: "Helvetica Narrow", "Arial Narrow";
+}
