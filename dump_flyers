@@ -279,6 +279,7 @@ args+=(
     --style print:guest4x6.css
     --output output/flyers/postcards-guests.html
     --split-timeregion
+    --blank-before-grids
     --section-by-guest
     --section-by-day
     --hide-paneltype BR
@@ -293,6 +294,7 @@ args+=(
     --style print:guest4x6.css
     --output output/flyers/postcards-judges.html
     --split-timeregion
+    --blank-before-grids
     --section-by-judge
     --section-by-day
     --hide-paneltype BR
@@ -307,6 +309,7 @@ args+=(
     --style print:guest4x6.css
     --output output/flyers/postcards-staff.html
     --split-timeregion
+    --blank-before-grids
     --section-by-staff
     --section-by-day
     --hide-paneltype BR
@@ -321,6 +324,7 @@ args+=(
     --style print:guest4x6.css
     --output output/flyers/postcards-all.html
     --split-timeregion
+    --blank-before-grids
     --section-by-guest
     --section-by-judge
     --section-by-staff
@@ -328,6 +332,19 @@ args+=(
     --hide-paneltype BR
     --show-paneltype SM
     --show-presenter-on-grid
+    --hide-descriptions
+    --hide-unused
+)
+
+args+=(
+    --
+    --style print:guest4x6.css
+    --output output/flyers/postcards-any.html
+    --split-timeregion
+    --blank-before-grids
+    --section-by-day
+    --hide-paneltype BR
+    --show-paneltype SM
     --hide-descriptions
     --hide-unused
 )
