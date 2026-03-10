@@ -45,9 +45,6 @@ ARG USER_SHELL
 # Create the user
 RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
     && useradd --uid "${USER_ID}" --gid "${GROUP_ID}" -m "${USER_NAME}" -s "${USER_SHELL}" -d "${USER_HOME}" \
-    && mkdir -m 0640 /etc/sudoers.d \
-    && echo "${USER_NAME} ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/${USER_NAME}" \
-    && chmod 0440 "/etc/sudoers.d/${USER_NAME}" \
     && mkdir -p \
     "${USER_HOME}/.ssh" \
     "${USER_HOME}/bin" \
@@ -84,15 +81,11 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     expat expat-dev \
     gpg \
     less \
-    lighttpd \
     make \
-    nodejs \
-    npm \
     openssh-client-default openssh-keygen \
     openssl openssl-dev \
     procps-ng \
     rsync \
-    sudo \
     tar \
     tmux \
     xz \
