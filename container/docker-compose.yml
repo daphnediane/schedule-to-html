@@ -1,4 +1,3 @@
-version: "3.9"
 name: "schedule-to-html"
 services:
   perl:

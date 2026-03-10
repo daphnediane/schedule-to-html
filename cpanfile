@@ -14,6 +14,11 @@ requires 'Sub::Name';
 on 'develop' => sub {
 
     # should this be recommends
+    requires 'App::cpanminus';
+    requires 'App::cpm';
+    requires 'Carmel';
+    requires 'Carp';
+    requires 'Carton';
     requires 'Devel::NYTProf';
     requires 'Perl::Critic';
     requires 'Perl::Critic::TooMuchCode';

@@ -99,18 +99,44 @@ RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked 
     zlib zlib-dev \
     zsh
 
-FROM add-packages AS install-deps
+FROM add-packages AS install-coro
 
 ARG CACHE_CPANM
-ARG CACHE_PKG_VAR
 
-# Install dependencies from cpanfile
-RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apk,sharing=locked \
-    --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
-    --mount=type=bind,source=cpanfile,target=cpanfile \
-    cpanm --notest --installdeps .
+# Install patched Coro with its dependencies
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    --mount=type=bind,source=patches,target=/patches \
+    --mount=type=tmpfs,target=/tmp \
+    mkdir -p /tmp/build-coro \
+    && cd /tmp/build-coro \
+    && cp -r /patches/cpanfile . \
+    && curl -fLO https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/Coro-6.57.tar.gz \
+    && echo '1928e48033540e11ebf5506986dd101af78d2421d210f96599223b15d51714c6 *Coro-6.57.tar.gz' | sha256sum -c - \
+    && tar -xaf Coro-6.57.tar.gz \
+    && patch -p0 < /patches/Coro-6.57-c23.patch \
+    && tar -caf Coro-6.57-patched.tar.gz Coro-6.57 \
+    && cpanm --notest --installdeps . \
+    && SSL_CERT_DIR=/etc/ssl/certs cpanm --from $PWD Coro-6.57-patched.tar.gz
 
-FROM install-deps AS user-env
+FROM install-coro AS install-deps
+
+ARG CACHE_CPANM
+
+# Install runtime dependencies
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    --mount=type=bind,source=cpanfile,target=/tmp/main-env/cpanfile \
+    cpanm --notest --installdeps /tmp/main-env
+
+FROM install-deps AS install-developer-deps
+
+ARG CACHE_CPANM
+
+# Install developer dependencies
+RUN --mount=type=cache,id=${CACHE_CPANM},target=/root/.cpanm,sharing=locked \
+    --mount=type=bind,source=cpanfile,target=/tmp/main-env/cpanfile \
+    cpanm --notest --with-develop --installdeps /tmp/main-env
+
+FROM install-developer-deps AS user-env
 
 ARG CACHE_CPANM_USER
 ARG CACHE_PKG_VAR
