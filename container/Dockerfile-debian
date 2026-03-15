@@ -52,25 +52,15 @@ RUN groupadd --gid "${GROUP_ID}" "${GROUP_NAME}" \
     && mkdir -p \
     "${USER_HOME}/.ssh" \
     "${USER_HOME}/bin" \
-    /home/vscode-server \
     /workspaces \
     && chmod -R go-rwx /root \
     && chown -R "${USER_NAME}:${GROUP_NAME}" \
     "${USER_HOME}" \
-    /home/vscode-server \
     /workspaces \
     && chmod -R go-rwx "${USER_HOME}/.ssh" \
     && chmod -R u+rwx "${USER_HOME}/bin" \
-    && ln -n -s -f /home/vscode-server "${USER_HOME}/.vscode-server" \
     && git config --system push.default simple \
-    && git config --system init.defaultBranch main \
-    && mkdir -p \
-    /home/vscode-server \
-    /workspaces \
-    && chown -R "${USER_NAME}:${GROUP_NAME}" \
-    /home/vscode-server \
-    /workspaces \
-    && ln -n -s -f /home/vscode-server "${USER_HOME}/.vscode-server"
+    && git config --system init.defaultBranch main
 
 FROM initial-user-env AS add-packages
 
@@ -78,15 +68,22 @@ ARG CACHE_PKG_LIB
 ARG CACHE_PKG_VAR
 
 # Base applications
+# The Hardened Debian project does not have /etc/debian_version as a config file
+# so that upgrading base-files fails. We need to remove it and reinstall base-files
+# to prevent errors during package upgrades so that we can get additional security fixes.
 RUN --mount=type=cache,id=${CACHE_PKG_VAR},target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=${CACHE_PKG_LIB},target=/var/lib/apt,sharing=locked \
     apt-get update \
+    && rm -f /etc/debian_version \
+    && apt-get -y reinstall base-files \
+    && apt-get -y upgrade \
     && apt-get -y install --no-install-recommends \
     apt-file \
     curl \
     diffutils \
     expat libexpat1-dev \
     g++ \
+    gnu-which \
     gpg \
     less \
     locales \
